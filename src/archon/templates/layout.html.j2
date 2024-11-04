@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    {% block head %}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Vampire: the Eternal Struggle (VTES) tournament manager">
+    <meta name="keywords" content="Archon, Vampire, the Eternal Struggle, VTES, CCG, Tournament">
+    {% block meta %}{% endblock %}
+    <link rel="shortcut icon" href="{{ url_for('img', path='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='layout.css') }}">
+    {% block scripts %}{% endblock %}
+    <title>Archon: VTES Tournament Manager</title>
+    {% endblock %}
+</head>
+
+<body>
+    <header role="banner">
+        <nav id="navigation" class="navbar bg-dark navbar-expand-sm" data-bs-theme="dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">
+                    <img src="{{ url_for('img', path='black-chantry-icon.webp') }}" alt="BCP logo" width="48px">
+                </a>
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">Tournaments</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+    {% block content %}{% endblock %}
+    <div aria-live="polite" aria-atomic="true" class="position-static">
+        <div class="toast-container bottom-0 end-0 p-3">
+            <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <i class="bi-exclamation-circle-fill text-danger"></i>
+                    <strong class="me-auto">Error</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    Error
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="container-fluid">
+        {% block footer %}{% endblock %}
+    </footer>
+</body>
+
+</html>

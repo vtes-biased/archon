@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "module": "nodenext",
+        "target": "esnext",
+        "outDir": "src/archon/static",
+    },
+    "include": [
+        "src/front/**/*"
+    ]
+}
