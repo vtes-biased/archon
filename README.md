@@ -44,8 +44,11 @@ We are using a couple of very standard tools and frameworks, that `make update` 
 
 - [PM2](https://pm2.keymetrics.io/docs/usage/quick-start/) to run our hot reload development services (front & back)
 
+- [Geonames](https://www.geonames.org) for countries and cities names and IDs
+
 ## Make targets
 
+- `make geodata` downlad and refresh the geographical data in [geodata](src/archon/geodata)
 - `make test` runs the tests, formatting and linting checks
 - `make serve` runs a dev server with watchers for auto-reload when changes are made to the source files
 - `make clean` cleans the repository from all transient build files

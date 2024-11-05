@@ -17,7 +17,7 @@
 
 <body>
     <header role="banner">
-        <nav id="navigation" class="navbar bg-dark navbar-expand-sm" data-bs-theme="dark">
+        <nav id="navigation" class="navbar bg-dark navbar-expand-sm mb-3" data-bs-theme="dark">
             <div class="container-fluid">
                 <a class="navbar-brand" href="#">
                     <img src="{{ url_for('img', path='black-chantry-icon.webp') }}" alt="BCP logo" width="48px">
@@ -30,7 +30,9 @@
             </div>
         </nav>
     </header>
-    {% block content %}{% endblock %}
+    <div class="container" id="contentContainer">
+        {% block content %}{% endblock %}
+    </div>
     <div aria-live="polite" aria-atomic="true" class="position-static">
         <div class="toast-container bottom-0 end-0 p-3">
             <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">

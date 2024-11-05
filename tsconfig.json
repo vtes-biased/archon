@@ -5,6 +5,6 @@
         "outDir": "src/archon/static",
     },
     "include": [
-        "src/front/**/*"
+        "src/front/*"
     ]
 }

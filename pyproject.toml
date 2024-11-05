@@ -21,10 +21,19 @@ classifiers = [
     "Framework :: FastAPI",
     "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
 ]
-dependencies = ["fastapi[standard]", "jinja2", "krcg"]
+dependencies = ["fastapi[standard]", "jinja2", "krcg", "orjson"]
 
 [project.optional-dependencies]
-dev = ["black", "build", "check-manifest", "ipython", "pytest", "ruff", "twine"]
+dev = [
+    "black",
+    "build",
+    "check-manifest",
+    "ipython",
+    "psycopg[binary,pool]",
+    "pytest",
+    "ruff",
+    "twine",
+]
 
 [project.urls]
 Repository = "https://github.com/vtes-biased/archon"

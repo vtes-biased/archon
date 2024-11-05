@@ -14,12 +14,13 @@
       "distDir": "src/archon/static/",
       "source": [
         "src/front/base.ts",
+        "src/front/tournament.ts",
         "src/front/layout.scss"
       ]
     }
   },
   "scripts": {
-    "front": "parcel watch --watch-dir=src/front",
+    "front": "parcel watch",
     "back": "uvicorn archon.api:app --reload --reload-include='*.j2' --reload-include='*.css' --reload-include='*.js'"
   }
 }

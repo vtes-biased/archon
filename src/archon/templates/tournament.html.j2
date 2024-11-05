@@ -1,0 +1,53 @@
+{% extends "layout.html.j2" %}
+
+{% block scripts %}
+<script async src="{{ url_for('static', path='tournament.js') }}" type="module"></script>
+{% endblock%}
+
+{% block content %}
+<div>
+    {% if tournament %}
+    <form class="row g-3" data-tournament='{{ tournament | tojson }}'>
+        {% else %}
+        <form class="row g-3" data-tournament='{{ {} | tojson }}'>
+            {% endif %}
+            <div class="col-12">
+                <input required type="text" class="form-control" id="tournamentName" placeholder="Tournament Name">
+            </div>
+            <div class="col-md-4 d-flex align-items-center">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="switchOnline">
+                    <label class="form-check-label" for="switchOnline">Online</label>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" aria-label="Country" id="selectCountry">
+                    <option selected value="">Country</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" aria-label="City" id="selectCity">
+                    <option selected value="">City</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <div class="form-floating">
+                    <input required class="form-control" type="datetime-local" id="tournamentStart">
+                    <label class="form-label" for="tournamentStart">Start</label>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-floating">
+                    <input class="form-control" type="datetime-local" id="tournamentFinish">
+                    <label class="form-label" for="tournamentFinish">Finish</label>
+                </div>
+            </div>
+            <div class="col-12">
+                <textarea class="form-control" id="tournamentDescription" rows="3" placeholder="Description"></textarea>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary mb-3">Submit</button>
+            </div>
+        </form>
+</div>
+{% endblock %}

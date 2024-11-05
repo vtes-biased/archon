@@ -1,4 +1,4 @@
-.PHONY: clean porcelain update test serve build release
+.PHONY: clean porcelain update geodata test serve build release
 
 NEXT_VERSION = `python -m setuptools_scm --strip-dev`
 
@@ -14,13 +14,16 @@ update:
 	npm update --include=dev
 	pip install --upgrade --upgrade-strategy eager -e ".[dev]"
 
+geodata:
+	src/scripts/geonames.py
+
 test:
 	black --check src/archon
 	ruff check src/archon
 
 serve:
-	pm2 --name front start npm -- run front-watch
-	pm2 --name back start npm -- run back-watch
+	pm2 --name front start npm -- run front
+	pm2 --name back start npm -- run back
 
 build: clean
 	parcel build
