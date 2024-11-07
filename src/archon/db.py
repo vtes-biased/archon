@@ -7,6 +7,8 @@ import psycopg
 import psycopg.rows
 import psycopg.types.json
 import psycopg_pool
+import typing
+import uuid
 
 from . import models
 
@@ -33,6 +35,7 @@ POOL = psycopg_pool.AsyncConnectionPool(
 
 
 async def init():
+    """Idempotent DB initialization"""
     async with POOL.connection() as conn:
         async with conn.cursor() as cursor:
             logger.debug("Initialising DB")
@@ -55,28 +58,58 @@ def reset():
     with psycopg.connect(CONNINFO) as conn:
         with conn.cursor() as cursor:
             logger.warning("Reset DB")
-            cursor.execute("DROP TABLE members")
             cursor.execute("DROP TABLE tournaments")
+            cursor.execute("DROP TABLE members")
 
 
 class Operator:
+    """All async operations available for the API layer"""
+
     def __init__(self, conn: psycopg.AsyncConnection):
         self.conn = conn
 
-    async def create_tournament(self, tournament: models.Tournament) -> None:
+    async def create_tournament(self, tournament: models.Tournament) -> uuid.UUID:
+        """Create a tournament, returns its uid"""
+        uid = uuid.uuid4()
+        tournament.uid = str(uid)
         async with self.conn.cursor() as cursor:
-            await cursor.execute(
-                "INSERT INTO tournaments COLUMNS (data) VALUES (%s) ",
-                [psycopg.types.json.Json(dataclasses.asdict(tournament))],
+            res = await cursor.execute(
+                "INSERT INTO tournaments (uid, data) VALUES (%s, %s) RETURNING uid",
+                [uid, psycopg.types.json.Json(dataclasses.asdict(tournament))],
             )
+            return (await res.fetchone())[0]
 
     async def get_tournaments(self) -> list[models.Tournament]:
+        """List all tournaments.
+        TODO: paginate. We'll need an index on tournament.start
+        """
         async with self.conn.cursor() as cursor:
             res = await cursor.execute("SELECT data FROM tournaments")
-            return [models.Tournament(**row) for row in res]
+            return [models.Tournament(**row[0]) for row in await res.fetchall()]
+
+    async def get_tournament(self, uid: str) -> models.Tournament:
+        """Get a tournament by its uid"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM tournaments WHERE uid=%s", [uid]
+            )
+            return (await res.fetchone())[0]
+
+    async def update_tournament(self, tournament: models.Tournament) -> uuid.UUID:
+        """Update a tournament, returns its uid"""
+        uid = uuid.UUID(tournament.uid)
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "UPDATE tournaments SET data=%s WHERE uid=%s",
+                [psycopg.types.json.Json(dataclasses.asdict(tournament)), uid],
+            )
+            if res.rowcount < 1:
+                raise KeyError(f"Tournament {uid} not found")
+            return uid
 
 
 @contextlib.asynccontextmanager
-async def operator():
-    with POOL.connection() as conn:
+async def operator() -> typing.AsyncIterator[Operator]:
+    """Yields an async DB Operator to execute DB operations in a single transaction"""
+    async with POOL.connection() as conn:
         yield Operator(conn)

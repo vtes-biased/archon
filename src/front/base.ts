@@ -8,7 +8,8 @@ export async function do_fetch(url: string, options: Object) {
     try {
         const response = await fetch(url, options)
         if (!response.ok) {
-            throw new Error((await response.json())[0])
+            console.log(response)
+            throw new Error(JSON.stringify((await response.json())["detail"]))
         }
         return response
     }

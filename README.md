@@ -46,6 +46,8 @@ We are using a couple of very standard tools and frameworks, that `make update` 
 
 - [Geonames](https://www.geonames.org) for countries and cities names and IDs
 
+- [Typer](https://typer.tiangolo.com) for the [`archon` Command-Line Interface (CLI)](#cli)
+
 ## Make targets
 
 - `make geodata` downlad and refresh the geographical data in [geodata](src/archon/geodata)
@@ -54,3 +56,36 @@ We are using a couple of very standard tools and frameworks, that `make update` 
 - `make clean` cleans the repository from all transient build files
 - `make build` builds the python package
 - `make release` creates and pushes a git tag for this version and publishes the package on [PYPI](https://pypi.org)
+
+## CLI
+
+The `archon` CLI gives access to useful DB-related commands when developing in local.
+
+```bash
+> archon --help
+
+ Usage: archon [OPTIONS] COMMAND [ARGS]...
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.                                         │
+│ --show-completion             Show completion for the current shell, to copy it or customize the installation.  │
+│ --help                        Show this message and exit.                                                       │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ list                                                                                                            │
+│ reset-db                                                                                                        │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+## Development database
+
+You need a running [PostgreSQL](https://www.postgresql.org/docs/current/index.html) server, with an `archon` superuser,
+an `archon` database owned by that superuser, with no password.
+You can use the `DB_USER` and `DB_PWD` environment variables to use other values. The database name is not configurable.
+
+## Development server
+
+Simply use `make serve` to run the front and back services.
+They constantly watch your files and rebuild the project automatically when there is any change.
+Use `pm2 logs` to keep an eye on what's going on and `pm2 kill` to stop the services.
+You can also use `pm2 ps` to check if the services are up and running.
+For more, see the [PM2 documentation](https://pm2.keymetrics.io/docs/usage/quick-start/).

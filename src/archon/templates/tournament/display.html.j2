@@ -1,0 +1,63 @@
+{% extends "layout.html.j2" %}
+
+{% block scripts %}
+{% endblock%}
+
+{% block content %}
+<h1 class="mb-4">{{ tournament.name }}</h1>
+<div class="mb-2 d-flex">
+    {% if tournament.format == "Standard" %}
+    <span class="me-2 badge bg-success">{{ tournament.format }}</span>
+    {% elif tournament.format == "Limited" %}
+    <span class="me-2 badge bg-warning text-dark">{{ tournament.format }}</span>
+    {% elif tournament.format == "Draft" %}
+    <span class="me-2 badge bg-info text-dark">{{ tournament.format }}</span>
+    {% else %}
+    <span class="me-2 badge bg-secondary">{{ tournament.format }}</span>
+    {% endif %}
+    {% if tournament.rank == "National Championship" %}
+    <span class="me-2 badge bg-primary">{{ tournament.rank }}</span>
+    {% elif tournament.rank == "Continental Championship" %}
+    <span class="me-2 badge bg-danger">{{ tournament.rank }}</span>
+    {% elif tournament.rank == "Grand Prix" %}
+    <span class="me-2 badge bg-warning text-dark">{{ tournament.rank }}</span>
+    {% endif %}
+    {% if tournament.online %}
+    <span class="me-2 badge bg-info text-dark">Online</span>
+    {% endif %}
+    {% if tournament.proxies %}
+    <span class="me-2 badge bg-info text-dark">Proxies Allowed</span>
+    {% else %}
+    <span class="me-2 badge bg-secondary">No Proxy</span>
+    {% endif %}
+    {% if tournament.multideck %}
+    <span class="me-2 badge bg-info text-dark">Multideck</span>
+    {% else %}
+    <span class="me-2 badge bg-secondary">Single Deck</span>
+    {% endif %}
+</div>
+<div class="mb-2 d-flex">
+    <div class="me-2">Start: {{ tournament.start }}</div>
+    <div class="me-2">Finish: {{ tournament.finish }}</div>
+</div>
+{% if not tournament.online and tournament.venue %}
+<h2 class="mt-3 mb-1">Venue</h2>
+<div class="d-flex">
+    <div class="me-2">
+        {% if tournament.venue_url %}
+        <a href="{{ tournament.venue_url }}" target="_blank">{{ tournament.venue }}, {{ tournament.address }}</a>
+        {% else %}
+        <div>{{ tournament.venue }}</div>
+        {% endif %}
+    </div>
+    {% if tournament.map_url %}
+    <a href="{{ tournament.map_url }}" target="_blank"><i class="bi bi-geo-alt-fill"></i></a>
+    {% endif %}
+</div>
+{% endif %}
+{% if tournament.description %}
+<h2 class="mt-3 mb-1">Description</h2>
+<div>{{ tournament.description }}</div>
+{% endif %}
+<a href="{{ url_for('html_tournament_edit', uid=tournament.uid) }}" class="btn btn-primary my-3">Edit</a>
+{% endblock %}

@@ -19,12 +19,12 @@
     <header role="banner">
         <nav id="navigation" class="navbar bg-dark navbar-expand-sm mb-3" data-bs-theme="dark">
             <div class="container-fluid">
-                <a class="navbar-brand" href="#">
+                <a class="navbar-brand" href="{{ url_for('html_index') }}">
                     <img src="{{ url_for('img', path='black-chantry-icon.webp') }}" alt="BCP logo" width="48px">
                 </a>
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.html">Tournaments</a>
+                        <a class="nav-link" href="{{ url_for('html_tournament_list') }}">Tournaments</a>
                     </li>
                 </ul>
             </div>

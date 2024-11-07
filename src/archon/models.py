@@ -68,27 +68,36 @@ class Round:
     tables: list[Table]
 
 
-@dataclasses.dataclass
-class Geography:
-    name: str
-    uid: str
+class TournamentFormat(enum.StrEnum):
+    Standard = "Standard"
+    Limited = "Limited"
+    Draft = "Draft"
 
 
-@dataclasses.dataclass
-class Venue:
-    name: str
-    online: bool = False
-    country: Geography | None = None
-    city: Geography | None = None
-    address: str = ""
+class TournamentRank(enum.StrEnum):
+    BASIC = ""
+    NC = "National Championship"
+    CC = "Continental Championship"
+    GP = "Grand Prix"
 
 
 @dataclasses.dataclass
 class Tournament:
     name: str
+    format: TournamentFormat
     start: datetime.datetime
-    venue: Venue | None = None
-    end: datetime.datetime | None = None
+    uid: str | None = None
+    rank: TournamentRank | None = None
+    country: str | None = None
+    city: str | None = None
+    venue: str = ""
+    venue_url: str = ""
+    address: str = ""
+    map_url: str = ""
+    online: bool = False
+    proxies: bool = False
+    multideck: bool = False
+    finish: datetime.datetime | None = None
     description: str = ""
 
 
@@ -120,10 +129,9 @@ class City:
     feature_class: str  # see http://www.geonames.org/export/codes.html
     feature_code: str  # see http://www.geonames.org/export/codes.html
     country_code: str  # ISO-3166 2-letter country code, 2 characters
+    country_name: str  # Country name (matches country.country)
     cc2: list[str]  # alternate country codes, ISO-3166 2-letter country codes
-    admin1_code: str  # fipscode (subject to change to iso code)
-    admin2_code: str  # code for the second administrative division
-    admin3_code: str  # code for third level administrative division
-    admin4_code: str  # code for fourth level administrative division
+    admin1: str  # name of first administrative division (state/region)
+    admin2: str  # name of second administrative division (county)
     timezone: str  # iana timezone id
     modification_date: str  # date of last modification in ISO format

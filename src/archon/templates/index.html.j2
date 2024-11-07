@@ -1,34 +1,5 @@
 {% extends "layout.html.j2" %}
 
 {% block content %}
-<div>
-    <h1>Upcoming tournaments</h1>
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Date</th>
-                <th scope="col">Location</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for tournament in tournaments %}
-            <tr>
-                <th scope="row">{{ tournament.name }}</th>
-                {% if tournament.end %}
-                <td>{{ tournament.start }} - {{ tournament.end }}</td>
-                {% else %}
-                <td>{{ tournament.start }}</td>
-                {% endif %}
-                {% if tournament.venue.online %}
-                <td>Online</td>
-                {% else %}
-                <td>{{ tournament.venue.country }} - {{ tournament.venue.city }}</td>
-                {% endif %}
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <a href="{{ url_for('html_tournament') }}" class="btn btn-primary">Create Tournament</a>
-</div>
+<div>Welcome!</div>
 {% endblock %}

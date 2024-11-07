@@ -14,7 +14,7 @@
       "distDir": "src/archon/static/",
       "source": [
         "src/front/base.ts",
-        "src/front/tournament.ts",
+        "src/front/tournament_form.ts",
         "src/front/layout.scss"
       ]
     }
