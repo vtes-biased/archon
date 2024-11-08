@@ -79,7 +79,7 @@ The `archon` CLI gives access to useful DB-related commands when developing in l
 ## Development database
 
 You need a running [PostgreSQL](https://www.postgresql.org/docs/current/index.html) server, with an `archon` superuser,
-an `archon` database owned by that superuser, with no password.
+an `archondb` database owned by that superuser, with no password.
 You can use the `DB_USER` and `DB_PWD` environment variables to use other values. The database name is not configurable.
 
 ## Development server

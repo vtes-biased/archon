@@ -16,7 +16,7 @@ logger = logging.getLogger()
 
 DB_USER = os.getenv("DB_USER", "archon")
 DB_PWD = os.getenv("DB_PWD", "")
-CONNINFO = f"postgresql://{DB_USER}:{DB_PWD}@localhost/archon"
+CONNINFO = f"postgresql://{DB_USER}:{DB_PWD}@localhost/archondb"
 psycopg.types.json.set_json_dumps(orjson.dumps)
 psycopg.types.json.set_json_loads(orjson.loads)
 
