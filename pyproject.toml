@@ -31,7 +31,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "build", "check-manifest", "ipython", "pytest", "ruff", "twine"]
+dev = [
+    "black",
+    "build",
+    "check-manifest",
+    "ipython",
+    "pytest",
+    "ruff",
+    "setuptools-scm",
+    "twine",
+]
 
 [project.scripts]
 archon = "archon.cli:app"
