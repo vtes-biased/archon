@@ -27,7 +27,7 @@ serve:
 	pm2 --name back start npm -- run back
 
 build: clean
-	parcel build
+	parcel build --no-cache --no-scope-hoist
 	python -m build
 
 release: porcelain build
