@@ -28,10 +28,10 @@ serve:
 
 build: clean
 	parcel build --no-cache --no-scope-hoist
+	git tag "${NEXT_VERSION}"
 	python -m build
 
 release: porcelain build
-	git tag "${NEXT_VERSION}"
 	git push origin "${NEXT_VERSION}"
 	twine upload -r test-pypi dist/*
 	twine upload dist/* 
