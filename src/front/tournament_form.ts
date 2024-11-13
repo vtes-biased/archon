@@ -138,14 +138,15 @@ async function submit_tournament(ev: Event) {
     // create or update tournament
     ev.preventDefault()
     const tournamentForm = ev.currentTarget as HTMLFormElement
+    const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
     const data = new FormData(tournamentForm)
     var json_data = Object.fromEntries(data.entries()) as unknown as Tournament
     if (json_data.finish.length < 1) { json_data.finish = undefined }
     var url = "/api/tournament"
     var method = "post"
-    if (tournamentForm.dataset.tournament) {
+    if (tournamentData) {
         // we are in edit mode
-        const tournament = JSON.parse(tournamentForm.dataset.tournament) as Tournament
+        const tournament = JSON.parse(tournamentData.dataset.tournament) as Tournament
         url += `/${tournament.uid}`
         method = "put"
     }
@@ -271,8 +272,9 @@ async function load() {
     const tournamentForm = document.getElementById("tournamentForm") as HTMLFormElement
     tournamentForm.addEventListener("submit", submit_tournament)
     // fill tournament data if we have it (edit.html)
-    if (tournamentForm.dataset.tournament) {
-        await fill_data(JSON.parse(tournamentForm.dataset.tournament))
+    const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
+    if (tournamentData) {
+        await fill_data(JSON.parse(tournamentData.dataset.tournament))
     }
 }
 

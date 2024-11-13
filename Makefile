@@ -25,6 +25,7 @@ test:
 serve:
 	pm2 --name front start npm -- run front
 	pm2 --name back start npm -- run back
+	pm2 logs
 
 build: clean
 	parcel build --no-cache --no-scope-hoist

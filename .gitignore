@@ -4,6 +4,7 @@ node_modules/
 *.egg-info/
 *__pycache__/
 dist/
+.env
 # Excluded from git because generated, but included in the released python package.
 src/archon/static
 # IDEs

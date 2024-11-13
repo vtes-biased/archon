@@ -1,0 +1,87 @@
+{% extends "layout.html.j2" %}
+
+{% block scripts %}
+<script async src="{{ url_for('static', path='profile.js') }}" type="module"></script>
+{% endblock%}
+
+{% block content %}
+<div class="modal fade" id="veknModal" tabindex="-1" aria-hidden="true" aria-labelledby="veknModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="veknModalLabel">Claim VEKN</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="veknForm" action="{{ url_for('auth_claim_vekn') }}">
+                    <input class="form-control" id="veknId" type="text" name="vekn" placeholder="VEKN ID number">
+                    <button type="submit" class="btn btn-primary my-2" id="claimVeknButton">
+                        Claim
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<h1>Profile</h1>
+<table class="table table-striped">
+    <tbody>
+        <tr>
+            <th scope="row">Name</th>
+            <td>{{ member.name }}</td>
+        </tr>
+        {% if member.nickname %}
+        <tr>
+            <th scope="row">Nickname</th>
+            <td>{{ member.nickname }}</td>
+        </tr>
+        {% endif %}
+        {% if member.email %}
+        <tr>
+            <th scope="row">Email</th>
+            <td>{{ member.email }}</td>
+        </tr>
+        {% endif %}
+        {% if member.country %}
+        <tr>
+            <th scope="row">Country</th>
+            <td>{{ member.country }}</td>
+        </tr>
+        {% endif %}
+        {% if member.state %}
+        <tr>
+            <th scope="row">State/Region</th>
+            <td>{{ member.state }}</td>
+        </tr>
+        {% endif %}
+        {% if member.city %}
+        <tr>
+            <th scope="row">City</th>
+            <td>{{ member.city }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th scope="row">VEKN ID</th>
+            <td>
+                {% if member.vekn %}
+                <div class="d-flex align-items-center">
+                    {{ member.vekn }}
+                    <form action="{{ url_for('auth_abandon_vekn') }}">
+                        <button type="submit" class="btn btn-sm btn-warning ms-2" id="abandonVEKNButton">
+                            Abandon VEKN
+                        </button>
+                    </form>
+                </div>
+                {%else%}
+                <button type="button" class="btn btn-primary ms-2" id="claimModalButton">
+                    Claim VEKN
+                </button>
+                {% endif %}
+            </td>
+        </tr>
+    </tbody>
+</table>
+<a type="button" class="btn btn-secondary ms-2" id="logoutButton" href="{{ url_for('auth_logout') }}">
+    <i class="bi bi-box-arrow-left"></i> Logout
+</a>
+{% endblock %}

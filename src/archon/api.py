@@ -1,13 +1,48 @@
+import aiohttp
 import fastapi
+import fastapi.openapi.utils
 import fastapi.responses
 import fastapi.staticfiles
 import fastapi.templating
+import importlib.metadata
 import importlib.resources
+import fastapi.encoders
+import fastapi.utils
+import itsdangerous.url_safe
 import contextlib
+import dataclasses
+import dotenv
+import functools
+import logging
 import orjson
+import os
+import starlette.middleware.sessions
+import typing
+import urllib.parse
+import uuid
 
 from . import db
 from . import models
+
+
+dotenv.load_dotenv()
+SESSION_KEY = os.getenv("SESSION_KEY", "dev_key")
+SITE_URL_BASE = os.getenv("SITE_URL_BASE", "http://127.0.0.1:8000")
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
+DISCORD_REDIRECT_URI = urllib.parse.urljoin(SITE_URL_BASE, "/auth/discord")
+DISCORD_AUTH_URL = functools.partial(
+    "https://discord.com/oauth2/authorize?"
+    "response_type=code&"
+    "client_id={client_id}&"
+    "scope=identify+email&"
+    "state={state}&"
+    "redirect_uri={redirect_uri}&"
+    "prompt=none".format,
+    client_id=DISCORD_CLIENT_ID,
+    redirect_uri=DISCORD_REDIRECT_URI,
+)
+logger = logging.getLogger()
 
 
 class Resources:
@@ -17,6 +52,11 @@ class Resources:
 
 
 resources = Resources()
+
+
+def jsonable(obj: typing.Any):
+    """Useful filter for Jinja templates: `{{ data | jsonable | tojson }}`"""
+    return fastapi.encoders.jsonable_encoder(obj)
 
 
 @contextlib.asynccontextmanager
@@ -31,6 +71,7 @@ async def lifespan(app: fastapi.FastAPI):
         resources.templates = fastapi.templating.Jinja2Templates(
             directory=templates, extensions=["jinja2.ext.i18n"]
         )
+        resources.templates.env.filters["jsonable"] = jsonable
         with importlib.resources.as_file(geodata / "countries.json") as countries:
             resources.countries = [
                 models.Country(**d) for d in orjson.loads(countries.read_bytes())
@@ -65,29 +106,68 @@ async def lifespan(app: fastapi.FastAPI):
 
 
 app = fastapi.FastAPI(redoc_url="/docs", lifespan=lifespan)
+app.add_middleware(
+    starlette.middleware.sessions.SessionMiddleware,
+    secret_key=SESSION_KEY,
+)
+
+
+# ################################################################################# HTML
+def oauth_context(request: fastapi.Request) -> dict:
+    request.session.setdefault("state", str(uuid.uuid4))
+    return {
+        "discord_oauth": DISCORD_AUTH_URL(state=hash_state(request.session["state"]))
+    }
+
+
+async def session_context(op: db.Operator, request: fastapi.Request) -> dict:
+    member = None
+    uid = request.session.get("user_id", None)
+    if uid:
+        member = await op.get_member(uid)
+    if not member:
+        return oauth_context(request)
+    return {"member": member}
 
 
 @app.get("/index.html", response_class=fastapi.responses.HTMLResponse)
 async def html_index(request: fastapi.Request):
-    return resources.templates.TemplateResponse(request=request, name="index.html.j2")
+    async with db.operator() as op:
+        context = await session_context(op, request)
+    return resources.templates.TemplateResponse(
+        request=request, name="index.html.j2", context=context
+    )
+
+
+@app.get("/profile.html", response_class=fastapi.responses.HTMLResponse)
+async def html_profile(request: fastapi.Request):
+    async with db.operator() as op:
+        context = await session_context(op, request)
+    return resources.templates.TemplateResponse(
+        request=request, name="profile.html.j2", context=context
+    )
 
 
 @app.get("/tournament/create.html", response_class=fastapi.responses.HTMLResponse)
 async def html_tournament_create(request: fastapi.Request):
+    async with db.operator() as op:
+        context = await session_context(op, request)
     return resources.templates.TemplateResponse(
-        request=request, name="tournament/create.html.j2"
+        request=request, name="tournament/edit.html.j2", context=context
     )
 
 
 @app.get("/tournament/list.html", response_class=fastapi.responses.HTMLResponse)
 async def html_tournament_list(request: fastapi.Request):
     async with db.operator() as op:
+        context = await session_context(op, request)
         tournaments = await op.get_tournaments()
     tournaments.sort(key=lambda x: x.start)
+    context["tournaments"] = tournaments
     return resources.templates.TemplateResponse(
         request=request,
         name="tournament/list.html.j2",
-        context={"tournaments": tournaments},
+        context=context,
     )
 
 
@@ -96,60 +176,200 @@ async def html_tournament_list(request: fastapi.Request):
 )
 async def html_tournament_display(request: fastapi.Request, uid: str | None):
     async with db.operator() as op:
-        tournament = await op.get_tournament(uid)
+        context = await session_context(op, request)
+        context["tournament"] = await op.get_tournament(uid)
     return resources.templates.TemplateResponse(
         request=request,
         name="tournament/display.html.j2",
-        context={"tournament": tournament},
+        context=context,
     )
 
 
 @app.get("/tournament/{uid}/edit.html", response_class=fastapi.responses.HTMLResponse)
 async def html_tournament_edit(request: fastapi.Request, uid: str | None):
     async with db.operator() as op:
-        tournament = await op.get_tournament(uid)
+        context = await session_context(op, request)
+        context["tournament"] = await op.get_tournament(uid)
     return resources.templates.TemplateResponse(
         request=request,
         name="tournament/edit.html.j2",
-        context={"tournament": tournament},
+        context=context,
     )
 
 
+# ################################################################################# AUTH
+def hash_state(state: str):
+    return itsdangerous.url_safe.URLSafeSerializer(SESSION_KEY, "state").dumps(state)
+
+
+@app.get("/auth/discord/", response_class=fastapi.responses.HTMLResponse)
+async def auth_discord(request: fastapi.Request, code: str, state: str):
+    if state != hash_state(request.session["state"]):
+        logger.warning("wrong state %s", state)
+        request.session["state"] = str(uuid.uuid4)
+        return resources.templates.TemplateResponse(
+            request=request,
+            name="401.html.j2",
+            status_code=401,
+            context=oauth_context(request),
+        )
+    user = None
+    async with aiohttp.ClientSession("https://discord.com") as session:
+        async with session.post(
+            "/api/v10/oauth2/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": DISCORD_REDIRECT_URI,
+            },
+            auth=aiohttp.BasicAuth(DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET),
+        ) as res:
+            data = await res.json()
+            auth = models.DiscordAuth(**data)
+
+            async with session.get(
+                "/api/v10/users/@me",
+                headers={"Authorization": f"Bearer {auth.access_token}"},
+            ) as res:
+                data = await res.json()
+                print(data)
+                user = models.DiscordUser(auth=auth, **data)
+    if user:
+        async with db.operator() as op:
+            member = await op.upsert_member_discord(user)
+            request.session["user_id"] = member.uid
+            request.session.pop("state")
+            return fastapi.responses.RedirectResponse(request.url_for("html_index"))
+    return resources.templates.TemplateResponse(
+        request=request,
+        name="401.html.j2",
+        status_code=401,
+        context=oauth_context(request),
+    )
+
+
+@app.get("/auth/claim_vekn/", response_class=fastapi.responses.HTMLResponse)
+async def auth_claim_vekn(request: fastapi.Request, vekn: str):
+    if "user_id" not in request.session:
+        return resources.templates.TemplateResponse(
+            request=request,
+            name="401.html.j2",
+            status_code=401,
+            context=oauth_context(request),
+        )
+    async with db.operator() as op:
+        new_uid = await op.claim_vekn(request.session["user_id"], vekn)
+        if new_uid is None:
+            return resources.templates.TemplateResponse(
+                request=request,
+                name="401.html.j2",
+                status_code=401,
+            )
+        request.session["user_id"] = new_uid
+        logger.warning("uid is now %s", new_uid)
+    return fastapi.responses.RedirectResponse(request.url_for("html_profile"))
+
+
+@app.get("/auth/abandon_vekn/", response_class=fastapi.responses.HTMLResponse)
+async def auth_abandon_vekn(request: fastapi.Request):
+    if "user_id" not in request.session:
+        return resources.templates.TemplateResponse(
+            request=request,
+            name="401.html.j2",
+            status_code=401,
+            context=oauth_context(request),
+        )
+    async with db.operator() as op:
+        new_uid = await op.abandon_vekn(request.session["user_id"])
+        if new_uid is None:
+            request.session.pop("user_id")
+            return resources.templates.TemplateResponse(
+                request=request,
+                name="401.html.j2",
+                status_code=401,
+                context=oauth_context(request),
+            )
+        request.session["user_id"] = new_uid
+        logger.warning("uid is now %s", new_uid)
+    return fastapi.responses.RedirectResponse(request.url_for("html_profile"))
+
+
+@app.get("/auth/logout/", response_class=fastapi.responses.HTMLResponse)
+async def auth_logout(request: fastapi.Request):
+    request.session.pop("user_id", None)
+    return fastapi.responses.RedirectResponse(request.url_for("html_index"))
+
+
 # ################################################################################## API
-@app.get("/api/country/")
+@app.get("/api/country/", summary="List all countries")
 async def api_countries() -> list[models.Country]:
+    """List all countries"""
     return resources.countries
 
 
-@app.get("/api/country/{country}/city")
+@app.get("/api/country/{country}/city", summary="List cities of given country")
 async def api_country_cities(country: str) -> list[models.City]:
+    """List cities of given country.
+
+    Only cities **over 15k population** are listed.
+    Open-source information made availaible by [Geonames](https://geonames.org).
+
+    - **country**: The country name, field `country` of `/api/countries`
+    """
     return resources.cities.get(country, [])
 
 
-@app.post("/api/tournament/")
+@app.post("/api/tournament/", summary="Create a new tournament")
 async def api_post_tournament(request: fastapi.Request, tournament: models.Tournament):
+    """Create a new tournament"""
     async with db.operator() as op:
         uid = await op.create_tournament(tournament)
     return {"uid": uid, "url": str(request.url_for("html_tournament_display", uid=uid))}
 
 
-@app.put("/api/tournament/{uid}")
-async def api_post_tournament(
+@app.put("/api/tournament/{uid}", summary="Update tournament information")
+async def api_put_tournament(
     request: fastapi.Request, uid: str, tournament: models.Tournament
 ):
+    """Update tournament information
+
+    - **uid**: The tournament unique ID
+    """
     tournament.uid = uid
     async with db.operator() as op:
         uid = await op.update_tournament(tournament)
     return {"uid": uid, "url": str(request.url_for("html_tournament_display", uid=uid))}
 
 
-@app.get("/api/tournament/")
+@app.get("/api/tournament/", summary="List all tournaments")
 async def api_get_tournaments() -> list[models.Tournament]:
+    """List all tournaments"""
     async with db.operator() as op:
         return await op.get_tournaments()
 
 
-@app.get("/api/tournament/{uid}")
+@app.get("/api/tournament/{uid}", summary="Get tournament information")
 async def api_get_tournament(uid: str) -> models.Tournament:
+    """Get tournament information
+
+    - **uid**: The tournament unique ID
+    """
     async with db.operator() as op:
         return await op.get_tournament(uid)
+
+
+# ################################################################################## Doc
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    app.openapi_schema = fastapi.openapi.utils.get_openapi(
+        title="Archon API",
+        version=importlib.metadata.version("vtes-archon"),
+        summary="VTES tournament management",
+        description="You can use this API to build tournament management tools",
+        routes=[r for r in app.routes if r.path.startswith("/api/")],
+    )
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi

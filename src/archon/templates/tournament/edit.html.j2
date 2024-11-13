@@ -6,7 +6,13 @@
 
 {% block content %}
 <div>
-    <form class="row g-3 needs-validation" id="tournamentForm" data-tournament='{{ tournament | tojson }}'>
+    <form class="row g-3" id="tournamentForm">
+        {% if tournament %}
+        {# edit mode #}
+        <div hidden="true" aria-hidden="true" id="tournamentData"
+            data-tournament='{{ tournament | jsonable | tojson }}'>
+        </div>
+        {% endif %}
         {# ----------------------------------------------------------------------------------------------- line 1 #}
         <div class="col-6">
             <input required type="text" class="form-control" id="tournamentName" name="name"

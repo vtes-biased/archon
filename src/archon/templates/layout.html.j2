@@ -10,6 +10,7 @@
     {% block meta %}{% endblock %}
     <link rel="shortcut icon" href="{{ url_for('img', path='favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='layout.css') }}">
+    <script async src="{{ url_for('static', path='login.js') }}" type="module"></script>
     {% block scripts %}{% endblock %}
     <title>Archon: VTES Tournament Manager</title>
     {% endblock %}
@@ -27,9 +28,34 @@
                         <a class="nav-link" href="{{ url_for('html_tournament_list') }}">Tournaments</a>
                     </li>
                 </ul>
+                {% if member %}
+                <a type="button" class="btn btn-secondary ms-2" href="{{ url_for('html_profile') }}">
+                    <i class="bi bi-person-fill"></i> Profile
+                </a>
+                {% else %}
+                <button type="button" class="btn btn-primary ms-2" id="loginButton">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </button>
+                {% endif %}
             </div>
         </nav>
     </header>
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true" aria-labelledby="loginModalLabel">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="loginModalLabel">Login</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <a type="button" class="btn btn-sm btn-discord my-2 w-100" href="{{ discord_oauth }}">
+                        <i class="bi bi-discord"></i>
+                        Discord login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="container" id="contentContainer">
         {% block content %}{% endblock %}
     </div>

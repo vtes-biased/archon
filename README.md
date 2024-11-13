@@ -38,6 +38,8 @@ We are using a couple of very standard tools and frameworks, that `make update` 
 - [PostgreSQL](https://www.postgresql.org/docs/current/index.html) for database,
   with [psycopg3](https://www.psycopg.org/psycopg3/docs/) as our library to instrument it
 
+- [AIOHTTP](https://docs.aiohttp.org) for web queries
+
 - [Black](https://black.readthedocs.io/en/stable/) and [Ruff](https://docs.astral.sh/ruff/) for python formatting and linting, respectively
 
 - [Twine](https://twine.readthedocs.io/en/stable/) to publish our Python package to the public [PYPI](https://pypi.org) repository.
@@ -73,6 +75,7 @@ The `archon` CLI gives access to useful DB-related commands when developing in l
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ list                                                                                                            │
 │ reset-db                                                                                                        │
+│ sync-members                                                                                                    │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

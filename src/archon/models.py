@@ -84,6 +84,7 @@ class TournamentRank(enum.StrEnum):
 @dataclasses.dataclass
 class Tournament:
     name: str
+    organizer: str  # Member.uid
     format: TournamentFormat
     start: datetime.datetime
     uid: str | None = None
@@ -135,3 +136,49 @@ class City:
     admin2: str  # name of second administrative division (county)
     timezone: str  # iana timezone id
     modification_date: str  # date of last modification in ISO format
+
+
+@dataclasses.dataclass
+class DiscordAuth:
+    access_token: str
+    token_type: str  # "Bearer"
+    expires_in: int  # seconds
+    refresh_token: str
+    scope: str  # "identify email"
+
+
+@dataclasses.dataclass
+class DiscordUser:
+    id: str  # the user's id (Discord snowflake)
+    username: str  # the user's username, not unique across the platform
+    auth: DiscordAuth  # the user's tokens
+    discriminator: str  # the user's Discord-tag
+    global_name: str | None  # the user's display name, if it is set.
+    email: str | None  # the user's email
+    verified: bool | None  # whether the email has been verified
+    mfa_enabled: bool | None  # whether the user has two factor enabled
+    locale: str | None  # the user's chosen language option
+    # we ignore the rest:
+    # avatar: str | None  # the user's avatar hash
+    # bot: bool | None  # whether the user belongs to an OAuth2 application
+    # system: bool | None  # whether the user is an Official Discord System user
+    # banner: str | None  # the user's banner hash
+    # accent_color: int | None  # the user's banner color
+    # flags: int | None  # the flags on a user's account
+    # premium_type: int | None  # the type of Nitro subscription on a user's account
+    # public_flags: int | None  # the public flags on a user's account
+    # avatar_decoration_data: dict | None  # data for the user's avatar decoration
+
+
+@dataclasses.dataclass
+class Member:
+    vekn: str  # VEKN number
+    name: str  # player name (first name last name concatenation)
+    nickname: str | None = None  # player nickname (on social, lackey, etc.)
+    email: str | None = None  # the user's email
+    verified: bool | None = None  # whether the email has been verified
+    country: str | None = None  # country name
+    state: str | None = None  # state/region name
+    city: str | None = None  # city name
+    uid: str | None = None  # UUID assigned by the backend
+    discord: DiscordUser | None = None  # Discord data

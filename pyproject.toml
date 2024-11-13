@@ -22,11 +22,14 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
 ]
 dependencies = [
+    "aiohttp",
     "fastapi[standard]",
+    "itsdangerous",
     "jinja2",
     "krcg",
     "orjson",
     "psycopg[binary,pool]",
+    "python-dotenv",
     "typer",
 ]
 

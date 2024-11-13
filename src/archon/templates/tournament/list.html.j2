@@ -33,6 +33,8 @@
             {% endfor %}
         </tbody>
     </table>
+    {% if member %}
     <a href="{{ url_for('html_tournament_create') }}" class="btn btn-primary">Create Tournament</a>
+    {% endif %}
 </div>
 {% endblock %}
