@@ -1,45 +1,47 @@
 import datetime
 import enum
+import uuid
+import pydantic
 from pydantic import dataclasses
+
+from . import events
+from . import scoring
 
 
 class TournamentState(enum.StrEnum):
-    Registration = "Registration"
-    Waiting = "Waiting"
-    Playing = "Playing"
-    Finals = "Finals"
-    Finished = "Finished"
+    REGISTRATION = "Registration"
+    WAITING = "Waiting"
+    PLAYING = "Playing"
+    FINALS = "Finals"
+    FINISHED = "Finished"
 
 
-@dataclasses.dataclass(order=True, eq=True)
-class Score:
-    gw: int = 0
-    vp: float = 0.0
-    tp: int = 0
+class PlayerState(enum.StrEnum):
+    REGISTERED = "Registered"
+    CHECKED_IN = "Checked-in"
+    PLAYING = "Playing"
+    FINISHED = "Finished"
 
-    def __str__(self):
-        if self.gw:
-            return f"({self.gw}GW{self.vp:.2g}, {self.tp}TP)"
-        else:
-            return f"({self.vp:.2g}VP, {self.tp}TP)"
 
-    def __add__(self, rhs):
-        return self.__class__(
-            gw=self.gw + rhs.gw, vp=self.vp + rhs.vp, tp=self.tp + rhs.tp
-        )
-
-    def __iadd__(self, rhs):
-        self.gw += rhs.gw
-        self.vp += rhs.vp
-        self.tp += rhs.tp
-        return self
+class Barrier(enum.StrEnum):
+    MISSING_DECK = "Missing Deck"
+    BANNED = "Banned"
+    DISQUALIFIED = "Disqualified"
+    MAX_ROUNDS = "Max Rounds"
 
 
 @dataclasses.dataclass
 class Player:
     name: str
-    vekn: str
-    uid: str = ""
+    uid: str = pydantic.Field(default_factory=uuid.uuid4)
+    state: PlayerState = PlayerState.REGISTERED
+    barriers: list[Barrier] = pydantic.Field(default_factory=list)
+    rounds_played: int = 0
+    table: int = 0  # non-zero when playing
+    seat: int = 0  # non-zero when playing
+    toss: int = 0  # non-zero when draws for seeding finals
+    seed: int = 0  # Finals seed
+    result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
 
     def __hash__(self):
         return hash(self.vekn)
@@ -47,8 +49,8 @@ class Player:
 
 @dataclasses.dataclass
 class TableSeat:
-    player_vekn: str
-    result: Score
+    player_uid: str
+    result: scoring.Score
 
 
 @dataclasses.dataclass
@@ -82,6 +84,23 @@ class TournamentRank(enum.StrEnum):
 
 
 @dataclasses.dataclass
+class LimitedFormat:
+    mono_vampire: bool = False
+    mono_clan: bool = False
+    storyline: str = ""
+    include: list[int] = pydantic.Field(default_factory=list)
+    exclude: list[int] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass
+class Sanction:
+    judge_uid: str
+    player_uid: str
+    level: events.SanctionLevel
+    comment: str
+
+
+@dataclasses.dataclass
 class Tournament:
     name: str
     organizer: str  # Member.uid
@@ -100,6 +119,18 @@ class Tournament:
     multideck: bool = False
     finish: datetime.datetime | None = None
     description: str = ""
+    judges: list[str]  # list of Member.uid, first one is head judge
+    max_rounds: int = 0
+    # active tournament console
+    current_round: int = 0
+    limited: LimitedFormat
+    state: TournamentState = TournamentState.REGISTRATION
+    players: dict[str, Player] = pydantic.Field(default_factory=dict)
+    finals_seeds: list[str] = pydantic.Field(default_factory=list)
+    rounds: list[Round] = pydantic.Field(default_factory=list)
+    sanctions: dict[str, list[Sanction]] = pydantic.Field(default_factory=dict)
+    winner: str = ""
+    extra: dict = pydantic.Field(default_factory=dict)  # third-party data if any
 
 
 @dataclasses.dataclass

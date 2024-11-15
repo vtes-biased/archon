@@ -92,3 +92,56 @@ They constantly watch your files and rebuild the project automatically when ther
 Use `pm2 logs` to keep an eye on what's going on and `pm2 kill` to stop the services.
 You can also use `pm2 ps` to check if the services are up and running.
 For more, see the [PM2 documentation](https://pm2.keymetrics.io/docs/usage/quick-start/).
+
+## Design 
+
+### Offline mode and Source of Truth (SoT)
+
+While it is desirable to have a clear unique source of truth (SoT) for a tournament state, it has also deemed important
+to be able to use this website in offline mode. Therefore, offline mode is activated _while online_ and changes the
+source of truth (SoT) from the remote server to the local browser instance. This locks the remote server instance,
+so noone else can interact with the server anymore.
+
+Features deactivated in offline mode:
+
+- Self registration for players
+- Self check-in for players
+- Score reporting for players
+- Dynamic seating computation
+
+Offline mode can be deactivated by any organizer, so there are two "ways" out of it:
+
+- Upload back online from the local instance that had been designated Source of Truth (SoT)
+- Revert back to online from any other device and drop all changes from local Source of Truth (SoT)
+
+### Journal and state
+
+To facilitate reconciliation and avoid concurrency issues between multiple clients, the tournament state is maintained
+and computed by the SoT. All instances (any browser, device, etc.) maintains a journal of events.
+These events have unique IDs. On active interactions, an instance will:
+
+- Send the event to the server, together with the last recorded event ID on the instance
+- Receive an updated tournament state, together with a list of events since the last recorded event ID
+- replay the listed events to modify the interface
+
+In offline mode (being the SoT), it will simply:
+
+- Play the events as they arrive
+- Upon returning online, sent the updated state with all events 
+
+Online clients can either:
+
+- Simply rebuild their whole interface any time they get a tournament state update after sending an event
+- Apply all returned events in order to their interface to avoid a global reload
+
+In the future, this design will allow clients to use websockets for live updates very easily.
+
+### Events list
+
+```json
+{
+    uid: str,  # event unique ID
+    type: str,  # event type
+    data: dict,  # event data, depends on the event type
+}
+```

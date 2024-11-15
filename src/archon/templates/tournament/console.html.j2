@@ -1,0 +1,50 @@
+{% extends "layout.html.j2" %}
+
+{% block scripts %}
+<script async src="{{ url_for('static', path='console.js') }}" type="module"></script>
+{% endblock%}
+
+{% block content %}
+<h1 class="mb-4">{{ tournament.name }}</h1>
+<div hidden="true" aria-hidden="true" id="tournamentData" data-tournament='{{ tournament | jsonable | tojson }}'></div>
+<div hidden="true" aria-hidden="true" id="membersData" data-members='{{ members | jsonable | tojson }}'></div>
+<nav>
+    <div class="nav nav-tabs" id="navTab" role="tablist">
+        <button class="nav-link active" id="navRegistrationsTab" data-bs-toggle="tab" data-bs-target="#navRegistrations"
+            type="button" role="tab" aria-controls="nav-home" aria-selected="true">Registrations</button>
+        <button class="nav-link" id="navRound1Tab" data-bs-toggle="navRound1" data-bs-target="#nav-profile"
+            type="button" role="tab" aria-controls="nav-profile" aria-selected="false">Round 1</button>
+    </div>
+</nav>
+<div class="tab-content" id="navTabContent">
+    <div class="tab-pane fade show active" id="navRegistrations" role="tabpanel" aria-labelledby="navRegistrationsTab">
+        <button type="button" class="btn btn-primary ms-2" id="searchPlayerModalButton">
+            Register Player
+        </button>
+    </div>
+    <div class="tab-pane fade" id="navRound1" role="tabpanel" aria-labelledby="navRound1Tab">
+    </div>
+</div>
+<div class="modal fade" id="veknModal" tabindex="-1" aria-hidden="true" aria-labelledby="searchPlayerModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="searchPlayerModalLabel">Add player</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="searchPlayerForm" action="{{ url_for('auth_claim_vekn') }}">
+                    <input class="form-control" id="memberVeknId" type="text" name="vekn" placeholder="VEKN ID number">
+                    <div>
+                        <input class="form-control" id="membeName" type="text" name="name" placeholder="Name">
+                        <ul class="dropdown-menu" id="memberCompletionDropdown"></ul>
+                    </div>
+                    <button type="submit" class="btn btn-primary my-2" id="addPlayerButton" disabled>
+                        Add
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

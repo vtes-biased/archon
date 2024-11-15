@@ -175,6 +175,12 @@ class Operator:
                 return models.Member(**data[0])
             return None
 
+    async def get_members(self) -> list[models.Member]:
+        """Get all members"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute("SELECT data FROM members")
+            return [models.Member(**data[0]) for data in await res.fetchall()]
+
     async def upsert_member_discord(self, user: models.DiscordUser) -> models.Member:
         """Get or create a member from their discord profile"""
         async with self.conn.cursor() as cursor:

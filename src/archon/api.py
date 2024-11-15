@@ -197,6 +197,21 @@ async def html_tournament_edit(request: fastapi.Request, uid: str | None):
     )
 
 
+@app.get(
+    "/tournament/{uid}/console.html", response_class=fastapi.responses.HTMLResponse
+)
+async def html_tournament_edit(request: fastapi.Request, uid: str | None):
+    async with db.operator() as op:
+        context = await session_context(op, request)
+        context["tournament"] = await op.get_tournament(uid)
+        context["members"] = await op.get_members()
+    return resources.templates.TemplateResponse(
+        request=request,
+        name="tournament/console.html.j2",
+        context=context,
+    )
+
+
 # ################################################################################# AUTH
 def hash_state(state: str):
     return itsdangerous.url_safe.URLSafeSerializer(SESSION_KEY, "state").dumps(state)
