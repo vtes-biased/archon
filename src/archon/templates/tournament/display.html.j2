@@ -61,5 +61,6 @@
 {% endif %}
 {% if member and tournament.organizer == member.uid %}
 <a href="{{ url_for('html_tournament_edit', uid=tournament.uid) }}" class="btn btn-primary my-3">Edit</a>
+<a href="{{ url_for('html_tournament_console', uid=tournament.uid) }}" class="btn btn-primary my-3">Console</a>
 {% endif %}
 {% endblock %}

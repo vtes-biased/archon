@@ -33,6 +33,7 @@ class Barrier(enum.StrEnum):
 @dataclasses.dataclass
 class Player:
     name: str
+    vekn: str = ""
     uid: str = pydantic.Field(default_factory=uuid.uuid4)
     state: PlayerState = PlayerState.REGISTERED
     barriers: list[Barrier] = pydantic.Field(default_factory=list)
@@ -119,11 +120,11 @@ class Tournament:
     multideck: bool = False
     finish: datetime.datetime | None = None
     description: str = ""
-    judges: list[str]  # list of Member.uid, first one is head judge
+    judges: list[str] = pydantic.Field(default_factory=list)
     max_rounds: int = 0
     # active tournament console
     current_round: int = 0
-    limited: LimitedFormat
+    limited: LimitedFormat | None = None
     state: TournamentState = TournamentState.REGISTRATION
     players: dict[str, Player] = pydantic.Field(default_factory=dict)
     finals_seeds: list[str] = pydantic.Field(default_factory=list)

@@ -85,6 +85,9 @@ def reset():
             cursor.execute("DROP TABLE members")
 
 
+T = typing.TypeVar("T", bound=models.Tournament)
+
+
 class Operator:
     """All async operations available for the API layer"""
 
@@ -111,14 +114,16 @@ class Operator:
             res = await cursor.execute("SELECT data FROM tournaments")
             return [models.Tournament(**row[0]) for row in await res.fetchall()]
 
-    async def get_tournament(self, uid: str) -> models.Tournament:
+    async def get_tournament(
+        self, uid: str, cls: typing.Type[T] = models.Tournament
+    ) -> T:
         """Get a tournament by its uid"""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "SELECT data FROM tournaments WHERE uid=%s", [uuid.UUID(uid)]
             )
             data = (await res.fetchone())[0]
-            return models.Tournament(**data)
+            return cls(**data)
 
     async def update_tournament(self, tournament: models.Tournament) -> uuid.UUID:
         """Update a tournament, returns its uid"""

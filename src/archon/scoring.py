@@ -4,9 +4,7 @@ import pydantic
 from pydantic import dataclasses
 
 
-dataclasses.dataclass(order=True, eq=True)
-
-
+@dataclasses.dataclass(order=True, eq=True)
 class Score:
     gw: int = pydantic.Field(0, ge=0)
     vp: float = pydantic.Field(0.0, ge=0, le=5, multiple_of=0.5)

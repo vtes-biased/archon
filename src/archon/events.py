@@ -37,123 +37,124 @@ class SanctionLevel(enum.StrEnum):
     DISQUALIFICATION = "Disqualification"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Event:
     type: EventType
     uid: str = pydantic.Field(default_factory=uuid_str)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Register(Event):
-    type: pydantic.Literal[EventType.REGISTER]
+    type: typing.Literal[EventType.REGISTER]
     name: str
+    vekn: str
     player_uid: str = pydantic.Field(default_factory=uuid_str)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class OpenCheckin(Event):
-    type: pydantic.Literal[EventType.OPEN_CHECKIN]
+    type: typing.Literal[EventType.OPEN_CHECKIN]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class AppointJudge(Event):
-    type: pydantic.Literal[EventType.APPOINT_JUDGE]
+    type: typing.Literal[EventType.APPOINT_JUDGE]
     judge_uid: str = pydantic.Field(default_factory=uuid_str)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class AppointHeadJudge(Event):
-    type: pydantic.Literal[EventType.APPOINT_HEAD_JUDGE]
+    type: typing.Literal[EventType.APPOINT_HEAD_JUDGE]
     judge_uid: str = pydantic.Field(default_factory=uuid_str)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class RemoveJudge(Event):
-    type: pydantic.Literal[EventType.REMOVE_JUDGE]
+    type: typing.Literal[EventType.REMOVE_JUDGE]
     judge_uid: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class CheckIn(Event):
-    type: pydantic.Literal[EventType.CHECK_IN]
+    type: typing.Literal[EventType.CHECK_IN]
     player_uid: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class RoundStart(Event):
-    type: pydantic.Literal[EventType.ROUND_START]
+    type: typing.Literal[EventType.ROUND_START]
     seating: list[list[str]]  # list of tables: [[player_uid]]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class RoundAlter(Event):
-    type: pydantic.Literal[EventType.ROUND_ALTER]
+    type: typing.Literal[EventType.ROUND_ALTER]
     round: int
     seating: list[list[str]]  # list of tables: [[player_uid]]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class RoundFinish(Event):
-    type: pydantic.Literal[EventType.ROUND_FINISH]
+    type: typing.Literal[EventType.ROUND_FINISH]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class SetResult(Event):
-    type: pydantic.Literal[EventType.SET_RESULT]
+    type: typing.Literal[EventType.SET_RESULT]
     player_uid: str
     round: int
     result: scoring.Score
     judge_uid: str = ""
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Drop(Event):
-    type: pydantic.Literal[EventType.DROP]
+    type: typing.Literal[EventType.DROP]
     player_uid: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Sanction(Event):
-    type: pydantic.Literal[EventType.SANCTION]
+    type: typing.Literal[EventType.SANCTION]
     level: SanctionLevel
     judge_uid: str
     player_uid: str
     comment: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Unsanction(Event):
-    type: pydantic.Literal[EventType.UNSANCTION]
+    type: typing.Literal[EventType.UNSANCTION]
     level: SanctionLevel
     judge_uid: str
     player_uid: str
     comment: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Override(Event):
-    type: pydantic.Literal[EventType.OVERRIDE]
+    type: typing.Literal[EventType.OVERRIDE]
     round: int
     table: int
     judge_uid: str
     comment: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class SeedFinals(Event):
-    type: pydantic.Literal[EventType.SEED_FINALS]
+    type: typing.Literal[EventType.SEED_FINALS]
     seeds: list[str]  # [player_uid] in seed order (first is top seed)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class SeatFinals(Event):
-    type: pydantic.Literal[EventType.SEAT_FINALS]
+    type: typing.Literal[EventType.SEAT_FINALS]
     seating: list[str]  # [player_uid]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Finish(Event):
-    type: pydantic.Literal[EventType.FINISH]
+    type: typing.Literal[EventType.FINISH]
 
 
 TournamentEvent = typing.Union[

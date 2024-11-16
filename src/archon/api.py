@@ -22,7 +22,9 @@ import urllib.parse
 import uuid
 
 from . import db
+from . import events
 from . import models
+from . import engine
 
 
 dotenv.load_dotenv()
@@ -200,7 +202,7 @@ async def html_tournament_edit(request: fastapi.Request, uid: str | None):
 @app.get(
     "/tournament/{uid}/console.html", response_class=fastapi.responses.HTMLResponse
 )
-async def html_tournament_edit(request: fastapi.Request, uid: str | None):
+async def html_tournament_console(request: fastapi.Request, uid: str | None):
     async with db.operator() as op:
         context = await session_context(op, request)
         context["tournament"] = await op.get_tournament(uid)
@@ -371,6 +373,22 @@ async def api_get_tournament(uid: str) -> models.Tournament:
     """
     async with db.operator() as op:
         return await op.get_tournament(uid)
+
+
+@app.post("/api/tournament/{uid}/event", summary="Add tournament event")
+async def api_post_tournament_event(
+    request: fastapi.Request, uid: str, event: events.TournamentEvent
+):
+    """Update tournament information
+
+    - **uid**: The tournament unique ID
+    """
+    async with db.operator() as op:
+        orchestrator = await op.get_tournament(uid, engine.TournamentOrchestrator)
+        orchestrator.handle_event(event)
+        await op.update_tournament(orchestrator)
+
+    return orchestrator
 
 
 # ################################################################################## Doc

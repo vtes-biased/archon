@@ -27,6 +27,14 @@ export function displayError(msg: string) {
     bootstrap.Toast.getOrCreateInstance(toast_div).show()
 }
 
+export function debounce(func: Function, timeout = 300) {
+    let timer: number | undefined = undefined
+    return (...args: any) => {
+        clearTimeout(timer)
+        timer = setTimeout(async () => { await func.apply(this, args) }, timeout)
+    }
+}
+
 export async function load() {
     // activate tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))

@@ -52,7 +52,9 @@ class TournamentManager(models.Tournament):
                 self.finish(ev)
 
     def register(self, ev: events.Register) -> None:
-        self.players[ev.player_uid] = models.Player(name=ev.name, uid=ev.player_uid)
+        self.players[ev.player_uid] = models.Player(
+            name=ev.name, uid=ev.player_uid, vekn=ev.vekn
+        )
 
     def open_checkin(self, ev: events.OpenCheckin) -> None:
         self.state = models.TournamentState.WAITING
@@ -127,7 +129,7 @@ class TournamentManager(models.Tournament):
                 player.table = 0
                 player.seat = 0
                 if player.state != models.PlayerState.FINISHED:
-                    player.state = models.PlayerState.REGISTERED
+                    player.state = models.PlayerState.REGISTERED  # or CHECKED_IN?
         return models.Round(
             tables=[
                 models.Table(
@@ -302,16 +304,10 @@ class ResultRecorded(TournamentError): ...
 class TournamentOrchestrator(TournamentManager):
     """Implements all input checks and raise meaningful errors"""
 
-    def __init__(self):
-        self.journal = []
-        self.handled = set()
+    # TODO: maybe? implement journalisation mechanics
 
     def handle_event(self, ev: events.TournamentEvent) -> None:
-        if ev.uid in self.handled:
-            raise DuplicateEvent(ev)
-        self.journal.append(ev)
         super().handle_event(ev)
-        self.handled.add(ev)
 
     def register(self, ev: events.Register) -> None:
         if any(
@@ -319,6 +315,7 @@ class TournamentOrchestrator(TournamentManager):
             for s in self.sanctions.get(ev.player_uid, [])
         ):
             raise DisqualifiedPlayer(ev)
+        super().register(ev)
 
     def _check_not_playing(self, ev: events.TournamentEvent):
         if self.state == models.TournamentState.FINALS:
@@ -490,8 +487,7 @@ def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
     rank = 1
     res = []
     for _, players in itertools.groupby(sorted_players, key=sort_key):
-        for p in players:
-            res.append((rank, p))
+        res.extend((rank, p) for p in players)
         rank += len(players)
     return res
 
