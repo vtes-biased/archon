@@ -53,8 +53,6 @@ function complete_member_name(ev: Event) {
     if (memberName.value.length < 3) { return }
     var members_list: Member[] | undefined = undefined
     for (const part of memberName.value.split(" ")) {
-        console.log("part", part)
-        console.log(members_trie)
         if (members_trie.has(part)) {
             const members = members_trie.get(part)
             if (members_list) {
@@ -65,9 +63,7 @@ function complete_member_name(ev: Event) {
         }
     }
     members_list = members_list.slice(0, 10)
-    console.log("completion", members_list)
     const memberCompletionDropdown = document.getElementById("memberCompletionDropdown") as HTMLUListElement
-    console.log(memberCompletionDropdown)
     while (memberCompletionDropdown.lastElementChild) {
         memberCompletionDropdown.removeChild(memberCompletionDropdown.lastElementChild)
     }
@@ -146,15 +142,12 @@ function setupRegisterPlayer() {
 }
 
 function load() {
-    console.log("loading...")
     const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
     tournament = JSON.parse(tournamentData.dataset.tournament) as Tournament
-    console.log("parsing members...")
     const membersData = document.getElementById("membersData") as HTMLDivElement
     const members = JSON.parse(membersData.dataset.members) as Member[]
     // window.localStorage.setItem("members", JSON.stringify(members))
     // fill our maps: members_by_vekn and members_trie
-    console.log("filling maps...")
     for (const member of members) {
         members_by_vekn.set(member.vekn, member)
         members_by_uid.set(member.uid, member)
