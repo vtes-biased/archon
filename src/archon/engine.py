@@ -247,6 +247,9 @@ class UnregisteredPlayer(TournamentError): ...
 class DisqualifiedPlayer(TournamentError): ...
 
 
+class UnnamedPlayer(TournamentError): ...
+
+
 class PlayerAbsent(TournamentError): ...
 
 
@@ -315,6 +318,8 @@ class TournamentOrchestrator(TournamentManager):
             for s in self.sanctions.get(ev.player_uid, [])
         ):
             raise DisqualifiedPlayer(ev)
+        if not ev.name:
+            raise UnnamedPlayer(ev)
         super().register(ev)
 
     def _check_not_playing(self, ev: events.TournamentEvent):
@@ -327,7 +332,7 @@ class TournamentOrchestrator(TournamentManager):
 
     def open_checkin(self, ev: events.OpenCheckin) -> None:
         self._check_not_playing(ev)
-        super().open_checkin()
+        super().open_checkin(ev)
 
     def check_in(self, ev: events.CheckIn) -> None:
         self._check_not_playing(ev)
@@ -401,11 +406,11 @@ class TournamentOrchestrator(TournamentManager):
         for round_ in self.rounds:
             for table in round_.tables:
                 for i, seat in enumerate(table.seating):
-                    prey = table.seating[i + 1 % len(table.seating)].player_uid
+                    prey = table.seating[(i + 1) % len(table.seating)].player_uid
                     pp.add((seat.player_uid, prey))
         for table in seating:
             for i, predator in enumerate(table):
-                prey = table[i + 1 % len(table)]
+                prey = table[(i + 1) % len(table)]
                 if (predator, prey) in pp:
                     raise PredatorPreyDuplicate(ev, (predator, prey))
 

@@ -51,7 +51,7 @@ class Player:
 @dataclasses.dataclass
 class TableSeat:
     player_uid: str
-    result: scoring.Score
+    result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
 
 
 @dataclasses.dataclass

@@ -1,4 +1,5 @@
 import * as base from "./base"
+import * as events from "./events"
 import * as bootstrap from 'bootstrap'
 import unidecode from 'unidecode'
 import * as uuid from 'uuid'
@@ -49,7 +50,7 @@ function select_member_name(ev: Event) {
 }
 
 function complete_member_name(ev: Event) {
-    const memberName = ev.currentTarget as HTMLInputElement
+    const memberName = ev.target as HTMLInputElement
     if (memberName.value.length < 3) { return }
     var members_list: Member[] | undefined = undefined
     for (const part of memberName.value.split(" ")) {
@@ -100,33 +101,275 @@ function display_tournament(tournament: Tournament) {
         const state = document.createElement("td")
         state.innerText = player.state
         row.append(state)
+        const actions = document.createElement("td")
+        row.append(actions)
+
+        if (tournament.state == TournamentState.WAITING) {
+            if (player.state == PlayerState.REGISTERED) {
+                const button = document.createElement("button")
+                button.classList.add("btn", "btn-success")
+                button.innerText = "Check In"
+                button.addEventListener("click", (ev) => { check_in(player.uid).then() })
+                actions.append(button)
+            }
+            else if (player.state == PlayerState.CHECKED_IN) {
+                const button = document.createElement("button")
+                button.classList.add("btn", "btn-warning")
+                button.innerText = "Drop"
+                button.addEventListener("click", (ev) => { drop(player.uid).then() })
+                actions.append(button)
+            }
+        }
+    }
+    const actionRow = document.getElementById("actionRow") as HTMLDivElement
+    while (actionRow.lastElementChild) {
+        actionRow.removeChild(actionRow.lastElementChild)
+    }
+    if (tournament.state == TournamentState.REGISTRATION) {
+        const button = document.createElement("button")
+        button.classList.add("col-2", "btn", "btn-success")
+        button.innerText = "Open Check-In"
+        button.addEventListener("click", (ev) => { open_checkin().then() })
+        actionRow.append(button)
+    }
+    if (tournament.state == TournamentState.WAITING) {
+        const button = document.createElement("button")
+        button.classList.add("col-2", "btn", "btn-success")
+        button.innerText = `Seat Round ${tournament.rounds.length + 1}`
+        button.addEventListener("click", (ev) => { start_round().then() })
+        actionRow.append(button)
+    }
+    const navTabContent = document.getElementById("navTabContent") as HTMLDivElement
+    const navRegistrations = document.getElementById("navRegistrations") as HTMLDivElement
+    while (navTabContent.lastElementChild != navRegistrations) {
+        navTabContent.removeChild(navTabContent.lastElementChild)
+    }
+    const navTab = document.getElementById("navTab") as HTMLDivElement
+    const navRegistrationsTab = document.getElementById("navRegistrationsTab") as HTMLButtonElement
+    while (navTab.lastElementChild != navRegistrationsTab) {
+        navTab.removeChild(navTab.lastElementChild)
+    }
+    var i = 0
+    for (const round_ of tournament.rounds) {
+        i++
+        const roundTab = document.createElement("div")
+        roundTab.classList.add("tab-pane", "fade")
+        roundTab.role = "tabpanel"
+        roundTab.ariaLabel = `Round ${i}`
+        roundTab.id = `round${i}Tab`
+        navTabContent.append(roundTab)
+        const roundButton = document.createElement("button")
+        roundButton.classList.add("nav-link")
+        roundButton.type = "button"
+        roundButton.role = "tab"
+        roundButton.ariaSelected = "false"
+        roundButton.innerText = `Round ${i}`
+        roundButton.dataset.bsToggle = "tab"
+        roundButton.dataset.bsTarget = `#round${i}Tab`
+        navTab.append(roundButton)
+        var j = 0
+        var div = undefined
+        for (const table of round_.tables) {
+            if (j % 2 === 0) {
+                div = document.createElement("div")
+                div.classList.add("row", "g-3", "my-2")
+                roundTab.append(div)
+            }
+            display_table(div, table, `Table ${j + 1}`)
+            j++
+        }
+    }
+    var triggerTabList = [].slice.call(navTab.querySelectorAll('button'))
+    triggerTabList.forEach(function (triggerEl: HTMLElement) {
+        var tabTrigger = new bootstrap.Tab(triggerEl)
+        triggerEl.addEventListener('click', function (event) {
+            event.preventDefault()
+            tabTrigger.show()
+        })
+    })
+}
+
+function display_table(el: HTMLElement, data: Table, label: string) {
+    const div = document.createElement("div")
+    div.classList.add("col-md-6")
+    el.append(div)
+    const title = document.createElement("h2")
+    title.innerText = label
+    div.append(title)
+    const table = document.createElement("table")
+    table.classList.add("table")
+    div.append(table)
+    const head = document.createElement("thead")
+    table.append(head)
+    const tr = document.createElement("tr")
+    head.append(tr)
+    const headVEKN = document.createElement("th")
+    headVEKN.scope = "col"
+    headVEKN.innerText = "VEKN #"
+    tr.append(headVEKN)
+    const headName = document.createElement("th")
+    headName.scope = "col"
+    headName.innerText = "Name"
+    tr.append(headName)
+    const headScore = document.createElement("th")
+    headScore.scope = "col"
+    headScore.innerText = "Score"
+    tr.append(headScore)
+    const body = document.createElement("tbody")
+    table.append(body)
+
+    for (const seat of data.seating) {
+        const player = tournament.players[seat.player_uid]
+        const row = document.createElement("tr")
+        body.append(row)
+        const rowHead = document.createElement("th")
+        rowHead.scope = "row"
+        rowHead.innerText = player.vekn
+        row.append(rowHead)
+        const name = document.createElement("td")
+        name.innerText = player.name
+        row.append(name)
+        const score = document.createElement("td")
+        score.innerText = display_score(seat.result)
+        row.append(score)
+    }
+}
+
+function display_score(score: Score) {
+    if (score.gw) {
+        return `${score.gw}GW${score.vp}`
+    }
+    else if (score.vp > 1) {
+        return `${score.vp}VPs`
+    }
+    else {
+        return `${score.vp}VP`
     }
 }
 
 async function register_player(ev: Event) {
-    // create or update tournament
+    console.log("register player")
     ev.preventDefault()
     const registerPlayerForm = ev.currentTarget as HTMLFormElement
     const data = new FormData(registerPlayerForm)
-    const event = {
-        type: "REGISTER",
+    const event: events.Register = {
+        type: events.EventType.REGISTER,
         uid: uuid.v4(),
-        name: data.get("memberName"),
-        vekn: data.get("memberVeknId"),
-        player_uid: data.get("uid"),
+        name: data.get("memberName").toString(),
+        vekn: data.get("memberVeknId").toString(),
+        player_uid: data.get("uid").toString(),
 
     }
-    // TODO: move to a generic tournament event handler
+    await handle_tournament_event(event)
+    const memberVeknId = registerPlayerForm.querySelector("#memberVeknId") as HTMLInputElement
+    const memberName = registerPlayerForm.querySelector("#memberName") as HTMLInputElement
+    const memberUid = registerPlayerForm.querySelector("#memberUid") as HTMLInputElement
+    const registerPlayerButton = registerPlayerForm.querySelector("#registerPlayerButton") as HTMLButtonElement
+    memberVeknId.value = ""
+    memberName.value = ""
+    memberUid.value = ""
+    registerPlayerButton.disabled = true
+}
+
+async function open_checkin() {
+    console.log("open_checkin")
+    const event: events.OpenCheckin = {
+        type: events.EventType.OPEN_CHECKIN,
+        uid: uuid.v4(),
+    }
+    await handle_tournament_event(event)
+}
+
+async function check_in(player_uid: string) {
+    console.log("check_in", player_uid)
+    const event: events.CheckIn = {
+        type: events.EventType.CHECK_IN,
+        uid: uuid.v4(),
+        player_uid: player_uid,
+    }
+    await handle_tournament_event(event)
+}
+
+async function drop(player_uid: string) {
+    console.log("drop", player_uid)
+    const event: events.Drop = {
+        type: events.EventType.DROP,
+        uid: uuid.v4(),
+        player_uid: player_uid,
+    }
+    await handle_tournament_event(event)
+}
+
+function shuffle_array(array: Array<any>) {
+    for (let i = array.length - 1; i >= 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+// function seat_round() {
+//     const contenders = Object.values(tournament.players).filter(p => p.state === PlayerState.CHECKED_IN)
+//     shuffleArray(contenders)
+//     const seat_in_fives = contenders.length - 4 * (5 - (contenders.length % 5 | 5))
+//     var seated = 0
+//     const res: Round = { tables: [] }
+//     while (seated < contenders.length) {
+//         const seats = seated < seat_in_fives ? 5 : 4
+//         const table: Table = { seating: [], override: undefined }
+//         for (const p of contenders.slice(seated, seated + seats)) {
+//             table.seating.push({ player_uid: p.uid, result: { gw: 0, vp: 0, tp: 0 } })
+//         }
+//         res.tables.push(table)
+//         seated += seats
+//     }
+//     return res
+// }
+
+function default_seating() {
+    const contenders = Object.values(tournament.players).filter(p => p.state === PlayerState.CHECKED_IN)
+    shuffle_array(contenders)
+    const seat_in_fives = contenders.length - 4 * (5 - (contenders.length % 5 | 5))
+    var seated = 0
+    const res: string[][] = []
+    while (seated < contenders.length) {
+        const seats = seated < seat_in_fives ? 5 : 4
+        res.push(contenders.slice(seated, seated + seats).map(p => p.uid))
+        seated += seats
+    }
+    return res
+}
+
+async function start_round() {
+    // TODO: handle seating optimisation
+    // const next_round = seat_round()
+    // const seating: string[][] = []
+    // for (const table of next_round.tables) {
+    //     const res: string[] = []
+    //     for(const seat of table.seating){
+    //         res.push(seat.player_uid)
+    //     }
+    //     seating.push(res)
+    // }
+    console.log("start_round")
+    const event: events.RoundStart = {
+        type: events.EventType.ROUND_START,
+        uid: uuid.v4(),
+        seating: default_seating()
+    }
+    await handle_tournament_event(event)
+}
+
+async function handle_tournament_event(ev: events.TournamentEvent) {
+    console.log("handle event", ev)
     // TODO: implement offline mode
     const res = await base.do_fetch(`/api/tournament/${tournament.uid}/event`, {
         method: "post",
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(event)
+        body: JSON.stringify(ev)
     })
     if (!res) { return }
     const response = await res.json()
     console.log(response)
-    // TODO: use journal to do diff updates
     // window.localStorage.setItem("tournament", JSON.stringify(response))
     tournament = response
     display_tournament(tournament)
@@ -136,12 +379,13 @@ function setupRegisterPlayer() {
     const memberVeknId = document.getElementById("memberVeknId") as HTMLInputElement
     const memberName = document.getElementById("memberName") as HTMLInputElement
     memberVeknId.addEventListener("input", select_member_by_vekn)
-    memberName.addEventListener("input", complete_member_name)
+    memberName.addEventListener("input", base.debounce(complete_member_name))
     const registerPlayerForm = document.getElementById("registerPlayerForm") as HTMLFormElement
     registerPlayerForm.addEventListener("submit", (ev) => register_player(ev).then())
 }
 
 function load() {
+    console.log("load")
     const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
     tournament = JSON.parse(tournamentData.dataset.tournament) as Tournament
     const membersData = document.getElementById("membersData") as HTMLDivElement

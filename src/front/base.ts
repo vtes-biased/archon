@@ -31,6 +31,14 @@ export function debounce(func: Function, timeout = 300) {
     let timer: number | undefined = undefined
     return (...args: any) => {
         clearTimeout(timer)
+        timer = setTimeout(() => { func.apply(this, args) }, timeout)
+    }
+}
+
+export function debounce_async(func: Function, timeout = 300) {
+    let timer: number | undefined = undefined
+    return (...args: any) => {
+        clearTimeout(timer)
         timer = setTimeout(async () => { await func.apply(this, args) }, timeout)
     }
 }

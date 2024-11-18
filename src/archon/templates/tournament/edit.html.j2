@@ -13,10 +13,11 @@
             data-tournament='{{ tournament | jsonable | tojson }}'>
         </div>
         {% endif %}
+        <input required hidden aria-hidden="true" type="text" class="form-control" id="tournamentOrganizer" name="organizer" autocomplete="off" aria-autocomplete="none" spellcheck="false" value="{{ member.uid }}">
         {# ----------------------------------------------------------------------------------------------- line 1 #}
         <div class="col-6">
             <input required type="text" class="form-control" id="tournamentName" name="name"
-                placeholder="Tournament Name" spellcheck="false">
+                placeholder="Tournament Name" autocomplete="off" aria-autocomplete="none" spellcheck="false">
         </div>
         <div class="col-3">
             <select required class="form-select" id="selectFormat" name="format">
