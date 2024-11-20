@@ -21,6 +21,7 @@
         "src/front/console.ts",
         "src/front/login.ts",
         "src/front/profile.ts",
+        "src/front/seating.ts",
         "src/front/tournament_form.ts",
         "src/front/layout.scss"
       ]
