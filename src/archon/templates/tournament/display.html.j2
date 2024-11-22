@@ -59,7 +59,7 @@
 <h2 class="mt-3 mb-1">Description</h2>
 <div>{{ tournament.description }}</div>
 {% endif %}
-{% if member and tournament.organizer == member.uid %}
+{% if member and member.uid in tournament.judges %}
 <a href="{{ url_for('html_tournament_edit', uid=tournament.uid) }}" class="btn btn-primary my-3">Edit</a>
 <a href="{{ url_for('html_tournament_console', uid=tournament.uid) }}" class="btn btn-primary my-3">Console</a>
 {% endif %}

@@ -33,7 +33,8 @@ We are using a couple of very standard tools and frameworks, that `make update` 
 
 - [FastAPI](https://fastapi.tiangolo.com/learn/) as our backend server framework,
   with [Jinja2](https://jinja.palletsprojects.com/en/stable/) for HTML templating,
-  and its [i18n extension](https://jinja.palletsprojects.com/en/stable/extensions/#i18n-extension) for potential future translations
+  its [i18n extension](https://jinja.palletsprojects.com/en/stable/extensions/#i18n-extension) for potential future translations,
+  and [pyJWT](https://pyjwt.readthedocs.io/en/stable/) for generating [OAuth 2.0](https://oauth.net/2/) [JWT (RFC 7519)](https://datatracker.ietf.org/doc/html/rfc7519) tokens.
 
 - [PostgreSQL](https://www.postgresql.org/docs/current/index.html) for database,
   with [psycopg3](https://www.psycopg.org/psycopg3/docs/) as our library to instrument it
@@ -87,6 +88,18 @@ You can use the `DB_USER` and `DB_PWD` environment variables to use other values
 
 ## Development server
 
+Use `openssl` to generate a secure token secret for signing our [JWT]() access tokens.
+
+```bash
+openssl rand -hex 32
+```
+
+Set this value for the `TOKEN_SECRET` environment variable, for example in a `.env` file at the repository's root.
+
+```bash
+export TOKEN_SECRET="[The generated secret string]"
+```
+
 Simply use `make serve` to run the front and back services.
 They constantly watch your files and rebuild the project automatically when there is any change.
 Use `pm2 logs` to keep an eye on what's going on and `pm2 kill` to stop the services.
@@ -109,7 +122,7 @@ Features deactivated in offline mode:
 - Score reporting for players
 - Dynamic seating computation
 
-Offline mode can be deactivated by any organizer, so there are two "ways" out of it:
+Offline mode can be deactivated by any judge, so there are two "ways" out of it:
 
 - Upload back online from the local instance that had been designated Source of Truth (SoT)
 - Revert back to online from any other device and drop all changes from local Source of Truth (SoT)
@@ -138,10 +151,246 @@ In the future, this design will allow clients to use websockets for live updates
 
 ### Events list
 
+#### Register
+
+Neither VEKN nor UID is mandatory. To register a new player who has no VEKN account, provide a new UUID4.
+If you do not provide one, a new UUID4 will be generated and an account created for that person.
+
 ```json
 {
-    uid: str,  # event unique ID
-    type: str,  # event type
-    data: dict,  # event data, depends on the event type
+    "type": "Register",
+    "name": "John Doe",
+    "vekn": "12300001",
+    "player_uid": "24AAC87E-DE63-46DF-9784-AB06B2F37A24"
+}
+```
+
+#### OpenCheckin
+
+Check a player in, signaling they are present and ready to play the next round.
+You should perform the check-in just before the round starts to limit the number of players
+who do not show up to their table.
+
+```json
+{
+    "type": "OpenCheckin"
+}
+```
+
+#### AppointJudge
+
+Judges have permission to send all events, simple players are limited.
+The UID must match a VEKN member UID.
+
+```json
+{
+    "type": "AppointJudge",
+    "judge_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
+}
+```
+
+#### AppointJudge
+
+Remove a judge.
+
+```json
+{
+    "type": "RemoveJudge",
+    "judge_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
+}
+```
+
+#### CheckIn
+
+Mark a player as ready to play. Players can self-check-in. 
+
+```json
+{
+    "type": "CheckIn",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
+}
+```
+
+#### RoundStart
+
+Start the next round. The provided seating must list players UID forming the tables.
+Each UID must match a VEKN member UID.
+
+```json
+{
+    "type": "RoundStart",
+    "seating": [
+        ["238CD960-7E54-4A38-A676-8288A5700FC8",
+        "796CD3CE-BC2B-4505-B448-1C2D42E9F140",
+        "80E9FD37-AD8C-40AA-A42D-138065530F10",
+        "586616DC-3FEA-4DAF-A222-1E77A2CBD809",
+        "8F28E4C2-1953-473E-A1C5-C281957072D1"
+        ],[
+        "BD570AA9-B70C-43CA-AD05-3B4C7DADC28C",
+        "AB6F75B3-ED60-45CA-BDFF-1BF8DD5F02C4",
+        "1CB1E9A7-576B-4065-8A9C-F7920AAF977D",
+        "8907BE41-91A7-4395-AF91-54D94C489A36"
+        ]
+    ]
+}
+```
+
+
+#### RoundAlter
+
+Change a round's seating. Note recorded VPs, if any, stay assigned to the player even if they move.
+
+```json
+{
+    "type": "RoundAlter",
+    "round": 1,
+    "seating": [
+        ["238CD960-7E54-4A38-A676-8288A5700FC8",
+        "796CD3CE-BC2B-4505-B448-1C2D42E9F140",
+        "80E9FD37-AD8C-40AA-A42D-138065530F10",
+        "586616DC-3FEA-4DAF-A222-1E77A2CBD809",
+        "8F28E4C2-1953-473E-A1C5-C281957072D1"
+        ],[
+        "BD570AA9-B70C-43CA-AD05-3B4C7DADC28C",
+        "AB6F75B3-ED60-45CA-BDFF-1BF8DD5F02C4",
+        "1CB1E9A7-576B-4065-8A9C-F7920AAF977D",
+        "8907BE41-91A7-4395-AF91-54D94C489A36"
+        ]
+    ]
+}
+```
+
+#### RoundFinish
+
+Finish the current round.
+
+```json
+{
+    "type": "RoundFinish"
+}
+```
+
+#### SetResult
+
+Set a player's result. Players can set their and their table result for the current round.
+Only VPs are provided, the GW and TP computations are done by the engine.
+
+```json
+{
+    "type": "SetResult",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
+    "round": 1,
+    "vps": 2.5
+}
+```
+
+#### Drop
+
+Drop a player from the tournament. A player can drop by themselves.
+A Judge can drop a player if they note they have juse left.
+To **disqualify** a player, use the [Sanction](#sanction) event.
+
+```json
+{
+    "type": "Drop",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
+}
+```
+
+#### Sanction
+
+Sanction (punish) a player.
+The sanction levels are: `CAUTION`, `WARNING` and `DISQUALIFICATION`.
+Cautions are just informative. Warnings are recorded (accessible to organizers, even in future events).
+Disqualifications are recorded and remove the player from the tournament.
+
+Sanction also have an optional category, one of:
+
+- `DECK_PROBLEM`
+- `PROCEDURAL_ERRORS`
+- `CARD_DRAWING`
+- `MARKED_CARDS`
+- `SLOW_PLAY`
+- `UNSPORTSMANLIKE_CONDUCT`
+- `CHEATING`
+
+```json
+{
+    "type": "Sanction",
+    "level": "WARNING",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
+    "comment": "Free comment",
+    "category": "PROCEDURAL_ERRORS"
+}
+```
+    
+#### Unsanction
+
+Remove all sanctions of given level for a player.
+
+```json
+{
+    "type": "Unsanction",
+    "level": "WARNING",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
+}
+```
+
+#### Override
+Judges can validated an odd table score.
+For example, if they disqualify a player but do not award VPs to their predator,
+the final table score will not appear valid until it's overriden.
+
+Rounds and tables are counted starting from 1.
+
+```json
+{
+    "type": "Override",
+    "round": 1,
+    "table": 1,
+    "comment": "Free form comment"
+}
+```
+
+#### SeedFinals
+
+A finals is "seeded" first before players elect their seat in seed order.
+
+```json
+{
+    "type": "SeedFinals",
+    "seeds": ["238CD960-7E54-4A38-A676-8288A5700FC8",
+        "796CD3CE-BC2B-4505-B448-1C2D42E9F140",
+        "80E9FD37-AD8C-40AA-A42D-138065530F10",
+        "586616DC-3FEA-4DAF-A222-1E77A2CBD809",
+        "8F28E4C2-1953-473E-A1C5-C281957072D1"
+    ]
+}
+```
+        
+#### SeatFinals
+
+Note what seating position finalists have elected.
+
+```json
+{
+    "type": "SeatFinals",
+    "seating": ["238CD960-7E54-4A38-A676-8288A5700FC8",
+        "796CD3CE-BC2B-4505-B448-1C2D42E9F140",
+        "80E9FD37-AD8C-40AA-A42D-138065530F10",
+        "586616DC-3FEA-4DAF-A222-1E77A2CBD809",
+        "8F28E4C2-1953-473E-A1C5-C281957072D1"
+    ]
+}
+```
+
+#### Finish
+
+Finish the tournament. This closes up the tournament. The winner, if finals results have been recorded,
+is automatically computed.
+
+```json
+{
+    "type": "Finish",
 }
 ```

@@ -152,20 +152,38 @@ class TournamentManager(models.Tournament):
                     break
             if player_seat is not None:
                 break
-        if player_seat:
-            player.score -= player_seat.result
-            player_seat.result = ev.score
-            player.score += ev.score
-        else:
+        if not player_seat:
             raise ValueError(f"player {ev.player_uid} not in round {ev.round}")
-        self._compute_table_score(player_table)
+        player.result -= player_seat.result
+        player_seat.result = ev.result
+        player.result += ev.result
 
-    def _compute_table_score(self, table: models.Table):
+        self._compute_table_score(player_table)
+        self._compute_table_state(player_table)
+
+    def _compute_table_score(self, table: models.Table, finals=False):
         for s in table.seating:
             self.players[s.player_uid].result -= s.result
-        scoring.compute_table_scores([s.result for s in table.seating])
+        max_vps = scoring.compute_table_scores([s.result for s in table.seating])
+        if finals:
+            # winning the finals counts as a GW even with less than 2 VPs
+            # cf. VEKN Ratings system
+            top_seats = [s for s in table.seating if s.result.vp >= max_vps]
+            top_seats.sort(key=lambda s: self.finals_seeds.index(s.player_uid))
+            top_seats[0].result.gw = 1
+            self.winner = top_seats[0].player_uid
         for s in table.seating:
             self.players[s.player_uid].result += s.result
+
+    def _compute_table_state(self, table: models.Table):
+        if table.override:
+            table.state = models.TableState.FINISHED
+            return
+        err = scoring.check_table_vps([s.result for s in table.seating])
+        if isinstance(err, scoring.InsufficientTotal):
+            table.state = models.TableState.IN_PROGRESS
+        else:
+            table.state = models.TableState.INVALID
 
     def drop(self, ev: events.Drop) -> None:
         self.players[ev.player_uid].state = models.PlayerState.FINISHED
@@ -197,13 +215,18 @@ class TournamentManager(models.Tournament):
             self.players[ev.player_uid].barriers.remove(models.Barrier.DISQUALIFIED)
 
     def override(self, ev: events.Override) -> None:
-        self.rounds[ev.round - 1].tables[ev.table - 1].override = models.ScoreOverride(
+        table = self.rounds[ev.round - 1].tables[ev.table - 1]
+        table.override = models.ScoreOverride(
             judge_uid=ev.judge_uid, comment=ev.comment
         )
+        self._compute_table_state(table)
 
     def seed_finals(self, ev: events.SeedFinals) -> None:
-        self.state = models.TournamentState.FINALS
         seeds = set(ev.seeds)
+        if seeds:
+            self.state = models.TournamentState.FINALS
+        else:
+            self.state = models.TournamentState.REGISTRATION
         for player in self.players.values():
             if player.uid not in seeds:
                 player.state = models.PlayerState.FINISHED
@@ -222,15 +245,9 @@ class TournamentManager(models.Tournament):
                 player.state = models.PlayerState.FINISHED
 
     def finish(self, ev: events.Finish) -> None:
-        high = (-1, 6)
-        for seat in self.rounds[-1].tables[0].seating:
-            vp, seed = seat.result.vp, self.finals_seeds.index(seat.player_uid) + 1
-            if vp > high[0] or (vp == high[0] and seed < high[1]):
-                self.winner = seat.player_uid
-                high = (vp, seed)
-        # winning the finals counts as a GW even with less than 2 VPs
-        # cf. VEKN Ratings system
-        self.players[self.winner].result.gw += 1
+        finals_table = self.rounds[-1].tables[0]
+        self._compute_table_score(finals_table, finals=True)
+        self._compute_table_state(finals_table)
         for player in self.players.values():
             player.state = models.PlayerState.FINISHED
 
@@ -262,7 +279,7 @@ class BadTableNumber(TournamentError): ...
 class CheckinBarrier(TournamentError): ...
 
 
-class InvalidScores(TournamentError): ...
+class InvalidTables(TournamentError): ...
 
 
 class NotJudge(TournamentError): ...
@@ -366,15 +383,11 @@ class TournamentOrchestrator(TournamentManager):
             models.TournamentState.WAITING,
         ]:
             raise NoRoundInProgress(ev)
-        errors = {}
-        for idx, table in enumerate(self.rounds[-1].tables, 1):
-            if table.override:
-                continue
-            err = scoring.check_table_vps([seat.result for seat in table.seating])
-            if err:
-                errors[idx] = err
-        if errors:
-            raise InvalidScores(ev, errors)
+        invalid_tables = [
+            t for t in self.rounds[-1].tables if t.state != models.TableState.FINISHED
+        ]
+        if invalid_tables:
+            raise InvalidTables(ev, invalid_tables)
         super().round_finish(ev)
 
     def _check_seating(self, ev, seating: list[list[str]]) -> None:
@@ -463,7 +476,8 @@ class TournamentOrchestrator(TournamentManager):
         for uid in ev.seeds:
             if uid not in self.players:
                 raise UnregisteredPlayer(ev, uid)
-        if len(ev.seeds) < 4 or len(ev.seeds) > 5:
+        # empty seeds is allowed, it means cancel finals and back to REGISTRATION
+        if 0 < len(ev.seeds) < 4 or len(ev.seeds) > 5:
             raise BadSeeding(ev)
         super().seed_finals(ev)
 
@@ -482,6 +496,14 @@ class TournamentOrchestrator(TournamentManager):
         if len(ev.seating) < 4 or len(ev.seating) > 5:
             raise BadSeating()
         super().seat_finals(ev)
+
+    def finish(self, ev: events.Finish) -> None:
+        if self.state == models.TournamentState.FINALS:
+            raise FinalsNotSeeded(ev)
+        final_table = self.rounds[-1].tables[0]
+        if final_table.state != models.TableState.FINISHED:
+            raise InvalidTables(ev, final_table)
+        super().finish(ev)
 
 
 def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:

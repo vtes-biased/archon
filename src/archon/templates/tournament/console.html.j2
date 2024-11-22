@@ -5,6 +5,25 @@
 {% endblock%}
 
 {% block content %}
+<div class="modal fade" id="scoreModal" tabindex="-1" aria-hidden="true" aria-labelledby="scoreModalLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="scoreModalLabel">Edit Score</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scoreForm">
+                    <input hidden type="text" name="player_uid" id="scoreFormPlayerUid">
+                    <input hidden type="number" name="round" id="scoreFormRound">
+                    <input class="form-control my-2" type="number" name="vp" min="0" max="5" step="0.5"
+                        id="scoreFormVP">
+                    <button type="submit" class="btn btn-primary my-2">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 <h1 class="mb-4">{{ tournament.name }}</h1>
 <div hidden="true" aria-hidden="true" id="tournamentData" data-tournament='{{ tournament | jsonable | tojson }}'></div>
 <div hidden="true" aria-hidden="true" id="membersData" data-members='{{ members | jsonable | tojson }}'></div>

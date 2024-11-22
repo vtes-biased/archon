@@ -13,7 +13,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="veknForm" action="{{ url_for('auth_claim_vekn') }}">
+                <form id="veknForm" action="{{ url_for('html_vekn_claim') }}">
                     <input class="form-control" id="veknId" type="text" name="vekn" placeholder="VEKN ID number">
                     <button type="submit" class="btn btn-primary my-2" id="claimVeknButton">
                         Claim
@@ -66,7 +66,7 @@
                 {% if member.vekn %}
                 <div class="d-flex align-items-center">
                     {{ member.vekn }}
-                    <form action="{{ url_for('auth_abandon_vekn') }}">
+                    <form action="{{ url_for('html_vekn_abandon') }}">
                         <button type="submit" class="btn btn-sm btn-warning ms-2" id="abandonVEKNButton">
                             Abandon VEKN
                         </button>

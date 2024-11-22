@@ -27,6 +27,10 @@ serve:
 	pm2 --name back start npm -- run back
 	pm2 logs
 
+serve-pdb:
+	pm2 --name front start npm -- run front
+	npm run back
+
 build: clean
 	parcel build --no-cache --no-scope-hoist
 	git tag "${NEXT_VERSION}"

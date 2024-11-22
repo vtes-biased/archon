@@ -43,6 +43,21 @@ export function debounce_async(func: Function, timeout = 300) {
     }
 }
 
+export async function fetchToken(): Promise<Token | undefined> {
+    // fetch the given url, handle errors and display them in the toaster
+    try {
+        const response = await fetch("/api/auth/token", { method: "get", credentials: "same-origin", cache: "no-cache" })
+        if (!response.ok) {
+            console.log("Failed to fetch user token", response)
+            return
+        }
+        return response.json()
+    }
+    catch (error) {
+        console.log(`Error fetching token`, error.message)
+    }
+}
+
 export async function load() {
     // activate tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
@@ -52,4 +67,9 @@ export async function load() {
     // init toast
     const toastElList = document.querySelectorAll('.toast')
     const toastList = [...toastElList].map(toastEl => new bootstrap.Toast(toastEl, { autohide: false }))
+}
+
+export interface Token {
+    access_token: string,
+    token_type: string,
 }

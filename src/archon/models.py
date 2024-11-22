@@ -23,6 +23,12 @@ class PlayerState(enum.StrEnum):
     FINISHED = "Finished"
 
 
+class TableState(enum.StrEnum):
+    FINISHED = "Finished"
+    IN_PROGRESS = "In Progress"
+    INVALID = "Invalid"
+
+
 class Barrier(enum.StrEnum):
     MISSING_DECK = "Missing Deck"
     BANNED = "Banned"
@@ -63,6 +69,7 @@ class ScoreOverride:
 @dataclasses.dataclass
 class Table:
     seating: list[TableSeat]
+    state: TableState = TableState.IN_PROGRESS
     override: ScoreOverride | None = None
 
 
@@ -98,13 +105,13 @@ class Sanction:
     judge_uid: str
     player_uid: str
     level: events.SanctionLevel
+    category: events.SanctionCategory
     comment: str
 
 
 @dataclasses.dataclass
 class Tournament:
     name: str
-    organizer: str  # Member.uid
     format: TournamentFormat
     start: datetime.datetime
     uid: str | None = None
@@ -120,10 +127,12 @@ class Tournament:
     multideck: bool = False
     finish: datetime.datetime | None = None
     description: str = ""
-    judges: list[str] = pydantic.Field(default_factory=list)
+    judges: list[str] = pydantic.Field(default_factory=list)  # [Member.uid]
     max_rounds: int = 0
     # active tournament console
-    current_round: int = 0
+    # # For now, rounds[-1] is always current.
+    # # This might come back to bite us for staggered tournament, but let's try to avoid it.
+    # current_round: int = 0
     limited: LimitedFormat | None = None
     state: TournamentState = TournamentState.REGISTRATION
     players: dict[str, Player] = pydantic.Field(default_factory=dict)
@@ -171,19 +180,9 @@ class City:
 
 
 @dataclasses.dataclass
-class DiscordAuth:
-    access_token: str
-    token_type: str  # "Bearer"
-    expires_in: int  # seconds
-    refresh_token: str
-    scope: str  # "identify email"
-
-
-@dataclasses.dataclass
 class DiscordUser:
     id: str  # the user's id (Discord snowflake)
     username: str  # the user's username, not unique across the platform
-    auth: DiscordAuth  # the user's tokens
     discriminator: str  # the user's Discord-tag
     global_name: str | None  # the user's display name, if it is set.
     email: str | None  # the user's email

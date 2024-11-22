@@ -134,7 +134,7 @@ function switch_online(ev: Event) {
     }
 }
 
-async function submit_tournament(ev: Event) {
+async function submit_tournament(ev: Event, token: base.Token) {
     // create or update tournament
     ev.preventDefault()
     const tournamentForm = ev.currentTarget as HTMLFormElement
@@ -152,7 +152,7 @@ async function submit_tournament(ev: Event) {
     }
     const res = await base.do_fetch(url, {
         method: method,
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${token.access_token}` },
         body: JSON.stringify(json_data)
     })
     if (!res) { return }
@@ -258,6 +258,9 @@ async function load() {
     }
     // select_country is an async function, wait for its completion
     selectCountry.addEventListener("change", (ev) => { select_country(ev).then() })
+    // fetch the user API token
+    console.log("going for token")
+    const token = await base.fetchToken()
     // setup callbacks for other form controls
     const switchOnline = document.getElementById("switchOnline") as HTMLInputElement
     switchOnline.addEventListener("change", switch_online)
@@ -270,7 +273,7 @@ async function load() {
     const switchMultideck = document.getElementById("switchMultideck") as HTMLInputElement
     switchMultideck.addEventListener("change", switch_multideck)
     const tournamentForm = document.getElementById("tournamentForm") as HTMLFormElement
-    tournamentForm.addEventListener("submit", submit_tournament)
+    tournamentForm.addEventListener("submit", ev => submit_tournament(ev, token))
     // fill tournament data if we have it (edit.html)
     const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
     if (tournamentData) {

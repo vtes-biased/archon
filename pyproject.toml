@@ -29,6 +29,7 @@ dependencies = [
     "krcg",
     "orjson",
     "psycopg[binary,pool]",
+    "pyjwt",
     "python-dotenv",
     "typer",
 ]

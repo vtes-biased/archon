@@ -47,7 +47,7 @@ TP = {
 }
 
 
-def compute_table_scores(scores: list[Score], finals_seeding: list = None):
+def compute_table_scores(scores: list[Score], finals_seeding: list = None) -> float:
     """Compute GW and TPs on a table based on provided VPs.
     Check the VPs first with check_table_vps()
     """
@@ -61,21 +61,22 @@ def compute_table_scores(scores: list[Score], finals_seeding: list = None):
         # for less than 4, remove the lowest scores, so it stays relevant
         tps = tps[4 - len(scores) :]
     assert len(tps) == len(scores)
-    scores = list(enumerate(scores))
-    scores_by_vps = sorted(scores, key=lambda x: x[1].vp)
+    scores_by_vps = sorted(scores, key=lambda x: x.vp)
     # iter over scores in rising order, group by vp count
-    for vp, results in itertools.groupby(scores_by_vps, lambda a: a[1].vp):
+    for vp, results in itertools.groupby(scores_by_vps, lambda x: x.vp):
         # multiple players can have the same vp count: they shares TPs
         # for the positions they cover
+        results = list(results)
         tp = sum(tps.pop(0) for _ in range(len(results))) // len(results)
         # only highest score over 2 (last group = highest vp,
-        if vp > 2 and len(results) == 1 and len(tps) == 0:
+        if vp >= 2 and len(results) == 1 and len(tps) == 0:
             gw = 1
         else:
             gw = 0
         for r in results:
             r.gw = gw
             r.tp = tp
+    return vp
 
 
 class ScoringError(ValueError): ...
@@ -84,7 +85,10 @@ class ScoringError(ValueError): ...
 class InvalidTableSize(ScoringError): ...
 
 
-class WrongTotal(ScoringError): ...
+class InsufficientTotal(ScoringError): ...
+
+
+class ExcessiveTotal(ScoringError): ...
 
 
 class MissingVP(ScoringError): ...
@@ -99,9 +103,12 @@ def check_table_vps(scores: list[Score]) -> ScoringError | None:
     if len(scores) < 4 or len(scores) > 5:
         return InvalidTableSize()
     # checking the total is easy, just ceil the half points and total is table size
-    if sum(math.ceil(s.vp) for s in scores) != len(scores):
-        return WrongTotal()
-    vps = [(i, s.vp) for i, s in enumerate(scores)]
+    total = sum(math.ceil(s.vp) for s in scores)
+    if total < len(scores):
+        return InsufficientTotal()
+    if total > len(scores):
+        return ExcessiveTotal()
+    vps = [[i, s.vp] for i, s in enumerate(scores)]
     # go through all ousts successively: we begin anywhere on the table
     # and search for a zero (which means an oust, otherwise it would be 0.5)
     while len(vps) > 1:
@@ -116,14 +123,14 @@ def check_table_vps(scores: list[Score]) -> ScoringError | None:
                 # that would mean we were in a [0.5, <=0] situation previous loop:
                 # a half-point score followed by an oust, missing a point
                 if vp_count % 1:
-                    return MissingVP(f"missing VP at index {idx}")
-                vps[(j - 1) % len(vps)] += vp_count - 1
+                    return MissingVP(f"missing VP for seat {idx + 1}")
+                vps[(j - 1) % len(vps)][1] += vp_count - 1
                 vps.pop(j)
                 break
         # if we did not break, all remaining scores are positive, they should all be 0.5
         else:
-            missing_halves = [idx for idx, x in vps if x != 0.5]
+            missing_halves = [idx + 1 for idx, x in vps if x != 0.5]
             if missing_halves:
-                return MissingHalfVP(f"Missing half a VP at indexes {missing_halves}")
+                return MissingHalfVP(f"Missing half a VP for seat {missing_halves}")
         # only one left, one point left for last player standing
         # no need to check, it follows from previous checks

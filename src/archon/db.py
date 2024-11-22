@@ -62,7 +62,6 @@ async def init():
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS tournaments("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
-                "organizer UUID REFERENCES members(uid), "
                 "data jsonb)"
             )
 
@@ -100,9 +99,8 @@ class Operator:
         tournament.uid = str(uid)
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "INSERT INTO tournaments (uid, organizer, data) "
-                "VALUES (%s, %s, %s) RETURNING uid",
-                [uid, tournament.organizer, jsonize(tournament)],
+                "INSERT INTO tournaments (uid, data) " "VALUES (%s, %s) RETURNING uid",
+                [uid, jsonize(tournament)],
             )
             return (await res.fetchone())[0]
 
@@ -122,8 +120,10 @@ class Operator:
             res = await cursor.execute(
                 "SELECT data FROM tournaments WHERE uid=%s", [uuid.UUID(uid)]
             )
-            data = (await res.fetchone())[0]
-            return cls(**data)
+            data = await res.fetchone()
+            if not data:
+                return None
+            return cls(**(data[0]))
 
     async def update_tournament(self, tournament: models.Tournament) -> uuid.UUID:
         """Update a tournament, returns its uid"""
@@ -224,7 +224,7 @@ class Operator:
                 )
             return member
 
-    async def claim_vekn(self, uid: str, vekn: str) -> str | None:
+    async def claim_vekn(self, uid: str, vekn: str) -> models.Member | None:
         """Claim an existing vekn ID: returns a **new uid** for the member."""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
@@ -235,11 +235,11 @@ class Operator:
             if not data:
                 return None
             old_vekn = data[0]
+            member = models.Member(**data[1])
             if old_vekn == vekn:
                 #  no change
                 logger.warning("%s claiming %s but already has it", uid, vekn)
-                return uid
-            member = models.Member(**data[1])
+                return member
 
             res = await cursor.execute(
                 "SELECT data FROM members WHERE vekn=%s FOR UPDATE", [vekn]
@@ -279,9 +279,9 @@ class Operator:
                 "UPDATE members SET data=%s WHERE vekn=%s",
                 [jsonize(vekn_member), vekn],
             )
-            return vekn_member.uid
+            return vekn_member
 
-    async def abandon_vekn(self, uid: str) -> str | None:
+    async def abandon_vekn(self, uid: str) -> models.Member | None:
         """Abandon vekn ID: returns a **new uid** for the member."""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
@@ -293,10 +293,10 @@ class Operator:
                 logger.warning("User not found: %s", uid)
                 return None
             vekn = data[0]
+            member = models.Member(**data[1])
             if not vekn:
                 logger.warning("No vekn for %s, nothing to do", uid)
-                return uid
-            member = models.Member(**data[1])
+                return member
             new_member = models.Member(
                 uid=str(uuid.uuid4()), vekn="", name=member.name, discord=member.discord
             )
@@ -323,7 +323,7 @@ class Operator:
             else:
                 logger.warning("No discord detected! %s", member)
                 return None
-            return new_member.uid
+            return new_member
 
 
 @contextlib.asynccontextmanager

@@ -160,6 +160,7 @@ function display_tournament(tournament: Tournament) {
         navTabContent.append(roundTab)
         const roundButton = document.createElement("button")
         roundButton.classList.add("nav-link")
+        roundButton.id = `navRound${i}Tab`
         roundButton.type = "button"
         roundButton.role = "tab"
         roundButton.ariaSelected = "false"
@@ -172,10 +173,10 @@ function display_tournament(tournament: Tournament) {
         for (const table of round_.tables) {
             if (j % 2 === 0) {
                 div = document.createElement("div")
-                div.classList.add("row", "g-3", "my-2")
+                div.classList.add("row", "g-3", "my-4")
                 roundTab.append(div)
             }
-            display_table(div, table, `Table ${j + 1}`)
+            display_table(div, table, i, j + 1)
             j++
         }
     }
@@ -189,13 +190,47 @@ function display_tournament(tournament: Tournament) {
     })
 }
 
-function display_table(el: HTMLElement, data: Table, label: string) {
+function display_table(el: HTMLElement, data: Table, round: number, table_number: number) {
+    console.log("display table")
     const div = document.createElement("div")
     div.classList.add("col-md-6")
     el.append(div)
+    const title_div = document.createElement("div")
+    title_div.classList.add("d-inline-flex", "flex-row", "mb-2", "align-items-center")
+    div.append(title_div)
     const title = document.createElement("h2")
-    title.innerText = label
-    div.append(title)
+    title.classList.add("m-0")
+    title.innerText = `Table ${table_number}`
+    title_div.append(title)
+    const badge = document.createElement("span")
+    badge.classList.add("badge", "mx-2")
+    badge.innerText = data.state
+    switch (data.state) {
+        case TableState.FINISHED:
+            badge.classList.add("text-bg-success")
+            break
+        case TableState.INVALID:
+            badge.classList.add("text-bg-danger")
+            break
+        case TableState.IN_PROGRESS:
+            badge.classList.add("text-bg-secondary")
+            break
+    }
+    title_div.append(badge)
+    if (data.state != TableState.FINISHED) {
+        const overrideButton = document.createElement("button")
+        overrideButton.classList.add("btn", "btn-warning")
+        overrideButton.innerText = "Override"
+        overrideButton.addEventListener("click", ev => override_table(ev, round, table_number).then())
+        title_div.append(overrideButton)
+    }
+    if (data.override) {
+        const override_badge = document.createElement("span")
+        override_badge.classList.add("badge", "mx-2", "text-bg-info")
+        override_badge.innerText = "Overriden"
+        title_div.append(override_badge)
+        // TODO: add comment as tooltip?
+    }
     const table = document.createElement("table")
     table.classList.add("table")
     div.append(table)
@@ -215,6 +250,9 @@ function display_table(el: HTMLElement, data: Table, label: string) {
     headScore.scope = "col"
     headScore.innerText = "Score"
     tr.append(headScore)
+    const headActions = document.createElement("th")
+    headActions.scope = "col"
+    tr.append(headActions)
     const body = document.createElement("tbody")
     table.append(body)
 
@@ -232,7 +270,41 @@ function display_table(el: HTMLElement, data: Table, label: string) {
         const score = document.createElement("td")
         score.innerText = display_score(seat.result)
         row.append(score)
+        const actions = document.createElement("td")
+        row.append(actions)
+        const changeButton = document.createElement("button")
+        changeButton.classList.add("btn", "btn-sm", "btn-primary")
+        changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
+        changeButton.addEventListener("click", ev => show_score_modale(ev, player, round, seat.result.vp))
+        actions.append(changeButton)
     }
+}
+
+function show_score_modale(ev: Event, player: Player, round: number, vp: number) {
+    console.log("show_score_modale")
+    const scoreModal = bootstrap.Modal.getInstance("#scoreModal")
+    const scoreModalLabel = document.getElementById("scoreModalLabel") as HTMLHeadingElement
+    const scoreFormPlayerUid = document.getElementById("scoreFormPlayerUid") as HTMLInputElement
+    const scoreFormRound = document.getElementById("scoreFormRound") as HTMLInputElement
+    const scoreFormVP = document.getElementById("scoreFormVP") as HTMLInputElement
+    scoreModalLabel.innerText = `${player.name} result: round ${round}`
+    scoreFormPlayerUid.value = player.uid
+    scoreFormRound.value = round.toString()
+    scoreFormVP.value = vp.toString()
+    scoreModal.show()
+}
+
+async function override_table(ev: Event, round: number, table_number: number) {
+    console.log("override_table")
+    const event: events.Override = {
+        type: events.EventType.OVERRIDE,
+        uid: uuid.v4(),
+        round: round,
+        table: table_number,
+        judge_uid: "",  // TODO: yeah we need proper auth
+        comment: "",  // TODO: we'll need another modal I guess
+    }
+    await handle_tournament_event(event)
 }
 
 function display_score(score: Score) {
@@ -248,9 +320,9 @@ function display_score(score: Score) {
 }
 
 async function register_player(ev: Event) {
-    console.log("register player")
+    console.log("register_player")
     ev.preventDefault()
-    const registerPlayerForm = ev.currentTarget as HTMLFormElement
+    const registerPlayerForm = ev.target as HTMLFormElement
     const data = new FormData(registerPlayerForm)
     const event: events.Register = {
         type: events.EventType.REGISTER,
@@ -359,6 +431,34 @@ async function start_round() {
     await handle_tournament_event(event)
 }
 
+async function set_result(ev: SubmitEvent) {
+    ev.preventDefault()
+    console.log("set_result", ev)
+    const scoreModal = bootstrap.Modal.getInstance("#scoreModal")
+    const scoreForm = ev.target as HTMLFormElement
+    const data = new FormData(scoreForm)
+    const round = parseInt(data.get("round").toString())
+    const event: events.SetResult = {
+        type: events.EventType.SET_RESULT,
+        uid: uuid.v4(),
+        player_uid: data.get("player_uid").toString(),
+        round: round,
+        result: { vp: parseFloat(data.get("vp").toString()), gw: 0, tp: 0 },
+        judge_uid: ""  // TODO: set the correct UID here
+    }
+    await handle_tournament_event(event)
+    const triggerEl = document.getElementById(`navRound${round}Tab`)
+    if (triggerEl) {
+        bootstrap.Tab.getInstance(triggerEl).show()
+    }
+    else {
+        const navRegistrationsTab = document.getElementById("navRegistrationsTab")
+        bootstrap.Tab.getInstance(navRegistrationsTab).show()
+    }
+    console.log("hide modale")
+    scoreModal.hide()
+}
+
 async function handle_tournament_event(ev: events.TournamentEvent) {
     console.log("handle event", ev)
     // TODO: implement offline mode
@@ -381,8 +481,17 @@ function setupRegisterPlayer() {
     memberVeknId.addEventListener("input", select_member_by_vekn)
     memberName.addEventListener("input", base.debounce(complete_member_name))
     const registerPlayerForm = document.getElementById("registerPlayerForm") as HTMLFormElement
-    registerPlayerForm.addEventListener("submit", (ev) => register_player(ev).then())
+    registerPlayerForm.addEventListener("submit", ev => register_player(ev).then())
 }
+
+function setupSubmitScore() {
+    console.log("setupSubmitScore")
+    new bootstrap.Modal("#scoreModal")
+    const scoreForm = document.getElementById("scoreForm") as HTMLFormElement
+    scoreForm.addEventListener("submit", ev => set_result(ev).then())
+}
+
+
 
 function load() {
     console.log("load")
@@ -412,6 +521,7 @@ function load() {
         }
     }
     setupRegisterPlayer()
+    setupSubmitScore()
     display_tournament(tournament)
 }
 
@@ -432,6 +542,12 @@ enum PlayerState {
     CHECKED_IN = "Checked-in",
     PLAYING = "Playing",
     FINISHED = "Finished",
+}
+
+enum TableState {
+    FINISHED = "Finished",
+    IN_PROGRESS = "In Progress",
+    INVALID = "Invalid",
 }
 
 enum Barrier {
@@ -472,6 +588,7 @@ interface ScoreOverride {
 
 interface Table {
     seating: TableSeat[],
+    state: TableState,
     override: ScoreOverride | undefined,
 }
 
@@ -517,7 +634,6 @@ interface Sanction {
 
 interface Tournament {
     name: string,
-    organizer: string,
     format: TournamentFormat,
     start: string,
     uid: string | undefined,
@@ -535,7 +651,7 @@ interface Tournament {
     description?: string,
     judges?: string[],
     // active tournament console
-    current_round: number,
+    // current_round: number,
     limited: LimitedFormat | undefined,
     state: TournamentState,
     players: Record<string, Player>,
