@@ -5,6 +5,7 @@ import dotenv
 import logging
 import os
 import typer
+import typing
 
 from . import db
 from . import models
@@ -19,8 +20,13 @@ app = typer.Typer()
 
 
 @app.command()
-def reset_db():
-    db.reset()
+def reset_db(
+    confirm: typing.Annotated[bool, typer.Option(prompt=True)],
+    keep_members: typing.Annotated[bool, typer.Option(prompt=True)],
+):
+    """⚠️  Reset the database ⚠️  Removes all data"""
+    if confirm:
+        db.reset(keep_members)
 
 
 async def async_list() -> list[models.Tournament]:
@@ -34,6 +40,7 @@ async def async_list() -> list[models.Tournament]:
 
 @app.command()
 def list():
+    """List tournaments"""
     asyncio.run(async_list())
 
 
@@ -93,7 +100,21 @@ async def get_members() -> None:
 
 @app.command()
 def sync_members():
+    """Update members from the vekn.net website"""
     asyncio.run(get_members())
+
+
+async def db_purge() -> int:
+    async with db.POOL:
+        async with db.operator() as op:
+            return await op.purge_tournament_events()
+
+
+@app.command()
+def purge():
+    """Purge deprecated historical data"""
+    count = asyncio.run(db_purge())
+    print(f"{count} record{'s' if count > 1 else ''} deleted")
 
 
 if __name__ == "__main__":

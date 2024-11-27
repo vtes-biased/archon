@@ -26,7 +26,6 @@
 </div>
 <h1 class="mb-4">{{ tournament.name }}</h1>
 <div hidden="true" aria-hidden="true" id="tournamentData" data-tournament='{{ tournament | jsonable | tojson }}'></div>
-<div hidden="true" aria-hidden="true" id="membersData" data-members='{{ members | jsonable | tojson }}'></div>
 <nav>
     <div class="nav nav-tabs" id="navTab" role="tablist">
         <button class="nav-link active" id="navRegistrationsTab" data-bs-toggle="tab" data-bs-target="#navRegistrations"
@@ -37,25 +36,6 @@
 </nav>
 <div class="tab-content" id="navTabContent">
     <div class="tab-pane fade show active" id="navRegistrations" role="tabpanel" aria-labelledby="navRegistrationsTab">
-        <form id="registerPlayerForm" action="{{ url_for('auth_claim_vekn') }}">
-            <div class="row g-3">
-                <div class="col-2 d-flex align-items-center">
-                    <input class="form-control" id="memberVeknId" type="text" name="memberVeknId"
-                        placeholder="VEKN ID number" autocomplete="off" aria-autocomplete="none" spellcheck="false">
-                </div>
-                <div class="col-4 d-flex align-items-center dropdown">
-                    <input class="form-control dropdown-toggle" id="memberName" type="text" name="memberName"
-                        placeholder="Name" autocomplete="off" aria-autocomplete="none" spellcheck="false">
-                    <ul class="dropdown-menu" id="memberCompletionDropdown">
-                    </ul>
-                </div>
-                <input hidden id="memberUid" type="text" name="uid">
-                <div class="col-2 d-flex align-items-center">
-                    <button type="submit" class="btn btn-primary my-2" id="registerPlayerButton" value="Register Player"
-                        disabled>Register Player</button>
-                </div>
-            </div>
-        </form>
         <div class="row g-3" id="actionRow">
         </div>
         <table class="table my-4">

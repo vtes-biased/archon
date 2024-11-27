@@ -20,16 +20,16 @@
     <header role="banner">
         <nav id="navigation" class="navbar bg-dark navbar-expand-sm mb-3" data-bs-theme="dark">
             <div class="container-fluid">
-                <a class="navbar-brand" href="{{ url_for('html_index') }}">
+                <a class="navbar-brand" href="{{ url_for('index') }}">
                     <img src="{{ url_for('img', path='black-chantry-icon.webp') }}" alt="BCP logo" width="48px">
                 </a>
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('html_tournament_list') }}">Tournaments</a>
+                        <a class="nav-link" href="{{ url_for('tournament_list') }}">Tournaments</a>
                     </li>
                 </ul>
                 {% if member %}
-                <a type="button" class="btn btn-secondary ms-2" href="{{ url_for('html_profile') }}">
+                <a type="button" class="btn btn-secondary ms-2" href="{{ url_for('profile') }}">
                     <i class="bi bi-person-fill"></i> Profile
                 </a>
                 {% else %}

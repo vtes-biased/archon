@@ -4,86 +4,10 @@ import * as bootstrap from 'bootstrap'
 import unidecode from 'unidecode'
 import * as uuid from 'uuid'
 
-const members_by_vekn = new Map() as Map<string, Member>
-const members_by_uid = new Map() as Map<string, Member>
-const members_trie = new Map() as Map<string, Array<Member>>
+
 var tournament: Tournament | undefined = undefined
 
-function select_member_by_vekn(ev: Event) {
-    const memberVeknId = ev.currentTarget as HTMLInputElement
-    const memberName = document.getElementById("memberName") as HTMLInputElement
-    const memberUid = document.getElementById("memberUid") as HTMLInputElement
-    const registerPlayerButton = document.getElementById("registerPlayerButton") as HTMLInputElement
-    if (members_by_vekn.has(memberVeknId.value)) {
-        memberName.value = members_by_vekn.get(memberVeknId.value).name
-        memberUid.value = members_by_vekn.get(memberVeknId.value).uid
-        registerPlayerButton.disabled = false
-    }
-    else {
-        memberName.value = ""
-        memberUid.value = ""
-        registerPlayerButton.disabled = true
-    }
-}
-
-function select_member_name(ev: Event) {
-    const button = ev.currentTarget as HTMLButtonElement
-    const memberVeknId = document.getElementById("memberVeknId") as HTMLInputElement
-    const memberName = document.getElementById("memberName") as HTMLInputElement
-    const memberUid = document.getElementById("memberUid") as HTMLInputElement
-    const registerPlayerButton = document.getElementById("registerPlayerButton") as HTMLInputElement
-    if (members_by_uid.has(button.dataset.memberUid)) {
-        const member = members_by_uid.get(button.dataset.memberUid)
-        memberVeknId.value = member.vekn
-        memberName.value = member.name
-        memberUid.value = member.uid
-        registerPlayerButton.disabled = false
-    }
-    else {
-        memberVeknId.value = ""
-        memberName.value = ""
-        memberUid.value = ""
-        registerPlayerButton.disabled = true
-    }
-    const ddown = new bootstrap.Dropdown(memberName)
-    ddown.hide()
-}
-
-function complete_member_name(ev: Event) {
-    const memberName = ev.target as HTMLInputElement
-    if (memberName.value.length < 3) { return }
-    var members_list: Member[] | undefined = undefined
-    for (const part of memberName.value.split(" ")) {
-        if (members_trie.has(part)) {
-            const members = members_trie.get(part)
-            if (members_list) {
-                members_list = members_list.filter(m => members.includes(m))
-            } else {
-                members_list = members
-            }
-        }
-    }
-    members_list = members_list.slice(0, 10)
-    const memberCompletionDropdown = document.getElementById("memberCompletionDropdown") as HTMLUListElement
-    while (memberCompletionDropdown.lastElementChild) {
-        memberCompletionDropdown.removeChild(memberCompletionDropdown.lastElementChild)
-    }
-    for (const member of members_list) {
-        const li = document.createElement("li")
-        memberCompletionDropdown.append(li)
-        const button = document.createElement("button")
-        button.classList.add("dropdown-item")
-        button.type = "button"
-        button.innerText = member.name
-        button.dataset.memberUid = member.uid
-        button.addEventListener("click", select_member_name)
-        li.append(button)
-    }
-    const ddown = new bootstrap.Dropdown(memberName)
-    ddown.show()
-}
-
-function display_tournament(tournament: Tournament) {
+function display_tournament(token: base.Token, tournament: Tournament) {
     const playersTableBody = document.getElementById("playersTableBody") as HTMLTableSectionElement
     while (playersTableBody.lastElementChild) {
         playersTableBody.removeChild(playersTableBody.lastElementChild)
@@ -109,14 +33,14 @@ function display_tournament(tournament: Tournament) {
                 const button = document.createElement("button")
                 button.classList.add("btn", "btn-success")
                 button.innerText = "Check In"
-                button.addEventListener("click", (ev) => { check_in(player.uid).then() })
+                button.addEventListener("click", (ev) => { check_in(token, player.uid).then() })
                 actions.append(button)
             }
             else if (player.state == PlayerState.CHECKED_IN) {
                 const button = document.createElement("button")
                 button.classList.add("btn", "btn-warning")
                 button.innerText = "Drop"
-                button.addEventListener("click", (ev) => { drop(player.uid).then() })
+                button.addEventListener("click", (ev) => { drop(token, player.uid).then() })
                 actions.append(button)
             }
         }
@@ -129,14 +53,14 @@ function display_tournament(tournament: Tournament) {
         const button = document.createElement("button")
         button.classList.add("col-2", "btn", "btn-success")
         button.innerText = "Open Check-In"
-        button.addEventListener("click", (ev) => { open_checkin().then() })
+        button.addEventListener("click", (ev) => { open_checkin(token).then() })
         actionRow.append(button)
     }
     if (tournament.state == TournamentState.WAITING) {
         const button = document.createElement("button")
         button.classList.add("col-2", "btn", "btn-success")
         button.innerText = `Seat Round ${tournament.rounds.length + 1}`
-        button.addEventListener("click", (ev) => { start_round().then() })
+        button.addEventListener("click", (ev) => { start_round(token).then() })
         actionRow.append(button)
     }
     const navTabContent = document.getElementById("navTabContent") as HTMLDivElement
@@ -176,7 +100,7 @@ function display_tournament(tournament: Tournament) {
                 div.classList.add("row", "g-3", "my-4")
                 roundTab.append(div)
             }
-            display_table(div, table, i, j + 1)
+            display_table(token, div, table, i, j + 1)
             j++
         }
     }
@@ -190,7 +114,7 @@ function display_tournament(tournament: Tournament) {
     })
 }
 
-function display_table(el: HTMLElement, data: Table, round: number, table_number: number) {
+function display_table(token: base.Token, el: HTMLElement, data: Table, round: number, table_number: number) {
     console.log("display table")
     const div = document.createElement("div")
     div.classList.add("col-md-6")
@@ -221,7 +145,7 @@ function display_table(el: HTMLElement, data: Table, round: number, table_number
         const overrideButton = document.createElement("button")
         overrideButton.classList.add("btn", "btn-warning")
         overrideButton.innerText = "Override"
-        overrideButton.addEventListener("click", ev => override_table(ev, round, table_number).then())
+        overrideButton.addEventListener("click", ev => override_table(ev, token, round, table_number).then())
         title_div.append(overrideButton)
     }
     if (data.override) {
@@ -294,7 +218,7 @@ function show_score_modale(ev: Event, player: Player, round: number, vp: number)
     scoreModal.show()
 }
 
-async function override_table(ev: Event, round: number, table_number: number) {
+async function override_table(ev: Event, token: base.Token, round: number, table_number: number) {
     console.log("override_table")
     const event: events.Override = {
         type: events.EventType.OVERRIDE,
@@ -304,7 +228,7 @@ async function override_table(ev: Event, round: number, table_number: number) {
         judge_uid: "",  // TODO: yeah we need proper auth
         comment: "",  // TODO: we'll need another modal I guess
     }
-    await handle_tournament_event(event)
+    await handle_tournament_event(token, event)
 }
 
 function display_score(score: Score) {
@@ -319,57 +243,49 @@ function display_score(score: Score) {
     }
 }
 
-async function register_player(ev: Event) {
+async function register_player(ev: Event, token: base.Token, lookup: MemberLookup) {
     console.log("register_player")
     ev.preventDefault()
     const registerPlayerForm = ev.target as HTMLFormElement
-    const data = new FormData(registerPlayerForm)
     const event: events.Register = {
         type: events.EventType.REGISTER,
         uid: uuid.v4(),
-        name: data.get("memberName").toString(),
-        vekn: data.get("memberVeknId").toString(),
-        player_uid: data.get("uid").toString(),
+        name: lookup.member.name,
+        vekn: lookup.member.vekn,
+        player_uid: lookup.member.uid,
 
     }
-    await handle_tournament_event(event)
-    const memberVeknId = registerPlayerForm.querySelector("#memberVeknId") as HTMLInputElement
-    const memberName = registerPlayerForm.querySelector("#memberName") as HTMLInputElement
-    const memberUid = registerPlayerForm.querySelector("#memberUid") as HTMLInputElement
-    const registerPlayerButton = registerPlayerForm.querySelector("#registerPlayerButton") as HTMLButtonElement
-    memberVeknId.value = ""
-    memberName.value = ""
-    memberUid.value = ""
-    registerPlayerButton.disabled = true
+    await handle_tournament_event(token, event)
+    lookup.reset()
 }
 
-async function open_checkin() {
+async function open_checkin(token: base.Token) {
     console.log("open_checkin")
     const event: events.OpenCheckin = {
         type: events.EventType.OPEN_CHECKIN,
         uid: uuid.v4(),
     }
-    await handle_tournament_event(event)
+    await handle_tournament_event(token, event)
 }
 
-async function check_in(player_uid: string) {
+async function check_in(token: base.Token, player_uid: string) {
     console.log("check_in", player_uid)
     const event: events.CheckIn = {
         type: events.EventType.CHECK_IN,
         uid: uuid.v4(),
         player_uid: player_uid,
     }
-    await handle_tournament_event(event)
+    await handle_tournament_event(token, event)
 }
 
-async function drop(player_uid: string) {
+async function drop(token: base.Token, player_uid: string) {
     console.log("drop", player_uid)
     const event: events.Drop = {
         type: events.EventType.DROP,
         uid: uuid.v4(),
         player_uid: player_uid,
     }
-    await handle_tournament_event(event)
+    await handle_tournament_event(token, event)
 }
 
 function shuffle_array(array: Array<any>) {
@@ -411,7 +327,7 @@ function default_seating() {
     return res
 }
 
-async function start_round() {
+async function start_round(token: base.Token) {
     // TODO: handle seating optimisation
     // const next_round = seat_round()
     // const seating: string[][] = []
@@ -428,10 +344,10 @@ async function start_round() {
         uid: uuid.v4(),
         seating: default_seating()
     }
-    await handle_tournament_event(event)
+    await handle_tournament_event(token, event)
 }
 
-async function set_result(ev: SubmitEvent) {
+async function set_result(ev: SubmitEvent, token: base.Token) {
     ev.preventDefault()
     console.log("set_result", ev)
     const scoreModal = bootstrap.Modal.getInstance("#scoreModal")
@@ -446,7 +362,7 @@ async function set_result(ev: SubmitEvent) {
         result: { vp: parseFloat(data.get("vp").toString()), gw: 0, tp: 0 },
         judge_uid: ""  // TODO: set the correct UID here
     }
-    await handle_tournament_event(event)
+    await handle_tournament_event(token, event)
     const triggerEl = document.getElementById(`navRound${round}Tab`)
     if (triggerEl) {
         bootstrap.Tab.getInstance(triggerEl).show()
@@ -459,12 +375,12 @@ async function set_result(ev: SubmitEvent) {
     scoreModal.hide()
 }
 
-async function handle_tournament_event(ev: events.TournamentEvent) {
+async function handle_tournament_event(token: base.Token, ev: events.TournamentEvent) {
     console.log("handle event", ev)
     // TODO: implement offline mode
-    const res = await base.do_fetch(`/api/tournament/${tournament.uid}/event`, {
+    const res = await base.do_fetch(`/api/tournaments/${tournament.uid}/event`, {
         method: "post",
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${token.access_token}` },
         body: JSON.stringify(ev)
     })
     if (!res) { return }
@@ -472,60 +388,252 @@ async function handle_tournament_event(ev: events.TournamentEvent) {
     console.log(response)
     // window.localStorage.setItem("tournament", JSON.stringify(response))
     tournament = response
-    display_tournament(tournament)
+    display_tournament(token, tournament)
 }
 
-function setupRegisterPlayer() {
-    const memberVeknId = document.getElementById("memberVeknId") as HTMLInputElement
-    const memberName = document.getElementById("memberName") as HTMLInputElement
-    memberVeknId.addEventListener("input", select_member_by_vekn)
-    memberName.addEventListener("input", base.debounce(complete_member_name))
-    const registerPlayerForm = document.getElementById("registerPlayerForm") as HTMLFormElement
-    registerPlayerForm.addEventListener("submit", ev => register_player(ev).then())
-}
-
-function setupSubmitScore() {
+function setupSubmitScore(token: base.Token) {
     console.log("setupSubmitScore")
     new bootstrap.Modal("#scoreModal")
     const scoreForm = document.getElementById("scoreForm") as HTMLFormElement
-    scoreForm.addEventListener("submit", ev => set_result(ev).then())
+    scoreForm.addEventListener("submit", ev => set_result(ev, token).then())
 }
 
+function normalize_string(s: string) {
+    var res = unidecode(s).toLowerCase()
+    // remove non-letters non-numbers
+    res.replace(/[^\p{L}\p{N}\s]/gu, "")
+    // remove spurious spaces
+    res.replace(/\s{2,}/g, " ");
+    return res
+}
 
+class MemberMap {
+    members_by_vekn: Map<string, Member>
+    members_by_uid: Map<string, Member>
+    members_trie: Map<string, Array<Member>>
+    constructor() {
+        this.members_by_vekn = new Map()
+        this.members_by_uid = new Map()
+        this.members_trie = new Map()
+    }
 
-function load() {
-    console.log("load")
-    const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
-    tournament = JSON.parse(tournamentData.dataset.tournament) as Tournament
-    const membersData = document.getElementById("membersData") as HTMLDivElement
-    const members = JSON.parse(membersData.dataset.members) as Member[]
-    // window.localStorage.setItem("members", JSON.stringify(members))
-    // fill our maps: members_by_vekn and members_trie
-    for (const member of members) {
-        members_by_vekn.set(member.vekn, member)
-        members_by_uid.set(member.uid, member)
-        var name = unidecode(member.name).toLowerCase()
-        // remove non-letters non-numbers
-        name = name.replace(/[^\p{L}\p{N}\s]/gu, "")
-        // remove spurious spaces
-        name = name.replace(/\s{2,}/g, " ");
-        const parts = name.split(" ")
-        for (const part of parts) {
-            for (var i = 1; i < part.length + 1; i++) {
-                const piece = part.slice(0, i)
-                if (!members_trie.has(piece)) {
-                    members_trie.set(piece, [])
+    async init(token: base.Token) {
+        const res = await base.do_fetch("/api/vekn/members", {
+            method: "get",
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${token.access_token}` },
+        })
+        const members = await res.json() as Member[]
+        for (const member of members) {
+            this.members_by_vekn.set(member.vekn, member)
+            this.members_by_uid.set(member.uid, member)
+            const parts = normalize_string(member.name).split(" ")
+            for (const part of parts) {
+                for (var i = 1; i < part.length + 1; i++) {
+                    const piece = part.slice(0, i)
+                    if (!this.members_trie.has(piece)) {
+                        this.members_trie.set(piece, [])
+                    }
+                    this.members_trie.get(piece).push(member)
                 }
-                members_trie.get(piece).push(member)
             }
         }
     }
-    setupRegisterPlayer()
-    setupSubmitScore()
-    display_tournament(tournament)
+
+    complete_name(s: string): Member[] {
+        var members_list: Member[] | undefined = undefined
+        for (const part of normalize_string(s).toLowerCase().split(" ")) {
+            const members = this.members_trie.get(part)
+            if (members) {
+                if (members_list) {
+                    members_list = members_list.filter(m => members.includes(m))
+                } else {
+                    members_list = members
+                }
+            }
+        }
+        return members_list ? members_list : []
+    }
 }
 
-window.addEventListener("load", (ev) => { base.load().then() })
+class MemberLookup {
+    root: HTMLElement
+    form: HTMLFormElement
+    input_vekn_id: HTMLInputElement
+    dropdown_div: HTMLDivElement
+    input_name: HTMLInputElement
+    dropdown_menu: HTMLUListElement
+    button: HTMLButtonElement
+    dropdown: bootstrap.Dropdown
+    members_map: MemberMap
+    member: Member | undefined
+    focus: HTMLLIElement | undefined
+    constructor(members_map: MemberMap, root: HTMLElement, label: string) {
+        this.members_map = members_map
+        this.root = root
+        this.form = base.create_append(this.root, "form")
+        const top_div = base.create_append(this.form, "div", ["row", "g-3"])
+        const vekn_div = base.create_append(top_div, "div", ["col-2", "d-flex", "align-items-center"])
+        this.input_vekn_id = base.create_append(vekn_div, "input", ["form-control"],
+            { type: "text", placeholder: "VEKN ID number", autocomplete: "off", "aria-autocomplete": "off" }
+        )
+        this.input_vekn_id.spellcheck = false
+
+        this.dropdown_div = base.create_append(top_div, "div", ["col-4", "d-flex", "align-items-center", "dropdown"])
+        this.input_name = base.create_append(this.dropdown_div, "input", ["form-control", "dropdown-toggle"],
+            { type: "text", placeholder: "Name", autocomplete: "off", "aria-autocomplete": "off" }
+        )
+        this.input_name.spellcheck = false
+        this.dropdown_menu = base.create_append(this.dropdown_div, "ul", ["dropdown-menu"])
+        const button_div = base.create_append(top_div, "div", ["col-2", "d-flex", "align-items-center"])
+        this.button = base.create_append(button_div, "button", ["btn", "btn-primary", "my-2"], { type: "submit" })
+        this.button.innerText = label
+        this.button.disabled = true
+        this.dropdown = new bootstrap.Dropdown(this.input_name)
+        this.dropdown.hide()
+        this.input_vekn_id.addEventListener("input", (ev) => this.select_member_by_vekn())
+        this.input_name.addEventListener("input", base.debounce((ev) => this.complete_member_name()))
+        this.dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev));
+    }
+
+    reset_focus(new_focus: HTMLLIElement | undefined = undefined) {
+        if (this.focus) {
+            this.focus.firstElementChild.classList.remove("active")
+        }
+        this.focus = new_focus
+        if (this.focus) {
+            this.focus.firstElementChild.classList.add("active")
+        }
+    }
+
+    reset() {
+        this.member = undefined
+        this.input_vekn_id.value = ""
+        this.input_name.value = ""
+        this.button.disabled = true
+        this.reset_focus()
+    }
+
+    select_member_by_vekn() {
+        this.member = this.members_map.members_by_vekn.get(this.input_vekn_id.value)
+        if (this.member) {
+            this.input_name.value = this.member.name
+            this.button.disabled = false
+        }
+        else {
+            this.input_name.value = ""
+            this.button.disabled = true
+        }
+    }
+
+    select_member_name(ev: Event) {
+        const button = ev.currentTarget as HTMLButtonElement
+        this.member = this.members_map.members_by_uid.get(button.dataset.memberUid)
+        if (this.member) {
+            this.input_vekn_id.value = this.member.vekn
+            this.input_name.value = this.member.name
+            this.button.disabled = false
+        }
+        else {
+            this.input_vekn_id.value = ""
+            this.input_name.value = ""
+            this.button.disabled = true
+        }
+        this.reset_focus()
+        this.dropdown.hide()
+    }
+
+    complete_member_name() {
+        while (this.dropdown_menu.lastElementChild) {
+            this.dropdown_menu.removeChild(this.dropdown_menu.lastElementChild)
+        }
+        this.reset_focus()
+        this.input_vekn_id.value = ""
+        this.button.disabled = true
+        if (this.input_name.value.length < 3) {
+            this.dropdown.hide()
+            return
+        }
+        const members_list = this.members_map.complete_name(this.input_name.value)
+        if (!members_list) {
+            this.dropdown.hide()
+            return
+        }
+        for (const member of members_list.slice(0, 10)) {
+            const li = base.create_append(this.dropdown_menu, "li")
+            const button = base.create_append(li, "button", ["dropdown-item"], { type: "button", "data-member-uid": member.uid })
+            button.innerText = `${member.name} (${member.city}, ${member.country})`
+            button.addEventListener("click", (ev) => this.select_member_name(ev))
+        }
+        this.dropdown.show()
+    }
+
+    keydown(ev: KeyboardEvent) {
+        var next_focus: HTMLLIElement | undefined = undefined
+        switch (ev.key) {
+            case "ArrowDown": {
+                if (this.focus) {
+                    next_focus = this.focus.nextElementSibling as HTMLLIElement
+                } else {
+                    next_focus = this.dropdown_menu.firstElementChild as HTMLLIElement
+                }
+                if (next_focus === null) {
+                    next_focus = this.focus
+                }
+                break
+            }
+            case "ArrowUp": {
+                if (this.focus) {
+                    next_focus = this.focus.previousElementSibling as HTMLLIElement
+                } else {
+                    next_focus = this.dropdown_menu.lastElementChild as HTMLLIElement
+                }
+                if (next_focus === null) {
+                    next_focus = this.focus
+                }
+                break
+            }
+            case "Escape": {
+                break
+            }
+            case "Enter": {
+                if (this.focus) {
+                    this.focus.firstElementChild.dispatchEvent(new Event("click"))
+                } else {
+                    return
+                }
+                break
+            }
+            default: return
+        }
+        ev.stopPropagation()
+        ev.preventDefault()
+        if (next_focus === this.focus) { return }
+        if (this.focus) {
+            this.focus.firstElementChild.classList.remove("active")
+        }
+        this.focus = next_focus
+        if (this.focus) {
+            this.focus.firstElementChild.classList.add("active")
+        }
+    }
+}
+
+
+async function load() {
+    console.log("load")
+    const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
+    tournament = JSON.parse(tournamentData.dataset.tournament) as Tournament
+    const token = await base.fetchToken()
+    const members_map = new MemberMap()
+    await members_map.init(token)
+    const navRegistrations = document.getElementById("navRegistrations") as HTMLDivElement
+    const registration_lookup = new MemberLookup(members_map, navRegistrations, "Register")
+    registration_lookup.form.addEventListener("submit", ev => register_player(ev, token, registration_lookup))
+    setupSubmitScore(token)
+    display_tournament(token, tournament)
+}
+
+window.addEventListener("load", (ev) => { base.load() })
 window.addEventListener("load", (ev) => { load() })
 
 // -------------------------------------------------------------------------- Interfaces

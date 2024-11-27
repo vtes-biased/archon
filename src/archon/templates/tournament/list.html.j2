@@ -17,7 +17,7 @@
         <tbody>
             {% for tournament in tournaments %}
             <tr>
-                <th scope="row"><a href="{{ url_for('html_tournament_display', uid=tournament.uid) }}">{{
+                <th scope="row"><a href="{{ url_for('tournament_display', uid=tournament.uid) }}">{{
                         tournament.name }}</a></th>
                 {% if tournament.finish %}
                 <td>{{ tournament.start }} - {{ tournament.finish }}</td>
@@ -34,7 +34,7 @@
         </tbody>
     </table>
     {% if member %}
-    <a href="{{ url_for('html_tournament_create') }}" class="btn btn-primary">Create Tournament</a>
+    <a href="{{ url_for('tournament_create') }}" class="btn btn-primary">Create Tournament</a>
     {% endif %}
 </div>
 {% endblock %}

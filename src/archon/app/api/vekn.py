@@ -58,3 +58,10 @@ async def api_vekn_abandon(
         )
     access_token = dependencies.create_access_token(new_member.uid)
     return dependencies.Token(access_token=access_token, token_type="Bearer")
+
+
+@router.get("/members")
+async def api_vekn_abandon(
+    member_uid: dependencies.MemberUidFromToken, op: dependencies.DbOperator
+) -> list[models.Member]:
+    return await op.get_members()

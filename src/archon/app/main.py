@@ -1,6 +1,7 @@
 import contextlib
 import dotenv
 import fastapi
+import fastapi.staticfiles
 import importlib.resources
 import os
 import starlette.middleware.sessions
@@ -61,6 +62,6 @@ with (
 
 
 # mount routers
-app.include_router(website)
-app.include_router(tournament)
-app.include_router(vekn)
+app.include_router(website.router)
+app.include_router(tournament.router)
+app.include_router(vekn.router)

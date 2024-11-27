@@ -3,13 +3,28 @@
 
 import * as bootstrap from 'bootstrap'
 
+export function create_append<K extends keyof HTMLElementTagNameMap>(el: HTMLElement, tag_name: K, classes: string[] = [], init: Object = {}) {
+    const ret = document.createElement(tag_name)
+    ret.classList.add(...classes)
+    for (const [attribute, value] of Object.entries(init)) {
+        ret.setAttribute(attribute, value)
+    }
+    el.append(ret)
+    return ret
+}
+
 export async function do_fetch(url: string, options: Object) {
     // fetch the given url, handle errors and display them in the toaster
     try {
         const response = await fetch(url, options)
         if (!response.ok) {
             console.log(response)
-            throw new Error(JSON.stringify((await response.json())["detail"]))
+            var message = await response.text()
+            try {
+                message = JSON.stringify(JSON.parse(message)["detail"])
+            }
+            catch (error) { }
+            throw new Error(message)
         }
         return response
     }
@@ -46,7 +61,7 @@ export function debounce_async(func: Function, timeout = 300) {
 export async function fetchToken(): Promise<Token | undefined> {
     // fetch the given url, handle errors and display them in the toaster
     try {
-        const response = await fetch("/api/auth/token", { method: "get", credentials: "same-origin", cache: "no-cache" })
+        const response = await fetch("/auth/token", { method: "get", credentials: "same-origin", cache: "no-cache" })
         if (!response.ok) {
             console.log("Failed to fetch user token", response)
             return

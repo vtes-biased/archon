@@ -12,7 +12,7 @@ async function select_country(ev: Event) {
     if (selectCountry.selectedIndex < 1) {
         selectCity.disabled = true
     } else {
-        const res = await base.do_fetch(`/api/country/${selectCountry.value}/city`, {})
+        const res = await base.do_fetch(`/api/vekn/country/${selectCountry.value}/city`, {})
         const cities = await res.json() as City[]
         // find duplicate city names, add administrative divisions for distinction
         const names_count = {}
@@ -142,7 +142,7 @@ async function submit_tournament(ev: Event, token: base.Token) {
     const data = new FormData(tournamentForm)
     var json_data = Object.fromEntries(data.entries()) as unknown as Tournament
     if (json_data.finish.length < 1) { json_data.finish = undefined }
-    var url = "/api/tournament"
+    var url = "/api/tournaments"
     var method = "post"
     if (tournamentData) {
         // we are in edit mode
@@ -248,7 +248,7 @@ async function load() {
     // populate the country select inputs
     console.log("Populating countries...")
     const selectCountry = document.getElementById("selectCountry") as HTMLSelectElement
-    const res = await base.do_fetch("/api/country", {})
+    const res = await base.do_fetch("/api/vekn/country", {})
     const countries = await res.json() as Country[]
     for (const country of countries) {
         const option = document.createElement("option")

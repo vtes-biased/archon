@@ -38,7 +38,7 @@ async def html_auth_discord(
 ):
     if not logged_in:
         request.session["message"] = "Login failed"
-    next = request.session.get("next", request.url_for("html_index"))
+    next = request.session.get("next", str(request.url_for("index")))
     return fastapi.responses.RedirectResponse(next)
 
 
@@ -82,7 +82,7 @@ async def html_vekn_claim(
         )
     dependencies.authenticated_session(request, new_member)
     dependencies.LOG.warning("uid is now %s", new_member.uid)
-    return fastapi.responses.RedirectResponse(request.url_for("html_profile"))
+    return fastapi.responses.RedirectResponse(request.url_for("profile"))
 
 
 @router.get("/vekn/abandon", response_class=fastapi.responses.HTMLResponse)
@@ -99,12 +99,12 @@ async def html_vekn_abandon(
         )
     dependencies.authenticated_session(request, new_member)
     dependencies.LOG.warning("uid is now %s", new_member.uid)
-    return fastapi.responses.RedirectResponse(request.url_for("html_profile"))
+    return fastapi.responses.RedirectResponse(request.url_for("profile"))
 
 
 @router.get("/index.html")
 async def index(request: fastapi.Request, context: dependencies.SessionContext):
-    request.session["next"] = request.url_for("html_index")
+    request.session["next"] = str(request.url_for("index"))
     return TEMPLATES.TemplateResponse(
         request=request, name="index.html.j2", context=context
     )
@@ -112,7 +112,7 @@ async def index(request: fastapi.Request, context: dependencies.SessionContext):
 
 @router.get("/profile.html")
 async def profile(request: fastapi.Request, context: dependencies.SessionContext):
-    request.session["next"] = request.url_for("profile")
+    request.session["next"] = str(request.url_for("profile"))
     return TEMPLATES.TemplateResponse(
         request=request, name="profile.html.j2", context=context
     )
@@ -135,7 +135,7 @@ async def tournament_list(
     context: dependencies.SessionContext,
     op: dependencies.DbOperator,
 ):
-    request.session["next"] = request.url_for("tournament_list")
+    request.session["next"] = str(request.url_for("tournament_list"))
     tournaments = await op.get_tournaments()
     tournaments.sort(key=lambda x: x.start)
     context["tournaments"] = tournaments
@@ -152,7 +152,9 @@ async def tournament_display(
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
 ):
-    request.session["next"] = request.url_for("tournament_display")
+    request.session["next"] = str(
+        request.url_for("tournament_display", uid=tournament.uid)
+    )
     context["tournament"] = tournament
     return TEMPLATES.TemplateResponse(
         request=request,

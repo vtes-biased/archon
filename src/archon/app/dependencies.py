@@ -110,22 +110,23 @@ DbOperator = typing.Annotated[db.Operator, fastapi.Depends(get_db_op)]
 async def get_tournament(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
-):
+) -> models.Tournament:
     return await op.get_tournament(uid)
 
 
 async def get_tournament_orchestrator(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
-):
+) -> engine.TournamentOrchestrator:
     ret = await op.get_tournament(uid, engine.TournamentOrchestrator)
     if not ret:
         raise fastapi.HTTPException(fastapi.status.HTTP_404_NOT_FOUND)
+    return ret
 
 
 Tournament = typing.Annotated[models.Tournament, fastapi.Depends(get_tournament)]
 TournamentOrchestrator = typing.Annotated[
-    models.Tournament, fastapi.Depends(get_tournament_orchestrator)
+    engine.TournamentOrchestrator, fastapi.Depends(get_tournament_orchestrator)
 ]
 
 
@@ -161,7 +162,7 @@ async def get_session_context(
         member = await op.get_member(uid)
         if member:
             return {"member": member}
-    anonymous_session()
+    anonymous_session(request)
     return {
         "discord_oauth": DISCORD_AUTH_URL(state=hash_state(request.session["state"]))
     }
@@ -216,7 +217,7 @@ async def discord_login(
     request: fastapi.Request,
     code: typing.Annotated[str, fastapi.Query()],
     state: typing.Annotated[str, fastapi.Query()],
-    op: db.Operator,
+    op: DbOperator,
 ) -> bool:
     """Login using Discord OAuth autorization code"""
     if state != hash_state(request.session["state"]):
@@ -246,7 +247,7 @@ async def discord_login(
     if user:
         async with db.operator() as op:
             member = await op.upsert_member_discord(user)
-            authenticated_session(member)
+            authenticated_session(request, member)
             return True
     # reset state on login failure
     request.session["state"] = str(uuid.uuid4)
@@ -284,11 +285,10 @@ def get_member_uid_from_token(
             raise credentials_exception
     except jwt.exceptions.InvalidTokenError:
         raise credentials_exception
+    return user_id
 
 
-MemberUidFromToken = typing.Annotated[
-    models.Member, fastapi.Depends(get_member_uid_from_token)
-]
+MemberUidFromToken = typing.Annotated[str, fastapi.Depends(get_member_uid_from_token)]
 
 
 async def get_member_from_token(

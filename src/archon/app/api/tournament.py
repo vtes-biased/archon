@@ -1,11 +1,12 @@
 import fastapi
+import logging
 import typing
 
 from .. import dependencies
 from ... import events
 from ... import models
 
-
+LOG = logging.getLogger()
 router = fastapi.APIRouter(
     prefix="/api/tournaments",
     default_response_class=fastapi.responses.ORJSONResponse,
@@ -32,7 +33,7 @@ async def api_tournaments_post(
     tournament.judges = [member_uid]
     uid = await op.create_tournament(tournament)
     return dependencies.TournamentUrl(
-        uid=uid, url=str(request.url_for("html_tournament_display", uid=uid))
+        uid=uid, url=str(request.url_for("tournament_display", uid=uid))
     )
 
 
@@ -52,10 +53,30 @@ async def api_tournament_put(
         raise fastapi.HTTPException(
             fastapi.status.HTTP_403_FORBIDDEN, detail="A judge is required"
         )
-    data.uid = tournament.uid
+    LOG.warning(data)
+    # partial update: do not update console-side data
+    for attr in [
+        "name",
+        "format",
+        "start",
+        "rank",
+        "country",
+        "city",
+        "venue",
+        "venue_url",
+        "address",
+        "map_url",
+        "online",
+        "proxies",
+        "multideck",
+        "finish",
+        "description",
+        "max_rounds",
+    ]:
+        setattr(tournament, attr, getattr(data, attr))
     uid = await op.update_tournament(tournament)
     return dependencies.TournamentUrl(
-        uid=uid, url=str(request.url_for("html_tournament_display", uid=uid))
+        uid=uid, url=str(request.url_for("tournament_display", uid=uid))
     )
 
 
@@ -84,6 +105,6 @@ async def api_tournament_event_post(
     - **uid**: The tournament unique ID
     """
     orchestrator.handle_event(event, member_uid)
-    await op.record_event(event, member_uid)
+    await op.record_event(orchestrator.uid, member_uid, event)
     await op.update_tournament(orchestrator)
     return orchestrator

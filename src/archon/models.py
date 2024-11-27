@@ -114,8 +114,9 @@ class Tournament:
     name: str
     format: TournamentFormat
     start: datetime.datetime
-    uid: str | None = None
-    rank: TournamentRank | None = None
+    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
+    judges: list[str] = pydantic.Field(default_factory=list)
+    rank: TournamentRank = TournamentRank.BASIC
     country: str | None = None
     city: str | None = None
     venue: str = ""
@@ -127,7 +128,6 @@ class Tournament:
     multideck: bool = False
     finish: datetime.datetime | None = None
     description: str = ""
-    judges: list[str] = pydantic.Field(default_factory=list)  # [Member.uid]
     max_rounds: int = 0
     # active tournament console
     # # For now, rounds[-1] is always current.

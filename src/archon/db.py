@@ -1,5 +1,6 @@
 import contextlib
 import dataclasses
+import datetime
 import logging
 import orjson
 import os
@@ -11,6 +12,7 @@ import psycopg_pool
 import typing
 import uuid
 
+from . import events
 from . import models
 
 logger = logging.getLogger()
@@ -64,6 +66,14 @@ async def init():
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
                 "data jsonb)"
             )
+            await cursor.execute(
+                "CREATE TABLE IF NOT EXISTS tournament_events("
+                "uid UUID PRIMARY KEY, "
+                "timestamp TIMESTAMP WITH TIME ZONE NOT NULL, "
+                "tournament_uid UUID REFERENCES tournaments(uid) ON DELETE CASCADE, "
+                "member_uid UUID REFERENCES members(uid) ON DELETE SET NULL, "
+                "data jsonb)"
+            )
 
 
 class IsDataclass(typing.Protocol):
@@ -75,13 +85,15 @@ def jsonize(datacls: IsDataclass):
     return psycopg.types.json.Json(dataclasses.asdict(datacls))
 
 
-def reset():
+def reset(keep_members: bool = True):
     """Only called as a specific special-case CLI command, so not async"""
     with psycopg.connect(CONNINFO) as conn:
         with conn.cursor() as cursor:
             logger.warning("Reset DB")
-            cursor.execute("DROP TABLE tournaments")
-            cursor.execute("DROP TABLE members")
+            cursor.execute("DROP TABLE IF EXISTS tournament_events")
+            cursor.execute("DROP TABLE IF EXISTS tournaments")
+            if not keep_members:
+                cursor.execute("DROP TABLE IF EXISTS members")
 
 
 T = typing.TypeVar("T", bound=models.Tournament)
@@ -93,7 +105,7 @@ class Operator:
     def __init__(self, conn: psycopg.AsyncConnection):
         self.conn = conn
 
-    async def create_tournament(self, tournament: models.Tournament) -> uuid.UUID:
+    async def create_tournament(self, tournament: models.Tournament) -> str:
         """Create a tournament, returns its uid"""
         uid = uuid.uuid4()
         tournament.uid = str(uid)
@@ -102,7 +114,7 @@ class Operator:
                 "INSERT INTO tournaments (uid, data) " "VALUES (%s, %s) RETURNING uid",
                 [uid, jsonize(tournament)],
             )
-            return (await res.fetchone())[0]
+            return str((await res.fetchone())[0])
 
     async def get_tournaments(self) -> list[models.Tournament]:
         """List all tournaments.
@@ -125,7 +137,7 @@ class Operator:
                 return None
             return cls(**(data[0]))
 
-    async def update_tournament(self, tournament: models.Tournament) -> uuid.UUID:
+    async def update_tournament(self, tournament: models.Tournament) -> str:
         """Update a tournament, returns its uid"""
         uid = uuid.UUID(tournament.uid)
         async with self.conn.cursor() as cursor:
@@ -135,7 +147,29 @@ class Operator:
             )
             if res.rowcount < 1:
                 raise KeyError(f"Tournament {uid} not found")
-            return uid
+            return str(uid)
+
+    async def record_event(
+        self, tournament_uid: str, member_uid: str, event: events.TournamentEvent
+    ) -> None:
+        tournament_uid = uuid.UUID(tournament_uid)
+        member_uid = uuid.UUID(member_uid)
+        timestamp = datetime.datetime.now(datetime.timezone.utc)
+        async with self.conn.cursor() as cursor:
+            await cursor.execute(
+                "INSERT INTO tournament_events VALUES (%s, %s, %s, %s, %s)",
+                [event.uid, timestamp, tournament_uid, member_uid, jsonize(event)],
+            )
+
+    async def purge_tournament_events(self) -> int:
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            days=366
+        )
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "DELETE FROM tournament_events WHERE timestamp < %s", [cutoff]
+            )
+            return res.rowcount
 
     async def insert_members(self, members: list[models.Member]) -> None:
         """Insert members from VEKN"""
