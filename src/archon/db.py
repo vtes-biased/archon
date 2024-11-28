@@ -1,6 +1,9 @@
+import base64
 import contextlib
 import dataclasses
 import datetime
+import dotenv
+import hmac
 import logging
 import orjson
 import os
@@ -9,6 +12,7 @@ import psycopg.rows
 import psycopg.sql
 import psycopg.types.json
 import psycopg_pool
+import secrets
 import typing
 import uuid
 
@@ -17,9 +21,12 @@ from . import models
 
 logger = logging.getLogger()
 
+dotenv.load_dotenv()
 DB_USER = os.getenv("DB_USER", "archon")
 DB_PWD = os.getenv("DB_PWD", "")
 CONNINFO = f"postgresql://{DB_USER}:{DB_PWD}@localhost/archondb"
+HASH_KEY = base64.b64decode(os.getenv("HASH_KEY", ""))
+
 psycopg.types.json.set_json_dumps(orjson.dumps)
 psycopg.types.json.set_json_loads(orjson.loads)
 
@@ -67,6 +74,12 @@ async def init():
                 "data jsonb)"
             )
             await cursor.execute(
+                "CREATE TABLE IF NOT EXISTS clients("
+                "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
+                "secret_hash BYTEA,"
+                "data jsonb)"
+            )
+            await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS tournament_events("
                 "uid UUID PRIMARY KEY, "
                 "timestamp TIMESTAMP WITH TIME ZONE NOT NULL, "
@@ -104,6 +117,47 @@ class Operator:
 
     def __init__(self, conn: psycopg.AsyncConnection):
         self.conn = conn
+
+    async def create_client(self, client: models.Client) -> str:
+        """Create a client, returns its uid"""
+        client.uid = client.uid or str(uuid.uuid4())
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "INSERT INTO clients (uid, data) " "VALUES (%s, %s) RETURNING uid",
+                [client.uid, jsonize(client)],
+            )
+            return str((await res.fetchone())[0])
+
+    async def reset_client_secret(self, client_uid: str) -> str:
+        """Reset a client secret, store its hash, return the secret."""
+        secret = secrets.token_urlsafe(32)
+        if not HASH_KEY:
+            raise RuntimeError("No HASH_KEY provided by the environment")
+        secret_hash = hmac.digest(
+            HASH_KEY, base64.urlsafe_b64decode(secret + "=="), "sha3_512"
+        )
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "UPDATE clients SET secret_hash=%s WHERE uid=%s",
+                [secret_hash, client_uid],
+            )
+            if res.rowcount < 1:
+                raise KeyError(f"Client {client_uid} not found")
+            return secret
+
+    async def check_client_secret(self, client_uid: str, secret: str) -> bool:
+        if not HASH_KEY:
+            raise RuntimeError("No HASH_KEY provided by the environment")
+        secret_hash = hmac.digest(
+            HASH_KEY, base64.urlsafe_b64decode(secret + "=="), "sha3_512"
+        )
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT secret_hash FROM clients WHERE uid=%s",
+                [client_uid],
+            )
+            stored_hash = (await res.fetchone())[0]
+        return hmac.compare_digest(secret_hash, stored_hash)
 
     async def create_tournament(self, tournament: models.Tournament) -> str:
         """Create a tournament, returns its uid"""

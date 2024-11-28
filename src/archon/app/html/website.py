@@ -1,11 +1,15 @@
 import fastapi
 import fastapi.encoders
+import fastapi.security
 import fastapi.templating
 import importlib.resources
+import logging
 import typing
 
 
 from .. import dependencies
+
+LOG = logging.getLogger()
 
 
 def jsonable(obj: typing.Any) -> typing.Any:
@@ -31,14 +35,48 @@ router = fastapi.APIRouter(
 )
 
 
+@router.get("/auth/oauth", summary="Get an authorization code with the user's approval")
+async def html_auth_oauth(
+    client_id: typing.Annotated[str, fastapi.Query()],
+    redirect_uri: typing.Annotated[str, fastapi.Query()],
+    state: typing.Annotated[str, fastapi.Query()],
+    member_uid: dependencies.MemberUidFromSession,
+):
+    # TODO: display a page asking for the user's authorization
+    next = fastapi.datastructures.URL(redirect_uri)
+    next = next.include_query_params(
+        state=state, code=dependencies.create_authorization_code(client_id, member_uid)
+    )
+    return fastapi.responses.RedirectResponse(next)
+
+
+@router.post(
+    "/auth/oauth/token",
+    summary="Use the authorization code to get a bearer token to use the API.",
+    response_class=fastapi.responses.ORJSONResponse,
+)
+async def html_auth_oauth_token(
+    grant_type: typing.Annotated[str, fastapi.Form()],
+    code: typing.Annotated[str, fastapi.Form()],
+    client_uid: dependencies.ClientLogin,
+):
+    if grant_type != "authorization_code":
+        raise fastapi.HTTPException(status_code=403)
+    member_uid = dependencies.check_authorization_code(client_uid, code)
+    access_token = dependencies.create_access_token(member_uid)
+    return dependencies.Token(access_token=access_token, token_type="Bearer")
+
+
 @router.get("/auth/discord")
 async def html_auth_discord(
     request: fastapi.Request,
     logged_in: dependencies.DiscordLogin,
 ):
-    if not logged_in:
+    if logged_in:
+        next = request.session.get("next", str(request.url_for("index")))
+    else:
         request.session["message"] = "Login failed"
-    next = request.session.get("next", str(request.url_for("index")))
+        next = str(request.url_for("login"))
     return fastapi.responses.RedirectResponse(next)
 
 
@@ -63,8 +101,8 @@ async def html_auth_token(
 
 @router.get("/auth/logout/")
 async def html_auth_logout(request: fastapi.Request):
-    dependencies.anonymous_session()
-    return fastapi.responses.RedirectResponse(request.url_for("html_index"))
+    dependencies.anonymous_session(request)
+    return fastapi.responses.RedirectResponse(request.url_for("index"))
 
 
 @router.get("/vekn/claim", response_class=fastapi.responses.HTMLResponse)
@@ -107,6 +145,19 @@ async def index(request: fastapi.Request, context: dependencies.SessionContext):
     request.session["next"] = str(request.url_for("index"))
     return TEMPLATES.TemplateResponse(
         request=request, name="index.html.j2", context=context
+    )
+
+
+@router.get("/login.html")
+async def login(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    next: typing.Annotated[str | None, fastapi.Query()] = None,
+):
+    if next:
+        request.session["next"] = next
+    return TEMPLATES.TemplateResponse(
+        request=request, name="login.html.j2", context=context
     )
 
 

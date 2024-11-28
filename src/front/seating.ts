@@ -349,7 +349,7 @@ function zero_issues(issues: string[][][]) {
     return !issues.some(x => x.length > 0)
 }
 
-function initial_seating(previous_rounds: string[][][], players: string[]): string[][] {
+export function initial_seating(previous_rounds: string[][][], players: string[]): string[][] {
     players = players.slice()
     if (previous_rounds.length <= 0) {
         shuffle_array(players)

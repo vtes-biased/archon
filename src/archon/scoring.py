@@ -1,7 +1,10 @@
 import itertools
+import logging
 import math
 import pydantic
 from pydantic import dataclasses
+
+LOG = logging.getLogger()
 
 
 @dataclasses.dataclass(order=True, eq=True)
@@ -112,6 +115,7 @@ def check_table_vps(scores: list[Score]) -> ScoringError | None:
     # go through all ousts successively: we begin anywhere on the table
     # and search for a zero (which means an oust, otherwise it would be 0.5)
     while len(vps) > 1:
+        LOG.debug("scores check pass: %s", vps)
         for j, (idx, vp_count) in enumerate(vps):
             # each oust (vp_count == 0), remove 1 vp from predator ("account" for it)
             # and remove the item from the vps list.
@@ -132,5 +136,6 @@ def check_table_vps(scores: list[Score]) -> ScoringError | None:
             missing_halves = [idx + 1 for idx, x in vps if x != 0.5]
             if missing_halves:
                 return MissingHalfVP(f"Missing half a VP for seat {missing_halves}")
+            break
         # only one left, one point left for last player standing
         # no need to check, it follows from previous checks

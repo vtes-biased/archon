@@ -135,6 +135,8 @@ class Tournament:
     # current_round: int = 0
     limited: LimitedFormat | None = None
     state: TournamentState = TournamentState.REGISTRATION
+    # note the doc is not great for this kind of dict, keys show as "additionalProp".
+    # Might be improved in a future version of redoc https://github.com/swagger-api/swagger-ui/pull/9739
     players: dict[str, Player] = pydantic.Field(default_factory=dict)
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[Round] = pydantic.Field(default_factory=list)
@@ -213,3 +215,9 @@ class Member:
     city: str | None = None  # city name
     uid: str | None = None  # UUID assigned by the backend
     discord: DiscordUser | None = None  # Discord data
+
+
+@dataclasses.dataclass
+class Client:
+    name: str
+    uid: str | None = None  # UUID assigned by the backend

@@ -132,16 +132,19 @@ TournamentOrchestrator = typing.Annotated[
 
 # ################################################################################## Doc
 def custom_openapi(app: fastapi.FastAPI):
-    if app.openapi_schema:
+    def get_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        app.openapi_schema = fastapi.openapi.utils.get_openapi(
+            title="Archon API",
+            version=importlib.metadata.version("vtes-archon"),
+            summary="VTES tournament management",
+            description="You can use this API to build tournament management tools",
+            routes=[r for r in app.routes if r.path.startswith("/api/")],
+        )
         return app.openapi_schema
-    app.openapi_schema = fastapi.openapi.utils.get_openapi(
-        title="Archon API",
-        version=importlib.metadata.version("vtes-archon"),
-        summary="VTES tournament management",
-        description="You can use this API to build tournament management tools",
-        routes=[r for r in app.routes if r.path.startswith("/api/")],
-    )
-    return app.openapi_schema
+
+    return get_openapi
 
 
 # #################################################################### Security: Session
@@ -186,9 +189,13 @@ SessionContext = typing.Annotated[
 ]
 
 
+class LoginRequired(Exception): ...
+
+
 def get_member_uid_from_session(request: fastapi.Request) -> str:
     if not request.session.get("user_id", None):
-        raise fastapi.HTTPException(status_code=401, detail="You need to be logged in")
+        anonymous_session(request)
+        raise LoginRequired()
     return request.session["user_id"]
 
 
@@ -198,11 +205,14 @@ MemberUidFromSession = typing.Annotated[
 ]
 
 
-async def get_member_from_session(member_uid: MemberUidFromSession, op: DbOperator):
+async def get_member_from_session(
+    request: fastapi.Request, member_uid: MemberUidFromSession, op: DbOperator
+):
     member = await op.get_member(member_uid)
+    # Valid user_id in session, but member not in DB
     if not member:
-        anonymous_session()
-        raise fastapi.HTTPException(status_code=401, detail="You need to be logged in")
+        anonymous_session(request)
+        raise LoginRequired()
     return member
 
 
@@ -257,11 +267,71 @@ async def discord_login(
 DiscordLogin = typing.Annotated[bool, fastapi.Depends(discord_login)]
 
 # ################################################################## Security: OAuth 2.0
-oauth2_scheme = fastapi.security.OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = fastapi.security.OAuth2AuthorizationCodeBearer(
+    authorizationUrl="/auth/oauth", tokenUrl="/auth/oauth/token"
+)
+
+
+# cache expected auth tokens in memory
+# TODO: remove the keys after an hour has passed
+EXPECTED_AUTH_TOKENS = set()
+
+
+def create_authorization_code(client_id, member_uid, redirect_uri) -> str:
+    """Use RFC 9608 -like self-encoded JWT auth codes
+    https://www.oauth.com/oauth2-servers/access-tokens/authorization-code-request/
+    https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
+    """
+    token_id = str(uuid.uuid4())
+    EXPECTED_AUTH_TOKENS.add(token_id)
+    expiry = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
+        hours=1
+    )
+    to_encode = {
+        "client_id": client_id,
+        "sub": member_uid,
+        "aud": redirect_uri,
+        "jti": token_id,
+        "exp": expiry,
+    }
+    return jwt.encode(to_encode, TOKEN_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def check_authorization_code(client_id, code, redirect_uri) -> str:
+    payload = jwt.decode(
+        code, TOKEN_SECRET, algorithms=[JWT_ALGORITHM], audience=redirect_uri
+    )
+    expected = EXPECTED_AUTH_TOKENS.pop(payload.get("jti"), None)
+    member_uid: str = payload.get("sub")
+    payload_client_id: str = payload.get("client_id")
+    if not expected or payload_client_id != client_id:
+        raise fastapi.HTTPException(status_code=403)
+    return member_uid
+
+
+html_basic = fastapi.security.HTTPBasic()
+
+
+async def client_login(
+    op: DbOperator,
+    basic: typing.Annotated[
+        fastapi.security.HTTPBasicCredentials | None, fastapi.Depends(html_basic)
+    ] = None,
+    client_id: typing.Annotated[str | None, fastapi.Form()] = None,
+    client_secret: typing.Annotated[str | None, fastapi.Form()] = None,
+):
+    if basic:
+        client_id, client_secret = basic.username, basic.password
+    if await op.check_client_secret(client_id, client_secret):
+        return client_id
+    raise fastapi.HTTPException(status_code=401)
+
+
+ClientLogin = typing.Annotated[str, fastapi.Depends(client_login)]
 
 
 def create_access_token(user_id: str):
-    to_encode = {"user": user_id}
+    to_encode = {"sub": user_id}
     expire = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
         days=7
     )
@@ -280,7 +350,7 @@ def get_member_uid_from_token(
     )
     try:
         payload = jwt.decode(token, TOKEN_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id: str = payload.get("user")
+        user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
     except jwt.exceptions.InvalidTokenError:

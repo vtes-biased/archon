@@ -1,6 +1,7 @@
 import contextlib
 import dotenv
 import fastapi
+import fastapi.responses
 import fastapi.staticfiles
 import importlib.resources
 import os
@@ -65,3 +66,14 @@ with (
 app.include_router(website.router)
 app.include_router(tournament.router)
 app.include_router(vekn.router)
+
+
+# login redirection
+@app.exception_handler(dependencies.LoginRequired)
+def auth_exception_handler(request: fastapi.Request, exc: dependencies.LoginRequired):
+    """
+    Redirect the user to the login page if not logged in
+    """
+    return fastapi.responses.RedirectResponse(
+        url=request.url_for("login").include_query_params(next=str(request.url))
+    )

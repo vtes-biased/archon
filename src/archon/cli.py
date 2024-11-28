@@ -117,5 +117,22 @@ def purge():
     print(f"{count} record{'s' if count > 1 else ''} deleted")
 
 
+async def async_add_client(name: str):
+    async with db.POOL:
+        async with db.operator() as op:
+            client_id = await op.create_client(models.Client(name))
+            client_secret = await op.reset_client_secret(client_id)
+            return client_id, client_secret
+
+
+@app.command()
+def add_client(name: typing.Annotated[str, typer.Option(prompt=True)]):
+    """Add an authorized client to the platform"""
+    client_id, client_secret = asyncio.run(async_add_client(name))
+    print("Store the secret safely: if lost, it cannot be retrieved.")
+    print(f'CLIENT_ID="{client_id}"')
+    print(f'CLIENT_SECRET="{client_secret}"')
+
+
 if __name__ == "__main__":
     app()

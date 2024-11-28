@@ -114,9 +114,7 @@ class TournamentManager(models.Tournament):
                 if self.max_rounds and player.rounds_played >= self.max_rounds:
                     player.barriers.append(models.Barrier.MAX_ROUNDS)
 
-    def _event_seating_to_round(
-        self, seating: list[list[str]], member_uid: str
-    ) -> models.Round:
+    def _event_seating_to_round(self, seating: list[list[str]]) -> models.Round:
         players = {
             uid: (i, j)
             for i, table in enumerate(seating, 1)
@@ -157,8 +155,8 @@ class TournamentManager(models.Tournament):
         if not player_seat:
             raise ValueError(f"player {ev.player_uid} not in round {ev.round}")
         player.result -= player_seat.result
-        player_seat.result = ev.result
-        player.result += ev.result
+        player_seat.result = scoring.Score(vp=ev.vps)
+        player.result += player_seat.result
 
         self._compute_table_score(player_table)
         self._compute_table_state(player_table)
@@ -184,8 +182,10 @@ class TournamentManager(models.Tournament):
         err = scoring.check_table_vps([s.result for s in table.seating])
         if isinstance(err, scoring.InsufficientTotal):
             table.state = models.TableState.IN_PROGRESS
-        else:
+        elif err:
             table.state = models.TableState.INVALID
+        else:
+            table.state = models.TableState.FINISHED
 
     def drop(self, ev: events.Drop, member_uid: str) -> None:
         self.players[ev.player_uid].state = models.PlayerState.FINISHED

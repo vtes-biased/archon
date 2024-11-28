@@ -85,8 +85,7 @@ export interface SetResult extends Event {
     type: EventType.SET_RESULT,
     player_uid: string
     round: number
-    result: Score
-    judge_uid: string
+    vps: number
 }
 
 export interface Drop extends Event {
@@ -97,7 +96,6 @@ export interface Drop extends Event {
 export interface Sanction extends Event {
     type: EventType.SANCTION,
     level: SanctionLevel,
-    judge_uid: string,
     player_uid: string,
     comment: string,
 }
@@ -105,7 +103,6 @@ export interface Sanction extends Event {
 export interface Unsanction extends Event {
     type: EventType.UNSANCTION,
     level: SanctionLevel,
-    judge_uid: string,
     player_uid: string,
     comment: string,
 }
@@ -114,7 +111,6 @@ export interface Override extends Event {
     type: EventType.OVERRIDE,
     round: number,
     table: number,
-    judge_uid: string,
     comment: string,
 }
 
