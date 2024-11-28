@@ -133,19 +133,27 @@ class Evaluator {
     }
 
     measure(round_: string[][], hints: number[] | undefined = undefined): number[][][] {
-        const measure = new Array(this.mapping.size).fill(new Array(this.mapping.size).fill(new Array(8).fill(0)))
+        // careful on the init, we need distinct arrays (no fill() with Array instances)
+        const measure = Array.from(
+            { length: this.mapping.size },
+            (e) => Array.from(
+                { length: this.mapping.size },
+                (e) => new Array(8).fill(0)
+            )
+        )
         for (const [idx_t, table] of round_.entries()) {
             if (hints && !hints.includes(idx_t)) {
                 continue
             }
             for (const [idx_p, player] of table.entries()) {
-                const index = this.mapping[player]
-                measure[index][index] = POSITIONS[table.length][idx_p].slice()
+                const index = this.mapping.get(player)
+                console.log("measure", table.length, idx_p)
+                measure[index][index] = POSITIONS.get(table.length)[idx_p].slice()
                 for (var idx_r = 1; idx_r < table.length; idx_r++) {
                     // We skip when opponent index > player index to do 1/2 less copies (symmetry)
-                    const opponent_index = this.mapping[table[(idx_p + idx_r) % table.length]]
+                    const opponent_index = this.mapping.get(table[(idx_p + idx_r) % table.length])
                     if (opponent_index > index) { continue }
-                    measure[index][opponent_index] = OPPONENTS[table.length][idx_r].slice()
+                    measure[index][opponent_index] = OPPONENTS.get(table.length)[idx_r].slice()
                 }
             }
         }
@@ -167,7 +175,7 @@ class Evaluator {
 
     issues(M: number[][][]): string[][][] {
         // returns the faulty indexes for each rule
-        const result = new Array(9).fill(new Array())
+        const result = Array.from({ length: 9 }, (e) => new Array())
         // compute some global values
         var mean_vps = 0  // average possible vp per round overall
         var mean_trs = 0  // average first-turn transfers per round overall
@@ -195,42 +203,42 @@ class Evaluator {
                     // more rounds played by a player, more opportunities to fix it
                     const rounds_played = relationship[IDX.ROUNDS_PLAYED]
                     if (Math.abs(mean_vps - relationship[IDX.VPS] / rounds_played) > 1 / rounds_played) {
-                        result[RULE.R3_AVAILABLE_VPS].push([this.reverse[i]])
+                        result[RULE.R3_AVAILABLE_VPS].push([this.reverse.get(i)])
                     }
                     if (Math.abs(mean_vps - relationship[IDX.TRS] / rounds_played) > 2 / rounds_played) {
-                        result[RULE.R8_STARTING_TRANSFERS].push([this.reverse[i]])
+                        result[RULE.R8_STARTING_TRANSFERS].push([this.reverse.get(i)])
                     }
                     if (relationship[IDX.SEAT_1] > 1) {
-                        result[RULE.R7_SAME_SEAT].push([this.reverse[i]])
+                        result[RULE.R7_SAME_SEAT].push([this.reverse.get(i)])
                     }
                     if (relationship[IDX.SEAT_2] > 1) {
-                        result[RULE.R7_SAME_SEAT].push([this.reverse[i]])
+                        result[RULE.R7_SAME_SEAT].push([this.reverse.get(i)])
                     }
                     if (relationship[IDX.SEAT_3] > 1) {
-                        result[RULE.R7_SAME_SEAT].push([this.reverse[i]])
+                        result[RULE.R7_SAME_SEAT].push([this.reverse.get(i)])
                     }
                     if (relationship[IDX.SEAT_4] > 1) {
-                        result[RULE.R7_SAME_SEAT].push([this.reverse[i]])
+                        result[RULE.R7_SAME_SEAT].push([this.reverse.get(i)])
                     }
                     if (relationship[IDX.SEAT_5] > 1) {
-                        result[RULE.R7_SAME_SEAT].push([this.reverse[i]])
-                        result[RULE.R5_FIFTH_SEAT].push([this.reverse[i]])
+                        result[RULE.R7_SAME_SEAT].push([this.reverse.get(i)])
+                        result[RULE.R5_FIFTH_SEAT].push([this.reverse.get(i)])
                     }
                 } else {
                     for (const [k, value] of relationship.entries()) {
                         if (value > 1) {
                             if (k == IDX.OPPONENT) {
-                                result[RULE.R4_OPPONENT_TWICE].push([this.reverse[i], this.reverse[j]])
+                                result[RULE.R4_OPPONENT_TWICE].push([this.reverse.get(i), this.reverse.get(j)])
                                 if (value >= rounds) {
-                                    result[RULE.R2_OPPONENT_ALWAYS].push([this.reverse[i], this.reverse[j]])
+                                    result[RULE.R2_OPPONENT_ALWAYS].push([this.reverse.get(i), this.reverse.get(j)])
                                 }
                             } else if (k <= IDX.PREDATOR) {
-                                result[RULE.R1_PREDATOR_PREY].push([this.reverse[i], this.reverse[j]])
-                                result[RULE.R6_SAME_POSITION].push([this.reverse[i], this.reverse[j]])
+                                result[RULE.R1_PREDATOR_PREY].push([this.reverse.get(i), this.reverse.get(j)])
+                                result[RULE.R6_SAME_POSITION].push([this.reverse.get(i), this.reverse.get(j)])
                             } else if (k <= IDX.CROSS_TABLE) {
-                                result[RULE.R6_SAME_POSITION].push([this.reverse[i], this.reverse[j]])
+                                result[RULE.R6_SAME_POSITION].push([this.reverse.get(i), this.reverse.get(j)])
                             } else {
-                                result[RULE.R9_SAME_POSITION_GROUP].push([this.reverse[i], this.reverse[j]])
+                                result[RULE.R9_SAME_POSITION_GROUP].push([this.reverse.get(i), this.reverse.get(j)])
                             }
                         }
                     }
@@ -367,7 +375,7 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
     const base_measure = E.measure_rounds(previous_rounds)
     shuffle_array(players)
     var best_seating = new Seating(default_seating(players))
-    var best_issues = E.issues(add3(base_measure, E.measure(seating.seating)))
+    var best_issues = E.issues(add3(base_measure, E.measure(best_seating.seating)))
     // keep it simple, guided monte-carlo
     // TODO: use online API when not offline for better seating? May not be necessary
     for (var it = 0; it < 1000; it++) {
@@ -407,14 +415,15 @@ class Seating {
         var x = 0
         for (const [i, table] of seating.entries()) {
             for (const [j, player] of table.entries()) {
-                this.player_index[player] = x
-                this.seat_index[x++] = [i, j]
+                this.player_index.set(player, x)
+                this.seat_index.set(x, [i, j])
+                x++
             }
         }
     }
 
     random_swap(player: string) {
-        const x = this.player_index[player]
+        const x = this.player_index.get(player)
         var y = x
         while (y == x) {
             y = Math.floor(Math.random() * this.seat_index.size)
@@ -424,18 +433,18 @@ class Seating {
 
     shuffle() {
         for (var i = this.seat_index.size - 1; i >= 0; i--) {
-            const x = this.seat_index[i]
-            const y = this.seat_index[Math.floor(Math.random() * (i + 1))]
-            this.swap(x, y)
+            const a = i
+            const b = Math.floor(Math.random() * (i + 1))
+            this.swap(a, b)
         }
     }
 
     swap(a: number, b: number) {
-        const [x, y] = [this.seat_index[a], this.seat_index[b]]
+        const [x, y] = [this.seat_index.get(a), this.seat_index.get(b)]
         const [player_a, player_b] = [this.seating[x[0]][x[1]], this.seating[y[0]][y[1]]]
         this.seating[x[0]][x[1]] = player_b
         this.seating[y[0]][y[1]] = player_a
-        this.player_index[player_a] = b
-        this.player_index[player_b] = a
+        this.player_index.set(player_a, b)
+        this.player_index.set(player_b, a)
     }
 }

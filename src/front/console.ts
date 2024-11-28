@@ -315,16 +315,19 @@ class Registration {
 
 class RoundTab {
     console: TournamentConsole
-    panel: HTMLDivElement
     index: number
-    constructor(console: TournamentConsole, index: number) {
-        this.console = console
+    panel: HTMLDivElement
+    action_row: HTMLDivElement
+    constructor(con: TournamentConsole, index: number) {
+        this.console = con
         this.index = index
         this.panel = this.console.add_nav(`Round ${this.index}`)
+        console.log("adding action row", this.panel)
     }
 
     display() {
         remove_children(this.panel)
+        this.action_row = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
         const round = this.console.tournament.rounds[this.index - 1]
         var j = 0
         var div = undefined
@@ -334,6 +337,17 @@ class RoundTab {
             }
             this.display_table(div, table, j + 1)
             j++
+        }
+        if (this.console.tournament.state == TournamentState.PLAYING
+            && this.index == this.console.tournament.rounds.length
+            && round.tables.every(t => t.state == TableState.FINISHED)
+        ) {
+            console.log("adding button", this.action_row)
+            const button = base.create_append(this.action_row, "button", ["col-2", "btn", "btn-success"])
+            button.innerText = "Finish round"
+            button.addEventListener("click", (ev) => { this.console.finish_round() })
+        } else {
+            console.log("some tables are not finished")
         }
     }
 
@@ -604,6 +618,13 @@ class TournamentConsole {
             player_uid: player_uid,
             round: round_number,
             vps: vps,
+        }
+        await this.handle_tournament_event(event)
+    }
+    async finish_round() {
+        const event: events.RoundFinish = {
+            type: events.EventType.ROUND_FINISH,
+            uid: uuid.v4(),
         }
         await this.handle_tournament_event(event)
     }
