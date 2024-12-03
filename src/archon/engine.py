@@ -1,11 +1,14 @@
 import collections
 import itertools
 import krcg.seating
+import logging
 import random
 
 from . import models
 from . import events
 from . import scoring
+
+LOG = logging.getLogger()
 
 
 class TournamentManager(models.Tournament):
@@ -15,6 +18,7 @@ class TournamentManager(models.Tournament):
     """
 
     def handle_event(self, ev: events.TournamentEvent, member_uid: str) -> None:
+        LOG.debug("Handling event: %s", ev)
         match ev.type:
             case events.EventType.REGISTER:
                 self.register(ev, member_uid)
@@ -78,6 +82,24 @@ class TournamentManager(models.Tournament):
     def round_start(self, ev: events.RoundStart, member_uid: str) -> None:
         self.state = models.TournamentState.PLAYING
         self.rounds.append(self._event_seating_to_round(ev.seating))
+        self._set_players_statuses_from_current_round()
+
+    def _set_players_statuses_from_current_round(self) -> None:
+        players = {
+            seat.player_uid: (i, j)
+            for i, table in enumerate(self.rounds[-1].tables, 1)
+            for j, seat in enumerate(table.seating, 1)
+        }
+        for player in self.players.values():
+            if player.uid in players:
+                player.state = models.PlayerState.PLAYING
+                player.table = players[player.uid][0]
+                player.seat = players[player.uid][1]
+            else:
+                player.table = 0
+                player.seat = 0
+                if player.state != models.PlayerState.FINISHED:
+                    player.state = models.PlayerState.REGISTERED  # or CHECKED_IN?
 
     def round_alter(self, ev: events.RoundAlter, member_uid: str) -> None:
         """Keep players results and table overrides."""
@@ -89,10 +111,16 @@ class TournamentManager(models.Tournament):
         }
         overrides = {i: table.override for i, table in enumerate(old_tables)}
         self.rounds[ev.round - 1] = self._event_seating_to_round(ev.seating)
+        # if this is the current round, change players statuses accordingly
+        if ev.round == len(self.rounds):
+            self._set_players_statuses_from_current_round()
+        # restore overrides and results
         for i, table in enumerate(self.rounds[ev.round - 1].tables):
             table.override = overrides.pop(i, None)
             for seat in table.seating:
                 seat.result = results.pop(seat.player_uid, scoring.Score())
+            self._compute_table_score(table)
+            self._compute_table_state(table)
         # remove previous result for players who are removed from the new seating
         for uid, result in results.items():
             self.players[uid].result -= result
@@ -115,21 +143,6 @@ class TournamentManager(models.Tournament):
                     player.barriers.append(models.Barrier.MAX_ROUNDS)
 
     def _event_seating_to_round(self, seating: list[list[str]]) -> models.Round:
-        players = {
-            uid: (i, j)
-            for i, table in enumerate(seating, 1)
-            for j, uid in enumerate(table, 1)
-        }
-        for player in self.players.values():
-            if player.uid in players:
-                player.state = models.PlayerState.PLAYING
-                player.table = players[player.uid][0]
-                player.seat = players[player.uid][1]
-            else:
-                player.table = 0
-                player.seat = 0
-                if player.state != models.PlayerState.FINISHED:
-                    player.state = models.PlayerState.REGISTERED  # or CHECKED_IN?
         return models.Round(
             tables=[
                 models.Table(
@@ -157,7 +170,6 @@ class TournamentManager(models.Tournament):
         player.result -= player_seat.result
         player_seat.result = scoring.Score(vp=ev.vps)
         player.result += player_seat.result
-
         self._compute_table_score(player_table)
         self._compute_table_state(player_table)
 
@@ -222,24 +234,22 @@ class TournamentManager(models.Tournament):
         self._compute_table_state(table)
 
     def seed_finals(self, ev: events.SeedFinals, member_uid: str) -> None:
+        self.state = models.TournamentState.FINALS
+        self.finals_seeds = ev.seeds[:]
+        self.rounds.append(self._event_seating_to_round([self.finals_seeds[:]]))
         seeds = set(ev.seeds)
-        if seeds:
-            self.state = models.TournamentState.FINALS
-        else:
-            self.state = models.TournamentState.REGISTRATION
         for player in self.players.values():
             if player.uid not in seeds:
                 player.state = models.PlayerState.FINISHED
                 player.table = 0
                 player.seed = 0
-        self.finals_seeds = [uid for uid in ev.seeds]
         for i, uid in enumerate(self.finals_seeds, 1):
             self.players[uid].table = 1
             self.players[uid].seed = i
             self.players[uid].state = models.PlayerState.PLAYING
 
     def seat_finals(self, ev: events.SeatFinals, member_uid: str) -> None:
-        self.rounds.append(self._event_seating_to_round([ev.seating]))
+        self.rounds[-1] = self._event_seating_to_round([ev.seating])
         for player in self.players.values():
             if player.uid not in ev.seating:
                 player.state = models.PlayerState.FINISHED
@@ -324,8 +334,6 @@ class ResultRecorded(TournamentError): ...
 class TournamentOrchestrator(TournamentManager):
     """Implements all input checks and raise meaningful errors"""
 
-    # TODO: maybe? implement journalisation mechanics
-
     def handle_event(self, ev: events.TournamentEvent, member_uid: str) -> None:
         super().handle_event(ev, member_uid)
 
@@ -382,7 +390,7 @@ class TournamentOrchestrator(TournamentManager):
             raise BadRoundNumber(ev)
         self._check_judge(ev, member_uid)
         self._check_seating(ev, ev.seating)
-        self._check_pp_relationships(ev, ev.seating, ev.round)
+        self._check_pp_relationships(ev, ev.seating, ignore=ev.round)
         super().round_alter(ev, member_uid)
 
     def round_finish(self, ev: events.RoundFinish, member_uid: str) -> None:
@@ -421,13 +429,17 @@ class TournamentOrchestrator(TournamentManager):
             if len(table) > 5:
                 raise BadSeating(ev, i)
 
-    def _check_pp_relationships(self, ev, seating: list[list[str]]) -> None:
+    def _check_pp_relationships(
+        self, ev, seating: list[list[str]], ignore: int = 0
+    ) -> None:
         """Check for predator-prey relationship repeats
 
         This is the one forbidden thing in tournament seating (except in finals).
         """
         pp = set()
-        for round_ in self.rounds:
+        for i, round_ in enumerate(self.rounds, 1):
+            if i == ignore:
+                continue
             for table in round_.tables:
                 for i, seat in enumerate(table.seating):
                     prey = table.seating[(i + 1) % len(table.seating)].player_uid
@@ -466,7 +478,7 @@ class TournamentOrchestrator(TournamentManager):
                 s.player_uid for s in table.seating
             ]:
                 # current round players are allowed to set their opponents results
-                # TODO: disallow it if the result has previously been set by a judge
+                # TODO: maybe? disallow it if the result was set by a judge
                 self._check_judge(ev, member_uid)
         super().set_result(ev, member_uid)
 
@@ -500,15 +512,16 @@ class TournamentOrchestrator(TournamentManager):
 
     def seed_finals(self, ev: events.SeedFinals, member_uid: str) -> None:
         self._check_judge(ev, member_uid)
-        if self.state == models.TournamentState.PLAYING:
-            raise RoundInProgress(ev)
+        self._check_not_playing(ev)
         if self.state == models.TournamentState.FINISHED:
             raise TournamentFinished(ev)
+        for uid in ev.toss.keys():
+            if uid not in self.players:
+                raise UnregisteredPlayer(ev, uid)
         for uid in ev.seeds:
             if uid not in self.players:
                 raise UnregisteredPlayer(ev, uid)
-        # empty seeds is allowed, it means cancel finals and back to REGISTRATION
-        if 0 < len(ev.seeds) < 4 or len(ev.seeds) > 5:
+        if len(ev.seeds) < 4 or len(ev.seeds) > 5:
             raise BadSeeding(ev)
         super().seed_finals(ev, member_uid)
 
@@ -521,8 +534,8 @@ class TournamentOrchestrator(TournamentManager):
                 raise UnregisteredPlayer(ev, uid)
             if uid not in self.finals_seeds:
                 raise NonFinalist(ev, ev.winner_uid)
-            if any(uid not in ev.seating for uid in self.finals_seeds):
-                raise BadSeeding(ev)
+        if any(uid not in ev.seating for uid in self.finals_seeds):
+            raise BadSeeding(ev)
         self._check_seating([ev.seating])
         # for a finals, you really need at least 3
         if len(ev.seating) < 4 or len(ev.seating) > 5:
@@ -539,6 +552,9 @@ class TournamentOrchestrator(TournamentManager):
         super().finish(ev, member_uid)
 
 
+# ################################################################ Convenience functions
+
+
 def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
     sort_key = lambda p: (p.state == models.PlayerState.FINISHED, p.result, p.toss)
     sorted_players = sorted(
@@ -552,27 +568,21 @@ def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
     return res
 
 
-def check_tables_scores(round_: models.Round) -> dict[int, scoring.ScoringError]:
-    res = {}
-    for i, table in enumerate(round_.tables, 1):
-        error = scoring.check_table_vps([s.result for s in table.seating])
-        if error:
-            res[i] = error
-    return res
-
-
-def toss_and_seed_finals(tournament: models.Tournament):
+def toss_for_finals(tournament: models.Tournament) -> tuple[list[str], dict[str, int]]:
     random.seed()
+    toss = {}
     for rank, players in itertools.groupby(standings(tournament)):
         if rank > 5:
             break
-        toss = random.sample(range(1, len(players) + 1), len(players))
-        for p in players:
-            p.toss = toss
-    tournament.finals_seeds = [p.uid for p in standings(tournament)[:5]]
+        samples = random.sample(range(1, len(players) + 1), len(players))
+        for p, t in zip(players, samples):
+            p.toss = t
+            toss[p.uid] = t
+    return [p.uid for _, p in standings(tournament)[:5]], toss
 
 
 def next_round_seating(tournament: models.Tournament):
+    """Compute next round's seating"""
     players = [
         p for p in tournament.players if p.state == models.PlayerState.CHECKED_IN
     ]
@@ -582,10 +592,11 @@ def next_round_seating(tournament: models.Tournament):
     # until you make this 4 seats. You take from [4 - (N % 5)] tables,
     # and end up with [5 - (N % 5)] 4-seats-tables.
     # account for the case when N % 5 is zero: [5 - (N % 5 or 5)] 4-seats-tables.
-    seat_in_fives = len(players) - 4 * (5 - (len(players) % 5 or 5))
+    players_count = len(players)
+    seat_in_fives = players_count - 4 * (5 - (players_count % 5 or 5))
     seated = 0
     res = models.Round()
-    while seated < len(players):
+    while seated < players_count:
         seats = 5 if seated < seat_in_fives else 4
         res.tables.append(
             models.Table(

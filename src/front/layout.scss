@@ -25,3 +25,7 @@ $bootstrap-icons-font-dir: "../../node_modules/bootstrap-icons/font/fonts";
     --bs-btn-disabled-bg: #5A64EC;
     --bs-btn-disabled-border-color: #5A64EC;
 }
+
+tr[draggable] {
+    cursor: grab;
+}

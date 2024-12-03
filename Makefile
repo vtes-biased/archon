@@ -1,4 +1,4 @@
-.PHONY: clean porcelain update geodata test serve build release
+.PHONY: clean porcelain update geodata test serve-front serve serve-pdb build release
 
 NEXT_VERSION = `python -m setuptools_scm --strip-dev`
 
@@ -22,13 +22,14 @@ test:
 	black --check src/archon
 	ruff check src/archon
 
-serve:
+serve-front:
 	pm2 --name front start npm -- run front
+
+serve: serve-front
 	pm2 --name back start npm -- run back
 	pm2 logs
 
-serve-pdb:
-	pm2 --name front start npm -- run front
+serve-pdb: serve-front
 	npm run back
 
 build: clean

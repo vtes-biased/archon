@@ -12,6 +12,17 @@ function remove_children(el: HTMLElement) {
     }
 }
 
+function swap_nodes(el1: HTMLElement, el2: HTMLElement) {
+    console.log("swapping", el1, el2)
+    if (el1 === el2) { return }
+    const next1 = el1.nextSibling
+    const next2 = el2.nextSibling
+    const parent1 = el1.parentElement
+    const parent2 = el2.parentElement
+    if (next1 != el2) { parent1.insertBefore(el2, next1) }
+    if (next2 != el1) { parent2.insertBefore(el1, next2) }
+}
+
 function normalize_string(s: string) {
     var res = unidecode(s).toLowerCase()
     // remove non-letters non-numbers
@@ -21,16 +32,65 @@ function normalize_string(s: string) {
     return res
 }
 
-function score_string(score: Score): string {
+function score_string(score: Score, rank: number = undefined): string {
+    var res
     if (score.gw) {
-        return `${score.gw}GW${score.vp}`
+        res = `${score.gw}GW${score.vp}`
     }
     else if (score.vp > 1) {
-        return `${score.vp}VPs`
+        res = `${score.vp}VPs`
     }
     else {
-        return `${score.vp}VP`
+        res = `${score.vp}VP`
     }
+    if (rank) {
+        res = `1. ${res} (${score.tp}TPs)`
+    }
+    return res
+}
+
+function compare_scores(lhs: Score, rhs: Score) {
+    const gw = lhs.gw - rhs.gw
+    if (gw != 0) { return gw }
+    const vp = lhs.vp - rhs.vp
+    if (vp != 0) { return vp }
+    const tp = lhs.tp - rhs.tp
+    if (tp != 0) { return tp }
+    return 0
+}
+
+function compare_arrays(lhs, rhs) {
+    const length = lhs.length < rhs.length ? lhs.length : rhs.length
+    for (var i = 0; i < length; i++) {
+        const val = lhs[i] - rhs[i]
+        if (val != 0) { return val }
+    }
+    return 0
+}
+
+function standings_array(p: Player) {
+    return [+(p.state == PlayerState.FINISHED), -p.result.gw, -p.result.vp, -p.result.tp, p.toss ?? 0]
+}
+
+function compare_standings(lhs: Player, rhs: Player) {
+    return compare_arrays(standings_array(lhs), standings_array(rhs))
+}
+
+function standings(players: Player[]): [number, Player][] {
+    const res = []
+    const sorted = players.toSorted(compare_standings)
+    var rank = 0
+    var last_standings = [-1, 0, 0, 0, 0]
+    for (const player of sorted) {
+        const standings = standings_array(player)
+        const cmp = compare_arrays(last_standings, standings)
+        if (cmp > 0) {
+            rank++
+            last_standings = standings
+        }
+        res.push([rank, player])
+    }
+    return res
 }
 
 class MemberMap {
@@ -268,7 +328,7 @@ class Registration {
         this.players_table = base.create_append(this.panel, "table", ["table", "my-4"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
-        for (const label of ["VEKN #", "Name", "State"]) {
+        for (const label of ["VEKN #", "Name", "Score", "State", ""]) {
             const cel = base.create_append(row, "th", [], { scope: "col" })
             cel.innerText = label
         }
@@ -277,12 +337,15 @@ class Registration {
 
     display() {
         remove_children(this.players_table_body)
-        for (const player of Object.values(this.console.tournament.players)) {
+        const players = standings(Object.values(this.console.tournament.players))
+        for (const [rank, player] of players) {
             const row = base.create_append(this.players_table_body, "tr")
             const head = base.create_append(row, "th", [], { scope: "row" })
             head.innerText = player.vekn
             const name = base.create_append(row, "td")
             name.innerText = player.name
+            const score = base.create_append(row, "td")
+            score.innerText = score_string(player.result, rank)
             const state = base.create_append(row, "td")
             state.innerText = player.state
             const actions = base.create_append(row, "td")
@@ -292,7 +355,7 @@ class Registration {
                     button.innerText = "Check In"
                     button.addEventListener("click", (ev) => { this.console.check_in(player.uid) })
                 }
-                else if (player.state == PlayerState.CHECKED_IN) {
+                if (player.state == PlayerState.REGISTERED || player.state == PlayerState.CHECKED_IN) {
                     const button = base.create_append(actions, "button", ["btn", "btn-warning"])
                     button.innerText = "Drop"
                     button.addEventListener("click", (ev) => { this.console.drop(player.uid) })
@@ -301,14 +364,24 @@ class Registration {
         }
         remove_children(this.action_row)
         if (this.console.tournament.state == TournamentState.REGISTRATION) {
-            const button = base.create_append(this.action_row, "button", ["col-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
             button.innerText = "Open Check-In"
             button.addEventListener("click", (ev) => { this.console.open_checkin() })
         }
         else if (this.console.tournament.state == TournamentState.WAITING) {
-            const button = base.create_append(this.action_row, "button", ["col-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
             button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
             button.addEventListener("click", (ev) => { this.console.start_round() })
+        }
+        if (this.console.tournament.state == TournamentState.REGISTRATION ||
+            this.console.tournament.state == TournamentState.WAITING) {
+            if (this.console.tournament.rounds.length > 0) {
+                const finals_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+                finals_button.innerText = "Seed Finals"
+                finals_button.addEventListener("click", (ev) => {
+                    this.console.seed_finals(...this.console.toss_for_finals())
+                })
+            }
         }
     }
 }
@@ -318,16 +391,27 @@ class RoundTab {
     index: number
     panel: HTMLDivElement
     action_row: HTMLDivElement
-    constructor(con: TournamentConsole, index: number) {
+    reseat_button: HTMLButtonElement
+    finals: boolean
+    dragging: HTMLTableRowElement | undefined
+    constructor(con: TournamentConsole, index: number, finals: boolean = false) {
         this.console = con
         this.index = index
-        this.panel = this.console.add_nav(`Round ${this.index}`)
+        this.finals = finals
+        if (this.finals) {
+            this.panel = this.console.add_nav(`Finals`)
+        } else {
+            this.panel = this.console.add_nav(`Round ${this.index}`)
+        }
         console.log("adding action row", this.panel)
     }
 
     display() {
         remove_children(this.panel)
         this.action_row = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
+        this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-warning"])
+        this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
+        this.reseat_button.addEventListener("click", (ev) => { this.start_reseat() })
         const round = this.console.tournament.rounds[this.index - 1]
         var j = 0
         var div = undefined
@@ -343,7 +427,7 @@ class RoundTab {
             && round.tables.every(t => t.state == TableState.FINISHED)
         ) {
             console.log("adding button", this.action_row)
-            const button = base.create_append(this.action_row, "button", ["col-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
             button.innerText = "Finish round"
             button.addEventListener("click", (ev) => { this.console.finish_round() })
         } else {
@@ -354,9 +438,13 @@ class RoundTab {
     display_table(root: HTMLDivElement, data: Table, table_index: number) {
         const div = base.create_append(root, "div", ["col-md-6"])
         const title_div = base.create_append(div, "div", ["d-inline-flex", "flex-row", "mb-2", "align-items-center"])
-        const title = base.create_append(title_div, "h2", ["m-0"])
-        title.innerText = `Table ${table_index}`
-        const badge = base.create_append(title_div, "span", ["badge", "mx-2"])
+        const title = base.create_append(title_div, "h2", ["m-0", "me-2"])
+        if (this.finals) {
+            title.innerText = `Finals table`
+        } else {
+            title.innerText = `Table ${table_index}`
+        }
+        const badge = base.create_append(title_div, "span", ["badge", "me-2"])
         badge.innerText = data.state
         switch (data.state) {
             case TableState.FINISHED:
@@ -370,19 +458,23 @@ class RoundTab {
                 break
         }
         if (data.state != TableState.FINISHED) {
-            const overrideButton = base.create_append(title_div, "button", ["btn", "btn-warning"])
+            const overrideButton = base.create_append(title_div, "button", ["me-2", "btn", "btn-warning"])
             overrideButton.innerText = "Override"
             overrideButton.addEventListener("click", ev => this.console.override_table(this.index, table_index))
         }
         if (data.override) {
-            const override_badge = base.create_append(title_div, "span", ["badge", "mx-2", "text-bg-info"])
+            const override_badge = base.create_append(title_div, "span", ["badge", "me-2", "text-bg-info"])
             override_badge.innerText = "Overriden"
             // TODO: add comment as tooltip?
         }
         const table = base.create_append(div, "table", ["table"])
         const head = base.create_append(table, "thead")
         const tr = base.create_append(head, "tr")
-        for (const label of ["VEKN#", "Name", "Score", ""]) {
+        var headers = ["VEKN#", "Name", "Score", ""]
+        if (this.finals) {
+            headers = ["Seed", "VEKN#", "Name", "Score", ""]
+        }
+        for (const label of headers) {
             const th = base.create_append(tr, "th", [], { scope: "col" })
             th.innerText = label
         }
@@ -390,16 +482,103 @@ class RoundTab {
         for (const seat of data.seating) {
             const player = this.console.tournament.players[seat.player_uid]
             const row = base.create_append(body, "tr")
-            base.create_append(row, "th", [], { scope: "row" }).innerText = player.vekn
+            row.dataset.player_uid = player.uid
+            if (this.finals) {
+                base.create_append(row, "th", [], { scope: "row" }).innerText = player.seed.toString()
+                base.create_append(row, "td", [], { scope: "row" }).innerText = player.vekn
+            } else {
+                base.create_append(row, "th", [], { scope: "row" }).innerText = player.vekn
+            }
             base.create_append(row, "td").innerText = player.name
             base.create_append(row, "td").innerText = score_string(seat.result)
             const actions = base.create_append(row, "td")
-            const changeButton = base.create_append(actions, "button", ["btn", "btn-sm", "btn-primary"])
+            const changeButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
             changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
             changeButton.addEventListener("click", (ev) => {
                 this.console.score_modal.show(player, this.index, seat.result.vp)
             })
         }
+    }
+
+    start_reseat() {
+        remove_children(this.action_row)
+        this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+        this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
+        this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
+        const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
+        for (const table of tables.values()) {
+            var rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+            while (rows.length < 5) {
+                const row = base.create_append(table, "tr")
+                row.dataset.player_uid = undefined
+                rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+            }
+            for (const row of rows) {
+                row.draggable = true
+                row.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row, rows))
+                row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row, rows))
+                row.addEventListener("dragover", (ev) => this.dragover_row(ev, row, rows))
+                row.addEventListener("dragleave", (ev) => this.dragleave_row(ev, row, rows))
+                row.addEventListener("dragend", (ev) => this.dragend_row(ev, row, rows))
+            }
+        }
+        // TODO: remove score actions, add delete actions
+    }
+
+    dragstart_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+        const target_row = ev.target as HTMLTableRowElement
+        console.log("dragstart", ev, target_row)
+        this.dragging = target_row
+        // ev.dataTransfer.setData("text/html", row.innerHTML)
+    }
+
+    dragover_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+        ev.preventDefault()
+    }
+
+    dragenter_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+        // TODO: swap rows if we do enter
+        ev.preventDefault()
+        if (this.dragging == undefined) { return }
+        const target = ev.target as HTMLElement
+        const target_row = target.closest("tr")
+        if (this.dragging == target_row) { return }
+        console.log("dragenter", ev, this.dragging, target_row)
+        // source undefined when matching target
+        swap_nodes(this.dragging, target_row)
+    }
+
+    dragleave_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+        // TODO: swap rows back in place !warning you get dragenter from the next row before the dragleave
+        ev.preventDefault()
+        const target = ev.target as HTMLElement
+        const target_row = target.closest("tr")
+        console.log("dragleave", ev, target_row)
+    }
+
+    dragend_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+        // TODO: compute if we intersect over a droppable row
+        ev.preventDefault()
+        const target = ev.target as HTMLElement
+        const target_row = target.closest("tr")
+        console.log("dragend", ev, target_row)
+    }
+
+    async reseat() {
+        const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
+        const round_seating = []
+        for (const table of tables.values()) {
+            const table_seating = []
+            const rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+            for (const row of rows) {
+                const player_uid = row.dataset.player_uid
+                if (player_uid) {
+                    table_seating.push(player_uid)
+                }
+            }
+            round_seating.push(table_seating)
+        }
+        await this.console.alter_seating(this.index, round_seating)
     }
 }
 
@@ -476,7 +655,13 @@ class TournamentConsole {
         this.registration = new Registration(this)
         this.rounds = []
         for (var i = 0; i < this.tournament.rounds.length; i++) {
-            const round_tab = new RoundTab(this, i + 1)
+            var finals: boolean = false
+            if (this.tournament.state == TournamentState.FINALS
+                && this.tournament.rounds.length - this.rounds.length == 1
+            ) {
+                finals = true
+            }
+            const round_tab = new RoundTab(this, i + 1, finals)
             this.rounds.push(round_tab)
         }
         this.tabs.get("Registration").show()
@@ -485,7 +670,13 @@ class TournamentConsole {
 
     display() {
         while (this.tournament.rounds.length > this.rounds.length) {
-            const round_tab = new RoundTab(this, this.rounds.length + 1)
+            var finals: boolean = false
+            if (this.tournament.state == TournamentState.FINALS
+                && this.tournament.rounds.length - this.rounds.length == 1
+            ) {
+                finals = true
+            }
+            const round_tab = new RoundTab(this, this.rounds.length + 1, finals)
             this.rounds.push(round_tab)
         }
         while (this.tournament.rounds.length < this.rounds.length) {
@@ -529,6 +720,32 @@ class TournamentConsole {
         this.tabs.set(label, tabTrigger)
         return tab
     }
+
+    toss_for_finals(): [string[], Record<string, number>] {
+        const players = Object.values(this.tournament.players)
+        var last_rank = 0
+        var to_toss: Player[] = []
+        const toss = {}
+        for (const [rank, player] of standings(players)) {
+            if (rank > 5) {
+                break
+            }
+            if (rank > last_rank) {
+                last_rank = rank
+                seating.shuffle_array(to_toss)
+                var idx = 0
+                for (const player of to_toss) {
+                    idx++
+                    player.toss = idx
+                    toss[player.uid] = idx
+                }
+                to_toss = []
+            }
+            to_toss.push(player)
+        }
+        return [standings(players).splice(0, 5).map(p => p[1].uid), toss]
+    }
+
     async handle_tournament_event(tev: events.TournamentEvent) {
         console.log("handle event", tev)
         // TODO: implement offline mode
@@ -628,6 +845,24 @@ class TournamentConsole {
         }
         await this.handle_tournament_event(event)
     }
+    async seed_finals(seeds: string[], toss: Record<string, number>) {
+        const event: events.SeedFinals = {
+            type: events.EventType.SEED_FINALS,
+            uid: uuid.v4(),
+            seeds: seeds,
+            toss: toss,
+        }
+        await this.handle_tournament_event(event)
+    }
+    async alter_seating(round: number, seating: string[][]) {
+        const event: events.RoundAlter = {
+            type: events.EventType.ROUND_ALTER,
+            uid: uuid.v4(),
+            round: round,
+            seating: seating,
+        }
+        await this.handle_tournament_event(event)
+    }
 }
 
 async function load() {
@@ -686,6 +921,7 @@ interface Player {
     rounds_played: number,
     table: number,  // non-zero when playing
     seat: number,  // non-zero when playing
+    toss: number,  // non-zero when draws for seeding finals
     seed: number,  // Finals seed
     result: Score,
 }

@@ -4,8 +4,10 @@ import fastapi
 import fastapi.responses
 import fastapi.staticfiles
 import importlib.resources
+import logging
 import os
 import starlette.middleware.sessions
+import uvicorn.logging
 
 from .. import db
 from . import dependencies
@@ -16,14 +18,21 @@ from .html import website
 dotenv.load_dotenv()
 SESSION_KEY = os.getenv("SESSION_KEY", "dev_key")
 
+LOG = logging.getLogger()
+handler = logging.StreamHandler()
+handler.setFormatter(uvicorn.logging.DefaultFormatter("%(levelprefix)s %(message)s"))
+LOG.addHandler(handler)
+
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
     """Initialize the DB pool"""
+    LOG.debug("Entering APP lifespan")
     async with db.POOL:
         # idempotent init, call it every time
         await db.init()
         yield
+    LOG.debug("Exiting APP lifespan")
 
 
 tags_metadata = [
@@ -38,7 +47,7 @@ tags_metadata = [
 ]
 
 
-app = fastapi.FastAPI(lifespan=lifespan, tags_metadata=tags_metadata)
+app = fastapi.FastAPI(lifespan=lifespan, tags_metadata=tags_metadata, debug=__debug__)
 app.add_middleware(
     starlette.middleware.sessions.SessionMiddleware,
     secret_key=SESSION_KEY,
@@ -74,6 +83,7 @@ def auth_exception_handler(request: fastapi.Request, exc: dependencies.LoginRequ
     """
     Redirect the user to the login page if not logged in
     """
+    LOG.debug("Login failed", exc_info=exc.with_traceback())
     return fastapi.responses.RedirectResponse(
         url=request.url_for("login").include_query_params(next=str(request.url))
     )

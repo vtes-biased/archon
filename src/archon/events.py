@@ -149,6 +149,7 @@ class Override(Event):
 @dataclasses.dataclass(kw_only=True)
 class SeedFinals(Event):
     type: typing.Literal[EventType.SEED_FINALS]
+    toss: dict[str, int]  # {player_uid; toss}
     seeds: list[str]  # [player_uid] in seed order (first is top seed)
 
 

@@ -116,7 +116,8 @@ export interface Override extends Event {
 
 export interface SeedFinals extends Event {
     type: EventType.SEED_FINALS,
-    seeds: string[]  // [player_uid] in seed order(first is top seed)
+    toss: Record<string, number>  // {player_uid: toss} (lower is first)
+    seeds: string[]  // [player_uid] in seed order (first is top seed)
 }
 
 export interface SeatFinals extends Event {
