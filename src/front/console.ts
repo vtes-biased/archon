@@ -33,7 +33,7 @@ function normalize_string(s: string) {
 }
 
 function score_string(score: Score, rank: number = undefined): string {
-    var res
+    var res: string
     if (score.gw) {
         res = `${score.gw}GW${score.vp}`
     }
@@ -59,7 +59,7 @@ function compare_scores(lhs: Score, rhs: Score) {
     return 0
 }
 
-function compare_arrays(lhs, rhs) {
+function compare_arrays(lhs: any[], rhs: any[]) {
     const length = lhs.length < rhs.length ? lhs.length : rhs.length
     for (var i = 0; i < length; i++) {
         const val = lhs[i] - rhs[i]
@@ -491,7 +491,7 @@ class RoundTab {
             }
             base.create_append(row, "td").innerText = player.name
             base.create_append(row, "td").innerText = score_string(seat.result)
-            const actions = base.create_append(row, "td")
+            const actions = base.create_append(row, "td", ["action-row"])
             const changeButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
             changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
             changeButton.addEventListener("click", (ev) => {
@@ -505,15 +505,23 @@ class RoundTab {
         this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
         this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
         this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
+        const cancel_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-secondary"])
+        cancel_button.innerHTML = '<i class="bi bi-x"></i> Cancel'
+        cancel_button.addEventListener("click", (ev) => { this.display() })
+
         const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
         for (const table of tables.values()) {
             var rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
             while (rows.length < 5) {
-                const row = base.create_append(table, "tr")
-                row.dataset.player_uid = undefined
+                this.add_empty_row(table)
                 rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
             }
             for (const row of rows) {
+                const action_row = row.querySelector(".action-row") as HTMLTableCellElement
+                remove_children(action_row)
+                const remove_button = base.create_append(action_row, "button", ["me-2", "btn", "btn-sm", "btn-danger"])
+                remove_button.innerHTML = '<i class="bi bi-trash"></i>'
+                remove_button.addEventListener("click", (ev) => { this.remove_row(row) })
                 row.draggable = true
                 row.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row, rows))
                 row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row, rows))
@@ -529,6 +537,7 @@ class RoundTab {
         const target_row = ev.target as HTMLTableRowElement
         console.log("dragstart", ev, target_row)
         this.dragging = target_row
+        this.dragging.classList.add("dragged")
         // ev.dataTransfer.setData("text/html", row.innerHTML)
     }
 
@@ -537,31 +546,45 @@ class RoundTab {
     }
 
     dragenter_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
-        // TODO: swap rows if we do enter
+        // TODO: swap previous swap back when we're in another table
         ev.preventDefault()
         if (this.dragging == undefined) { return }
         const target = ev.target as HTMLElement
         const target_row = target.closest("tr")
         if (this.dragging == target_row) { return }
         console.log("dragenter", ev, this.dragging, target_row)
-        // source undefined when matching target
         swap_nodes(this.dragging, target_row)
     }
 
     dragleave_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
-        // TODO: swap rows back in place !warning you get dragenter from the next row before the dragleave
+        // Note enter usually fires before leave: no point handling this event
         ev.preventDefault()
-        const target = ev.target as HTMLElement
-        const target_row = target.closest("tr")
-        console.log("dragleave", ev, target_row)
     }
 
     dragend_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
         // TODO: compute if we intersect over a droppable row
         ev.preventDefault()
-        const target = ev.target as HTMLElement
-        const target_row = target.closest("tr")
-        console.log("dragend", ev, target_row)
+        console.log("dragend", ev, this.dragging)
+        this.dragging.classList.remove("dragged")
+        this.dragging = undefined
+    }
+
+    remove_row(row: HTMLTableRowElement) {
+        const parent = row.parentElement as HTMLTableSectionElement
+        row.remove()
+        this.add_empty_row(parent)
+    }
+
+    add_empty_row(body: HTMLTableSectionElement) {
+        const empty_row = base.create_append(body, "tr")
+        empty_row.dataset.player_uid = undefined
+        base.create_append(empty_row, "th")
+        base.create_append(empty_row, "td")
+        base.create_append(empty_row, "td")
+        const action_row = base.create_append(empty_row, "td", ["action-row"])
+        const remove_button = base.create_append(action_row, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
+        remove_button.innerHTML = '<i class="bi bi-plus"></i>'
+        remove_button.addEventListener("click", (ev) => { console.log("plus") })
     }
 
     async reseat() {
