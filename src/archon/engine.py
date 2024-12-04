@@ -57,7 +57,11 @@ class TournamentManager(models.Tournament):
 
     def register(self, ev: events.Register, member_uid: str) -> None:
         self.players[ev.player_uid] = models.Player(
-            name=ev.name, uid=ev.player_uid, vekn=ev.vekn
+            name=ev.name,
+            uid=ev.player_uid,
+            vekn=ev.vekn,
+            country=ev.country,
+            city=ev.city,
         )
 
     def open_checkin(self, ev: events.OpenCheckin, member_uid: str) -> None:

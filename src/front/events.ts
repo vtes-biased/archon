@@ -40,6 +40,8 @@ export interface Register extends Event {
     name: string,
     vekn: string,
     player_uid: string,
+    country: string,
+    city: string,
 }
 
 export interface OpenCheckin extends Event {

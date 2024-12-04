@@ -93,46 +93,57 @@ function standings(players: Player[]): [number, Player][] {
     return res
 }
 
-class MemberMap {
-    members_by_vekn: Map<string, Member>
-    members_by_uid: Map<string, Member>
-    members_trie: Map<string, Array<Member>>
+class PersonMap<Type extends Person> {
+    by_vekn: Map<string, Type>
+    by_uid: Map<string, Type>
+    trie: Map<string, Array<Type>>
     constructor() {
-        this.members_by_vekn = new Map()
-        this.members_by_uid = new Map()
-        this.members_trie = new Map()
+        this.by_vekn = new Map()
+        this.by_uid = new Map()
+        this.trie = new Map()
     }
 
-    async init(token: base.Token) {
-        const res = await base.do_fetch("/api/vekn/members", {
-            method: "get",
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token.access_token}`
-            },
-        })
-        const members = await res.json() as Member[]
-        for (const member of members) {
-            this.members_by_vekn.set(member.vekn, member)
-            this.members_by_uid.set(member.uid, member)
-            const parts = normalize_string(member.name).split(" ")
+    add(persons: Type[]) {
+        for (const person of persons) {
+            if (person.vekn && person.vekn.length > 0) {
+                this.by_vekn.set(person.vekn, person)
+            }
+            this.by_uid.set(person.uid, person)
+            const parts = normalize_string(person.name).split(" ")
             for (const part of parts) {
                 for (var i = 1; i < part.length + 1; i++) {
                     const piece = part.slice(0, i)
-                    if (!this.members_trie.has(piece)) {
-                        this.members_trie.set(piece, [])
+                    if (!this.trie.has(piece)) {
+                        this.trie.set(piece, [])
                     }
-                    this.members_trie.get(piece).push(member)
+                    this.trie.get(piece).push(person)
                 }
             }
         }
     }
 
-    complete_name(s: string): Member[] {
-        var members_list: Member[] | undefined = undefined
+    remove(s: string) {
+        if (!this.by_uid.has(s)) { return }
+        const person = this.by_uid.get(s)
+        this.by_uid.delete(person.uid)
+        if (person.vekn && person.vekn.length > 0) {
+            this.by_vekn.delete(person.vekn)
+        }
+        // we could through the name parts and pieces... not necessarily faster
+        for (const pieces of this.trie.values()) {
+            var idx = pieces.findIndex(p => p.uid == s)
+            while (idx >= 0) {
+                pieces.splice(idx, 1)
+                idx = pieces.findIndex(p => p.uid == s)
+            }
+            // it is fine to let empty arrays be 
+        }
+    }
+
+    complete_name(s: string): Type[] {
+        var members_list: Type[] | undefined = undefined
         for (const part of normalize_string(s).toLowerCase().split(" ")) {
-            const members = this.members_trie.get(part)
+            const members = this.trie.get(part)
             if (members) {
                 if (members_list) {
                     members_list = members_list.filter(m => members.includes(m))
@@ -145,44 +156,64 @@ class MemberMap {
     }
 }
 
-class MemberLookup {
-    root: HTMLElement
+class MemberMap extends PersonMap<Member> {
+    async init(token: base.Token) {
+        const res = await base.do_fetch("/api/vekn/members", {
+            method: "get",
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token.access_token}`
+            },
+        })
+        const members = await res.json() as Member[]
+        this.add(members)
+    }
+}
+
+class PersonLookup<Type extends Person> {
     form: HTMLFormElement
     input_vekn_id: HTMLInputElement
-    dropdown_div: HTMLDivElement
     input_name: HTMLInputElement
     dropdown_menu: HTMLUListElement
     button: HTMLButtonElement
     dropdown: bootstrap.Dropdown
-    members_map: MemberMap
-    member: Member | undefined
+    persons_map: PersonMap<Type>
+    person: Type | undefined
     focus: HTMLLIElement | undefined
-    constructor(members_map: MemberMap, root: HTMLElement, label: string) {
-        this.members_map = members_map
-        this.root = root
-        this.form = base.create_append(this.root, "form")
-        const top_div = base.create_append(this.form, "div", ["row", "g-3"])
-        const vekn_div = base.create_append(top_div, "div", ["col-2", "d-flex", "align-items-center"])
+    constructor(persons_map: PersonMap<Type>, root: HTMLElement, label: string, inline: boolean = false) {
+        this.persons_map = persons_map
+        this.form = base.create_append(root, "form")
+        const top_div = base.create_append(this.form, "div", ["d-flex"])
+        if (inline) {
+            top_div.classList.add("flex-row", "align-items-center")
+        } else {
+            top_div.classList.add("flex-column")
+        }
+        const vekn_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
         this.input_vekn_id = base.create_append(vekn_div, "input", ["form-control"],
             { type: "text", placeholder: "VEKN ID number", autocomplete: "off", "aria-autocomplete": "off" }
         )
         this.input_vekn_id.spellcheck = false
 
-        this.dropdown_div = base.create_append(top_div, "div", ["col-4", "d-flex", "align-items-center", "dropdown"])
-        this.input_name = base.create_append(this.dropdown_div, "input", ["form-control", "dropdown-toggle"],
+        const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2", "dropdown"])
+        if (inline) {
+            dropdown_div.classList.add("col-xl-4")
+        }
+        this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"],
             { type: "text", placeholder: "Name", autocomplete: "off", "aria-autocomplete": "off" }
         )
         this.input_name.spellcheck = false
-        this.dropdown_menu = base.create_append(this.dropdown_div, "ul", ["dropdown-menu"])
-        const button_div = base.create_append(top_div, "div", ["col-2", "d-flex", "align-items-center"])
-        this.button = base.create_append(button_div, "button", ["btn", "btn-primary", "my-2"], { type: "submit" })
+        this.dropdown_menu = base.create_append(dropdown_div, "ul", ["dropdown-menu"])
+        const button_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
+        this.button = base.create_append(button_div, "button", ["btn", "btn-primary"], { type: "submit" })
         this.button.innerText = label
         this.button.disabled = true
         this.dropdown = new bootstrap.Dropdown(this.input_name)
         this.dropdown.hide()
         this.input_vekn_id.addEventListener("input", (ev) => this.select_member_by_vekn())
         this.input_name.addEventListener("input", base.debounce((ev) => this.complete_member_name()))
-        this.dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev));
+        dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev));
     }
 
     reset_focus(new_focus: HTMLLIElement | undefined = undefined) {
@@ -196,7 +227,7 @@ class MemberLookup {
     }
 
     reset() {
-        this.member = undefined
+        this.person = undefined
         this.input_vekn_id.value = ""
         this.input_name.value = ""
         this.button.disabled = true
@@ -204,9 +235,9 @@ class MemberLookup {
     }
 
     select_member_by_vekn() {
-        this.member = this.members_map.members_by_vekn.get(this.input_vekn_id.value)
-        if (this.member) {
-            this.input_name.value = this.member.name
+        this.person = this.persons_map.by_vekn.get(this.input_vekn_id.value)
+        if (this.person) {
+            this.input_name.value = this.person.name
             this.button.disabled = false
         }
         else {
@@ -217,10 +248,10 @@ class MemberLookup {
 
     select_member_name(ev: Event) {
         const button = ev.currentTarget as HTMLButtonElement
-        this.member = this.members_map.members_by_uid.get(button.dataset.memberUid)
-        if (this.member) {
-            this.input_vekn_id.value = this.member.vekn
-            this.input_name.value = this.member.name
+        this.person = this.persons_map.by_uid.get(button.dataset.memberUid)
+        if (this.person) {
+            this.input_vekn_id.value = this.person.vekn
+            this.input_name.value = this.person.name
             this.button.disabled = false
         }
         else {
@@ -243,15 +274,25 @@ class MemberLookup {
             this.dropdown.hide()
             return
         }
-        const members_list = this.members_map.complete_name(this.input_name.value)
-        if (!members_list) {
+        const persons_list = this.persons_map.complete_name(this.input_name.value)
+        if (!persons_list) {
             this.dropdown.hide()
             return
         }
-        for (const member of members_list.slice(0, 10)) {
+        for (const person of persons_list.slice(0, 10)) {
             const li = base.create_append(this.dropdown_menu, "li")
-            const button = base.create_append(li, "button", ["dropdown-item"], { type: "button", "data-member-uid": member.uid })
-            button.innerText = `${member.name} (${member.city}, ${member.country})`
+            const button = base.create_append(li, "button", ["dropdown-item"], { type: "button", "data-member-uid": person.uid })
+            var tail: string[] = []
+            if (person.city) {
+                tail.push(person.city)
+            }
+            if (person.country) {
+                tail.push(person.country)
+            }
+            button.innerText = person.name
+            if (tail.length > 0) {
+                button.innerText += ` (${tail.join(", ")})`
+            }
             button.addEventListener("click", (ev) => this.select_member_name(ev))
         }
         this.dropdown.show()
@@ -308,23 +349,65 @@ class MemberLookup {
     }
 }
 
+class PlayerLookupModal extends PersonLookup<Player> {
+    modal_div: HTMLDivElement
+    header: HTMLHeadingElement
+    modal: bootstrap.Modal
+    round_tab: RoundTab | undefined
+    empty_row: HTMLTableRowElement | undefined
+    constructor(el: HTMLElement, title: string = "Add player", label: string = "Add") {
+        const modal_div = base.create_append(el, "div", ["modal", "fade"],
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "LookupModalLabel" }
+        )
+        const dialog = base.create_append(modal_div, "div", ["modal-dialog"])
+        const content = base.create_append(dialog, "div", ["modal-content"])
+        const header_div = base.create_append(content, "div", ["modal-header"])
+        const header = base.create_append(header_div, "h1", ["modal-title", "fs-5"])
+        header.innerText = title
+        base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
+        const body = base.create_append(content, "div", ["modal-body"])
+        const players_map = new PersonMap<Player>()
+        super(players_map, body, label, false)
+        this.modal_div = modal_div
+        this.header = header
+        this.modal = new bootstrap.Modal(this.modal_div)
+        this.form.addEventListener("submit", (ev) => this.add_player(ev))
+    }
+
+    init(round_tab: RoundTab, players: Player[]) {
+        this.round_tab = round_tab
+        this.persons_map.by_uid.clear()
+        this.persons_map.by_vekn.clear()
+        this.persons_map.trie.clear()
+        this.persons_map.add(players)
+    }
+
+    show(empty_row: HTMLTableRowElement) {
+        this.empty_row = empty_row
+        this.modal.show()
+    }
+
+    add_player(ev: SubmitEvent) {
+        ev.preventDefault()
+        this.round_tab.add_player(this.empty_row, this.person)
+        this.reset()
+        this.modal.hide()
+    }
+}
+
 class Registration {
     console: TournamentConsole
     panel: HTMLDivElement
     action_row: HTMLDivElement
-    register_element: MemberLookup
+    register_element: PersonLookup<Member>
     players_table: HTMLTableElement
     players_table_body: HTMLTableSectionElement
     constructor(console: TournamentConsole) {
         this.console = console
         this.panel = console.add_nav("Registration")
         this.action_row = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
-        this.register_element = new MemberLookup(console.members_map, this.panel, "Register")
-        this.register_element.form.addEventListener("submit", (ev) => {
-            ev.preventDefault()
-            this.console.register_player(this.register_element.member)
-            this.register_element.reset()
-        })
+        this.register_element = new PersonLookup<Member>(console.members_map, this.panel, "Register", true)
+        this.register_element.form.addEventListener("submit", (ev) => { this.add_player(ev) })
         this.players_table = base.create_append(this.panel, "table", ["table", "my-4"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
@@ -384,6 +467,12 @@ class Registration {
             }
         }
     }
+
+    add_player(ev: SubmitEvent) {
+        ev.preventDefault()
+        this.console.register_player(this.register_element.person)
+        this.register_element.reset()
+    }
 }
 
 class RoundTab {
@@ -399,9 +488,9 @@ class RoundTab {
         this.index = index
         this.finals = finals
         if (this.finals) {
-            this.panel = this.console.add_nav(`Finals`)
+            this.panel = this.console.add_nav(`Finals`, (ev) => this.setup_player_lookup_modal())
         } else {
-            this.panel = this.console.add_nav(`Round ${this.index}`)
+            this.panel = this.console.add_nav(`Round ${this.index}`, (ev) => this.setup_player_lookup_modal())
         }
         console.log("adding action row", this.panel)
     }
@@ -482,22 +571,31 @@ class RoundTab {
         for (const seat of data.seating) {
             const player = this.console.tournament.players[seat.player_uid]
             const row = base.create_append(body, "tr")
-            row.dataset.player_uid = player.uid
-            if (this.finals) {
-                base.create_append(row, "th", [], { scope: "row" }).innerText = player.seed.toString()
-                base.create_append(row, "td", [], { scope: "row" }).innerText = player.vekn
-            } else {
-                base.create_append(row, "th", [], { scope: "row" }).innerText = player.vekn
-            }
-            base.create_append(row, "td").innerText = player.name
-            base.create_append(row, "td").innerText = score_string(seat.result)
-            const actions = base.create_append(row, "td", ["action-row"])
+            const actions = this.display_player(row, player, seat)
             const changeButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
             changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
             changeButton.addEventListener("click", (ev) => {
                 this.console.score_modal.show(player, this.index, seat.result.vp)
             })
         }
+    }
+
+    display_player(row: HTMLTableRowElement, player: Player, seat: TableSeat | undefined = undefined): HTMLTableCellElement {
+        row.dataset.player_uid = player.uid
+        if (this.finals) {
+            base.create_append(row, "th", [], { scope: "row" }).innerText = player.seed.toString()
+            base.create_append(row, "td", [], { scope: "row" }).innerText = player.vekn
+        } else {
+            base.create_append(row, "th", [], { scope: "row" }).innerText = player.vekn
+        }
+        base.create_append(row, "td").innerText = player.name
+        if (seat) {
+            base.create_append(row, "td").innerText = score_string(seat.result)
+        } else {
+            // not seated *yet*: we're in alter seating mode
+            base.create_append(row, "td").innerText = "0VP"
+        }
+        return base.create_append(row, "td", ["action-row"])
     }
 
     start_reseat() {
@@ -512,28 +610,31 @@ class RoundTab {
         const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
         for (const table of tables.values()) {
             var rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+            for (const row of rows) {
+                const action_row = row.querySelector(".action-row") as HTMLTableCellElement
+                remove_children(action_row)
+                this.display_reseat_actions(row, action_row)
+            }
             while (rows.length < 5) {
                 this.add_empty_row(table)
                 rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
             }
-            for (const row of rows) {
-                const action_row = row.querySelector(".action-row") as HTMLTableCellElement
-                remove_children(action_row)
-                const remove_button = base.create_append(action_row, "button", ["me-2", "btn", "btn-sm", "btn-danger"])
-                remove_button.innerHTML = '<i class="bi bi-trash"></i>'
-                remove_button.addEventListener("click", (ev) => { this.remove_row(row) })
-                row.draggable = true
-                row.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row, rows))
-                row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row, rows))
-                row.addEventListener("dragover", (ev) => this.dragover_row(ev, row, rows))
-                row.addEventListener("dragleave", (ev) => this.dragleave_row(ev, row, rows))
-                row.addEventListener("dragend", (ev) => this.dragend_row(ev, row, rows))
-            }
         }
-        // TODO: remove score actions, add delete actions
     }
 
-    dragstart_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+    display_reseat_actions(row: HTMLTableRowElement, actions_row: HTMLTableCellElement) {
+        const remove_button = base.create_append(actions_row, "button", ["me-2", "btn", "btn-sm", "btn-danger"])
+        remove_button.innerHTML = '<i class="bi bi-trash"></i>'
+        remove_button.addEventListener("click", (ev) => { this.remove_row(row) })
+        row.draggable = true
+        row.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row))
+        row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row))
+        row.addEventListener("dragover", (ev) => this.dragover_row(ev, row))
+        row.addEventListener("dragleave", (ev) => this.dragleave_row(ev, row))
+        row.addEventListener("dragend", (ev) => this.dragend_row(ev, row))
+    }
+
+    dragstart_row(ev: DragEvent, row: HTMLTableRowElement) {
         const target_row = ev.target as HTMLTableRowElement
         console.log("dragstart", ev, target_row)
         this.dragging = target_row
@@ -541,11 +642,11 @@ class RoundTab {
         // ev.dataTransfer.setData("text/html", row.innerHTML)
     }
 
-    dragover_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+    dragover_row(ev: DragEvent, row: HTMLTableRowElement) {
         ev.preventDefault()
     }
 
-    dragenter_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+    dragenter_row(ev: DragEvent, row: HTMLTableRowElement) {
         // TODO: swap previous swap back when we're in another table
         ev.preventDefault()
         if (this.dragging == undefined) { return }
@@ -556,13 +657,12 @@ class RoundTab {
         swap_nodes(this.dragging, target_row)
     }
 
-    dragleave_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
+    dragleave_row(ev: DragEvent, row: HTMLTableRowElement) {
         // Note enter usually fires before leave: no point handling this event
         ev.preventDefault()
     }
 
-    dragend_row(ev: DragEvent, row: HTMLTableRowElement, table_rows: NodeListOf<HTMLTableRowElement>) {
-        // TODO: compute if we intersect over a droppable row
+    dragend_row(ev: DragEvent, row: HTMLTableRowElement) {
         ev.preventDefault()
         console.log("dragend", ev, this.dragging)
         this.dragging.classList.remove("dragged")
@@ -571,20 +671,24 @@ class RoundTab {
 
     remove_row(row: HTMLTableRowElement) {
         const parent = row.parentElement as HTMLTableSectionElement
+        if (Object.hasOwn(this.console.tournament.players, row.dataset.player_uid)) {
+            this.console.player_lookup.persons_map.add([this.console.tournament.players[row.dataset.player_uid]])
+        } else {
+            console.log("Removing unregistered player", row)
+        }
         row.remove()
         this.add_empty_row(parent)
     }
 
     add_empty_row(body: HTMLTableSectionElement) {
         const empty_row = base.create_append(body, "tr")
-        empty_row.dataset.player_uid = undefined
         base.create_append(empty_row, "th")
         base.create_append(empty_row, "td")
         base.create_append(empty_row, "td")
         const action_row = base.create_append(empty_row, "td", ["action-row"])
-        const remove_button = base.create_append(action_row, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
-        remove_button.innerHTML = '<i class="bi bi-plus"></i>'
-        remove_button.addEventListener("click", (ev) => { console.log("plus") })
+        const plus_button = base.create_append(action_row, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
+        plus_button.innerHTML = '<i class="bi bi-plus"></i>'
+        plus_button.addEventListener("click", (ev) => { this.display_player_lookup_modal(empty_row) })
     }
 
     async reseat() {
@@ -602,6 +706,32 @@ class RoundTab {
             round_seating.push(table_seating)
         }
         await this.console.alter_seating(this.index, round_seating)
+    }
+
+    setup_player_lookup_modal() {
+        const players = []
+        const player_in_round = new Set<string>()
+        for (const table of this.console.tournament.rounds[this.index - 1].tables) {
+            for (const seat of table.seating) {
+                player_in_round.add(seat.player_uid)
+            }
+        }
+        for (const player of Object.values(this.console.tournament.players)) {
+            if (player_in_round.has(player.uid)) { continue }
+            players.push(player)
+        }
+        this.console.player_lookup.init(this, players)
+    }
+
+    display_player_lookup_modal(empty_row: HTMLTableRowElement) {
+        this.console.player_lookup.show(empty_row)
+    }
+
+    add_player(empty_row, player: Player) {
+        remove_children(empty_row)
+        const actions = this.display_player(empty_row, player)
+        this.display_reseat_actions(empty_row, actions)
+        this.console.player_lookup.persons_map.remove(player.uid)
     }
 }
 
@@ -654,12 +784,14 @@ class TournamentConsole {
     tabs_div: HTMLDivElement
     score_modal: ScoreModal
     tabs: Map<string, bootstrap.Tab>
+    player_lookup: PlayerLookupModal
     registration: Registration
     rounds: RoundTab[]
     constructor(el: HTMLDivElement, token: base.Token) {
         this.token = token
         this.members_map = new MemberMap()
         this.score_modal = new ScoreModal(el, this)
+        this.player_lookup = new PlayerLookupModal(el)
         this.nav = base.create_append(el, "nav", ["nav", "nav-tabs"], { role: "tablist" })
         this.tabs_div = base.create_append(el, "div", ["tab-content"])
     }
@@ -718,7 +850,7 @@ class TournamentConsole {
         }
     }
 
-    add_nav(label: string): HTMLDivElement {
+    add_nav(label: string, show_callback: EventListenerOrEventListenerObject | undefined = undefined): HTMLDivElement {
         const label_id = label.replace(/\s/g, "");
         const button = base.create_append(this.nav, "button", ["nav-link"], {
             id: `nav${label_id}`,
@@ -740,6 +872,9 @@ class TournamentConsole {
             event.preventDefault()
             tabTrigger.show()
         })
+        if (show_callback) {
+            button.addEventListener('show.bs.tab', show_callback)
+        }
         this.tabs.set(label, tabTrigger)
         return tab
     }
@@ -794,7 +929,8 @@ class TournamentConsole {
             name: member.name,
             vekn: member.vekn,
             player_uid: member.uid,
-
+            country: member.country,
+            city: member.city,
         }
         await this.handle_tournament_event(event)
     }
@@ -935,10 +1071,15 @@ interface Score {
     tp: number,
 }
 
-interface Player {
+interface Person {
     name: string,
     vekn: string,
     uid: string,
+    country: string | undefined,  // country name
+    city: string | undefined,  // city name
+}
+
+interface Player extends Person {
     state: PlayerState,
     barriers: Barrier[],
     rounds_played: number,
@@ -1035,15 +1176,10 @@ interface Tournament {
     extra: {},
 }
 
-interface Member {
-    vekn: string,  // VEKN number
-    name: string,  // player name
+interface Member extends Person {
     nickname: string | undefined,  // player nickname
     email: string | undefined,  // the user's email
     verified: boolean | undefined,  // whether the email has been verified
-    country: string | undefined,  // country name
     state: string | undefined,  // state/region name
-    city: string | undefined,  // city name
-    uid: string | undefined,  // UUID assigned by the backend
     discord: {} | undefined,
 }

@@ -37,10 +37,16 @@ class Barrier(enum.StrEnum):
 
 
 @dataclasses.dataclass
-class Player:
+class Person:
     name: str
     vekn: str = ""
     uid: str = pydantic.Field(default_factory=uuid.uuid4)
+    country: str | None = None  # country name
+    city: str | None = None  # city name
+
+
+@dataclasses.dataclass
+class Player(Person):
     state: PlayerState = PlayerState.REGISTERED
     barriers: list[Barrier] = pydantic.Field(default_factory=list)
     rounds_played: int = 0
@@ -204,16 +210,11 @@ class DiscordUser:
 
 
 @dataclasses.dataclass
-class Member:
-    vekn: str  # VEKN number
-    name: str  # player name (first name last name concatenation)
+class Member(Person):
     nickname: str | None = None  # player nickname (on social, lackey, etc.)
     email: str | None = None  # the user's email
     verified: bool | None = None  # whether the email has been verified
-    country: str | None = None  # country name
     state: str | None = None  # state/region name
-    city: str | None = None  # city name
-    uid: str | None = None  # UUID assigned by the backend
     discord: DiscordUser | None = None  # Discord data
 
 

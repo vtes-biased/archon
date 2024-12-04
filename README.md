@@ -162,7 +162,9 @@ If you do not provide one, a new UUID4 will be generated and an account created 
     "type": "Register",
     "name": "John Doe",
     "vekn": "12300001",
-    "player_uid": "24AAC87E-DE63-46DF-9784-AB06B2F37A24"
+    "player_uid": "24AAC87E-DE63-46DF-9784-AB06B2F37A24",
+    "country": "France",
+    "city": "Paris"
 }
 ```
 

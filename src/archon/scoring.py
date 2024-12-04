@@ -44,12 +44,6 @@ class Score:
         return self
 
 
-TP = {
-    3: [12, 24, 36, 48, 60],
-    4: [12, 24, 48, 60],
-}
-
-
 def compute_table_scores(scores: list[Score], finals_seeding: list = None) -> float:
     """Compute GW and TPs on a table based on provided VPs.
     Check the VPs first with check_table_vps()
@@ -58,7 +52,7 @@ def compute_table_scores(scores: list[Score], finals_seeding: list = None) -> fl
     # for more than 5 players, just augment the tps 12 by 12
     # table sizes are checked in check_table_vps though, so the score only counts
     # if it gets overriden by a judge
-    tps = [t for _, t in zip(scores, itertools.count(12, 12))]
+    tps = [t for _, t in zip(range(max(5, len(scores))), itertools.count(12, 12))]
     if len(scores) < 5:
         tps.pop(2)
         # for less than 4, remove the lowest scores, so it stays relevant
