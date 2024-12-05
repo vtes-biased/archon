@@ -3,6 +3,7 @@ include LICENSE README.md
 graft src/archon
 prune src/front
 prune src/scripts
+prune src/tests
 exclude Makefile
 exclude package.json
 exclude tsconfig.json

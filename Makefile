@@ -21,6 +21,7 @@ geodata:
 test:
 	black --check src/archon
 	ruff check src/archon
+	pytest -vvs
 
 serve-front:
 	pm2 --name front start npm -- run front

@@ -10,7 +10,7 @@ LOG = logging.getLogger()
 @dataclasses.dataclass(order=True, eq=True)
 class Score:
     gw: int = pydantic.Field(0, ge=0)
-    vp: float = pydantic.Field(0.0, ge=0, le=5, multiple_of=0.5)
+    vp: float = pydantic.Field(0.0, ge=0, multiple_of=0.5)
     tp: int = pydantic.Field(0, ge=0)
 
     def __str__(self):
@@ -44,8 +44,8 @@ class Score:
         return self
 
 
-def compute_table_scores(scores: list[Score], finals_seeding: list = None) -> float:
-    """Compute GW and TPs on a table based on provided VPs.
+def compute_table_scores(scores: list[Score]) -> float:
+    """Compute GW and TPs based on provided VPs, return the maximum VPs scored.
     Check the VPs first with check_table_vps()
     """
     # we're not checking table size here, so try and handle illegal sizes in some way
@@ -108,7 +108,7 @@ def check_table_vps(scores: list[Score]) -> ScoringError | None:
     vps = [[i, s.vp] for i, s in enumerate(scores)]
     # go through all ousts successively: we begin anywhere on the table
     # and search for a zero (which means an oust, otherwise it would be 0.5)
-    while len(vps) > 1:
+    while len(vps) > 0:
         LOG.debug("scores check pass: %s", vps)
         for j, (idx, vp_count) in enumerate(vps):
             # each oust (vp_count == 0), remove 1 vp from predator ("account" for it)
@@ -125,11 +125,20 @@ def check_table_vps(scores: list[Score]) -> ScoringError | None:
                 vps[(j - 1) % len(vps)][1] += vp_count - 1
                 vps.pop(j)
                 break
-        # if we did not break, all remaining scores are positive, they should all be 0.5
+        # we did not break, all remaining scores are positive
         else:
-            missing_halves = [idx + 1 for idx, x in vps if x != 0.5]
-            if missing_halves:
-                return MissingHalfVP(f"Missing half a VP for seat {missing_halves}")
+            # We have some remaining because we checked the total: len(vps) > 0
+            # if everyone is at 0.5 it's a timeout
+            if all([vp == 0.5 for _, vp in vps]):
+                # there must be more than one
+                if len(vps) == 1:
+                    return MissingHalfVP(f"Seat {vps[0][0] + 1} cannot timeout alone")
+            # remove all 0.5
+            vps = [[i, vp] for i, vp in vps if vp != 0.5]
+            # we can still have one standing if the 0.5 were withdrawals, but not more
+            if len(vps) > 1:
+                return MissingHalfVP(
+                    f"Missing half vps for seats {[i + 1 for i, _ in vps]}"
+                )
+            # if there is one left, he has 1 point (because of the total check)
             break
-        # only one left, one point left for last player standing
-        # no need to check, it follows from previous checks
