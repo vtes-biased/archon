@@ -52,8 +52,8 @@ class TournamentManager(models.Tournament):
                 self.seed_finals(ev, member_uid)
             case events.EventType.SEAT_FINALS:
                 self.seat_finals(ev, member_uid)
-            case events.EventType.FINISH:
-                self.finish(ev, member_uid)
+            case events.EventType.FINISH_TOURNAMENT:
+                self.finish_tournament(ev, member_uid)
 
     def register(self, ev: events.Register, member_uid: str) -> None:
         self.players[ev.player_uid] = models.Player(
@@ -123,7 +123,13 @@ class TournamentManager(models.Tournament):
             table.override = overrides.pop(i, None)
             for seat in table.seating:
                 seat.result = results.pop(seat.player_uid, scoring.Score())
-            self._compute_table_score(table)
+            finals = False
+            if self.state in [
+                models.TournamentState.FINALS,
+                models.TournamentState.FINISHED,
+            ] and ev.round == len(self.rounds):
+                finals = True
+            self._compute_table_score(table, finals=finals)
             self._compute_table_state(table)
         # remove previous result for players who are removed from the new seating
         for uid, result in results.items():
@@ -174,7 +180,13 @@ class TournamentManager(models.Tournament):
         player.result -= player_seat.result
         player_seat.result = scoring.Score(vp=ev.vps)
         player.result += player_seat.result
-        self._compute_table_score(player_table)
+        finals = False
+        if self.state in [
+            models.TournamentState.FINALS,
+            models.TournamentState.FINISHED,
+        ] and ev.round == len(self.rounds):
+            finals = True
+        self._compute_table_score(player_table, finals=finals)
         self._compute_table_state(player_table)
 
     def _compute_table_score(self, table: models.Table, finals=False):
@@ -258,12 +270,13 @@ class TournamentManager(models.Tournament):
             if player.uid not in ev.seating:
                 player.state = models.PlayerState.FINISHED
 
-    def finish(self, ev: events.Finish, member_uid: str) -> None:
+    def finish_tournament(self, ev: events.FinishTournament, member_uid: str) -> None:
         finals_table = self.rounds[-1].tables[0]
         self._compute_table_score(finals_table, finals=True)
         self._compute_table_state(finals_table)
         for player in self.players.values():
             player.state = models.PlayerState.FINISHED
+        self.state = models.TournamentState.FINISHED
 
 
 class TournamentError(ValueError): ...
@@ -546,14 +559,14 @@ class TournamentOrchestrator(TournamentManager):
             raise BadSeating()
         super().seat_finals(ev, member_uid)
 
-    def finish(self, ev: events.Finish, member_uid: str) -> None:
+    def finish_tournament(self, ev: events.FinishTournament, member_uid: str) -> None:
         self._check_judge(ev, member_uid)
-        if self.state == models.TournamentState.FINALS:
+        if self.state != models.TournamentState.FINALS:
             raise FinalsNotSeeded(ev)
         final_table = self.rounds[-1].tables[0]
         if final_table.state != models.TableState.FINISHED:
             raise InvalidTables(ev, final_table)
-        super().finish(ev, member_uid)
+        super().finish_tournament(ev, member_uid)
 
 
 # ################################################################ Convenience functions

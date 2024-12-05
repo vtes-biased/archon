@@ -28,7 +28,7 @@ class EventType(enum.StrEnum):
     OVERRIDE = "OVERRIDE"
     SEED_FINALS = "SEED_FINALS"
     SEAT_FINALS = "SEAT_FINALS"
-    FINISH = "FINISH"
+    FINISH_TOURNAMENT = "FINISH_TOURNAMENT"
 
 
 class SanctionLevel(enum.StrEnum):
@@ -162,8 +162,8 @@ class SeatFinals(Event):
 
 
 @dataclasses.dataclass(kw_only=True)
-class Finish(Event):
-    type: typing.Literal[EventType.FINISH]
+class FinishTournament(Event):
+    type: typing.Literal[EventType.FINISH_TOURNAMENT]
 
 
 TournamentEvent = typing.Union[
@@ -183,7 +183,7 @@ TournamentEvent = typing.Union[
     Override,
     SeedFinals,
     SeatFinals,
-    Finish,
+    FinishTournament,
 ]
 
 

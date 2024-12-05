@@ -16,7 +16,7 @@ export enum EventType {
     OVERRIDE = "OVERRIDE",
     SEED_FINALS = "SEED_FINALS",
     SEAT_FINALS = "SEAT_FINALS",
-    FINISH = "FINISH",
+    FINISH_TOURNAMENT = "FINISH_TOURNAMENT",
 }
 
 export enum SanctionLevel {
@@ -127,8 +127,8 @@ export interface SeatFinals extends Event {
     seating: string[]  // [player_uid]
 }
 
-export interface Finish extends Event {
-    type: EventType.FINISH
+export interface FinishTournament extends Event {
+    type: EventType.FINISH_TOURNAMENT
 }
 
 export type TournamentEvent = (
@@ -148,5 +148,5 @@ export type TournamentEvent = (
     Override |
     SeedFinals |
     SeatFinals |
-    Finish
+    FinishTournament
 )

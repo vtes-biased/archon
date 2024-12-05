@@ -3,12 +3,26 @@
 
 import * as bootstrap from 'bootstrap'
 
-export function create_append<K extends keyof HTMLElementTagNameMap>(el: HTMLElement, tag_name: K, classes: string[] = [], init: Object = {}) {
+export function create_element<K extends keyof HTMLElementTagNameMap>(
+    tag_name: K,
+    classes: string[] = [],
+    init: Object = {}
+): HTMLElementTagNameMap[K] {
     const ret = document.createElement(tag_name)
     ret.classList.add(...classes)
     for (const [attribute, value] of Object.entries(init)) {
         ret.setAttribute(attribute, value)
     }
+    return ret
+}
+
+export function create_append<K extends keyof HTMLElementTagNameMap>(
+    el: HTMLElement,
+    tag_name: K,
+    classes: string[] = [],
+    init: Object = {}
+): HTMLElementTagNameMap[K] {
+    const ret = create_element(tag_name, classes, init)
     el.append(ret)
     return ret
 }

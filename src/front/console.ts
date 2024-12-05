@@ -281,7 +281,9 @@ class PersonLookup<Type extends Person> {
         }
         for (const person of persons_list.slice(0, 10)) {
             const li = base.create_append(this.dropdown_menu, "li")
-            const button = base.create_append(li, "button", ["dropdown-item"], { type: "button", "data-member-uid": person.uid })
+            const button = base.create_append(li, "button", ["dropdown-item"],
+                { type: "button", "data-member-uid": person.uid }
+            )
             var tail: string[] = []
             if (person.city) {
                 tail.push(person.city)
@@ -459,7 +461,9 @@ class Registration {
         if (this.console.tournament.state == TournamentState.REGISTRATION ||
             this.console.tournament.state == TournamentState.WAITING) {
             if (this.console.tournament.rounds.length > 0) {
-                const finals_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+                const finals_button = base.create_append(this.action_row, "button",
+                    ["col-2", "me-2", "btn", "btn-success"]
+                )
                 finals_button.innerText = "Seed Finals"
                 finals_button.addEventListener("click", (ev) => {
                     this.console.seed_finals(...this.console.toss_for_finals())
@@ -515,12 +519,17 @@ class RoundTab {
             && this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.state == TableState.FINISHED)
         ) {
-            console.log("adding button", this.action_row)
             const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
             button.innerText = "Finish round"
             button.addEventListener("click", (ev) => { this.console.finish_round() })
-        } else {
-            console.log("some tables are not finished")
+        }
+        if (this.console.tournament.state == TournamentState.FINALS
+            && this.index == this.console.tournament.rounds.length
+            && round.tables.every(t => t.state == TableState.FINISHED)
+        ) {
+            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+            button.innerText = "Finish tournament"
+            button.addEventListener("click", (ev) => { this.console.finish_tournament() })
         }
     }
 
@@ -580,7 +589,11 @@ class RoundTab {
         }
     }
 
-    display_player(row: HTMLTableRowElement, player: Player, seat: TableSeat | undefined = undefined): HTMLTableCellElement {
+    display_player(
+        row: HTMLTableRowElement,
+        player: Player,
+        seat: TableSeat | undefined = undefined
+    ): HTMLTableCellElement {
         row.dataset.player_uid = player.uid
         if (this.finals) {
             base.create_append(row, "th", [], { scope: "row" }).innerText = player.seed.toString()
@@ -811,7 +824,8 @@ class TournamentConsole {
         this.rounds = []
         for (var i = 0; i < this.tournament.rounds.length; i++) {
             var finals: boolean = false
-            if (this.tournament.state == TournamentState.FINALS
+            if ((this.tournament.state == TournamentState.FINALS
+                || this.tournament.state == TournamentState.FINISHED)
                 && this.tournament.rounds.length - this.rounds.length == 1
             ) {
                 finals = true
@@ -824,9 +838,23 @@ class TournamentConsole {
     }
 
     display() {
+        while (this.nav.parentElement.firstElementChild != this.nav) {
+            this.nav.parentElement.firstElementChild.remove()
+        }
+        if (this.tournament.state == TournamentState.FINISHED) {
+            const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })
+            var alert_text = "This tournament is Finished."
+            if (this.tournament.winner) {
+                const winner = this.tournament.players[this.tournament.winner]
+                alert_text += ` Congratulation ${winner.name} (${winner.vekn})!`
+            }
+            alert.innerText = alert_text
+            this.nav.parentElement.insertBefore(alert, this.nav)
+        }
         while (this.tournament.rounds.length > this.rounds.length) {
             var finals: boolean = false
-            if (this.tournament.state == TournamentState.FINALS
+            if ((this.tournament.state == TournamentState.FINALS
+                || this.tournament.state == TournamentState.FINISHED)
                 && this.tournament.rounds.length - this.rounds.length == 1
             ) {
                 finals = true
@@ -1019,6 +1047,13 @@ class TournamentConsole {
             uid: uuid.v4(),
             round: round,
             seating: seating,
+        }
+        await this.handle_tournament_event(event)
+    }
+    async finish_tournament() {
+        const event: events.FinishTournament = {
+            type: events.EventType.FINISH_TOURNAMENT,
+            uid: uuid.v4()
         }
         await this.handle_tournament_event(event)
     }
