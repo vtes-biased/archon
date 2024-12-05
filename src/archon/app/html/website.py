@@ -8,6 +8,8 @@ import typing
 
 
 from .. import dependencies
+from ... import engine
+from ... import models
 
 LOG = logging.getLogger()
 
@@ -207,6 +209,11 @@ async def tournament_display(
         request.url_for("tournament_display", uid=tournament.uid)
     )
     context["tournament"] = tournament
+    if tournament.state in [
+        models.TournamentState.FINISHED,
+        models.TournamentState.FINALS,
+    ]:
+        context["standings"] = engine.standings(tournament)
     return TEMPLATES.TemplateResponse(
         request=request,
         name="tournament/display.html.j2",

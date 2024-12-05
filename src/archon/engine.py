@@ -573,15 +573,34 @@ class TournamentOrchestrator(TournamentManager):
 
 
 def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
-    sort_key = lambda p: (p.state == models.PlayerState.FINISHED, p.result, p.toss)
+    sort_key = lambda p: (
+        p.state == models.PlayerState.FINISHED,
+        -int(p.uid == tournament.winner),
+        -p.result.gw,
+        -p.result.vp,
+        -p.result.tp,
+        p.toss,
+    )
     sorted_players = sorted(
-        (p for p in tournament.players.values() if p.rounds_played), sort_key
+        (p for p in tournament.players.values() if p.rounds_played), key=sort_key
     )
     rank = 1
     res = []
+    if tournament.state == models.TournamentState.FINISHED:
+        finalists = 0
+    else:
+        finalists = 5
     for _, players in itertools.groupby(sorted_players, key=sort_key):
-        res.extend((rank, p) for p in players)
-        rank += len(players)
+        players = list(players)
+        res.extend([rank, p] for p in players)
+        if rank < 3 and finalists < 5:
+            finalists += len(players)
+            if finalists < 5:
+                rank = 2
+            else:
+                rank = 6
+        else:
+            rank += len(players)
     return res
 
 

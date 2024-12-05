@@ -12,6 +12,8 @@
                 <th scope="col">Name</th>
                 <th scope="col">Date</th>
                 <th scope="col">Location</th>
+                <th scope="col">Rank</th>
+                <th scope="col">Status</th>
             </tr>
         </thead>
         <tbody>
@@ -20,15 +22,18 @@
                 <th scope="row"><a href="{{ url_for('tournament_display', uid=tournament.uid) }}">{{
                         tournament.name }}</a></th>
                 {% if tournament.finish %}
-                <td>{{ tournament.start }} - {{ tournament.finish }}</td>
+                <td>{{ tournament.start.strftime("%Y-%m-%d %H:%M (%Z)") }} - {{ tournament.finish.strftime("%Y-%m-%d
+                    %H:%M (%Z)") }}</td>
                 {% else %}
-                <td>{{ tournament.start }}</td>
+                <td>{{ tournament.start.strftime("%Y-%m-%d %H:%M (%Z)") }}</td>
                 {% endif %}
                 {% if tournament.online %}
                 <td>Online</td>
                 {% else %}
                 <td>{{ tournament.country }} - {{ tournament.city }}</td>
                 {% endif %}
+                <td>{{ tournament.rank }}</td>
+                <td>{{ tournament.state }}</td>
             </tr>
             {% endfor %}
         </tbody>

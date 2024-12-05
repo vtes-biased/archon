@@ -37,8 +37,9 @@
     {% endif %}
 </div>
 <div class="mb-2 d-flex">
-    <div class="me-2">Start: {{ tournament.start }}</div>
-    <div class="me-2">Finish: {{ tournament.finish }}</div>
+    <div class="me-2">{{ tournament.state }}</div>
+    <div class="me-2">Start: {{ tournament.start.strftime("%Y-%m-%d %H:%M (%Z)") }}</div>
+    <div class="me-2">Finish: {{ tournament.finish.strftime("%Y-%m-%d %H:%M (%Z)") }}</div>
 </div>
 {% if not tournament.online and tournament.venue %}
 <h2 class="mt-3 mb-1">Venue</h2>
@@ -58,6 +59,39 @@
 {% if tournament.description %}
 <h2 class="mt-3 mb-1">Description</h2>
 <div>{{ tournament.description }}</div>
+{% endif %}
+<div>{{ tournament.players | length }} participants</div>
+{% if standings %}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">VEKN #</th>
+            <th scope="col">Name</th>
+            <th scope="col">City</th>
+            <th scope="col">Country</th>
+            <th scope="col">Score</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for rank, player in standings %}
+        <tr>
+            <th scope="row" class="{{'bg-primary-subtle' if tournament.state == 'Finished' and loop.first else ''}}">
+                {{ rank }}</th>
+            <td class="{{'bg-primary-subtle' if tournament.state == 'Finished' and loop.first else ''}}">
+                {{ player.vekn }}</td>
+            <td class="{{'bg-primary-subtle' if tournament.state == 'Finished' and loop.first else ''}}">
+                {{ player.name }}</td>
+            <td class="{{'bg-primary-subtle' if tournament.state == 'Finished' and loop.first else ''}}">
+                {{ player.city }}</td>
+            <td class="{{'bg-primary-subtle' if tournament.state == 'Finished' and loop.first else ''}}">
+                {{ player.country }}</td>
+            <td class="{{'bg-primary-subtle' if tournament.state == 'Finished' and loop.first else ''}}">
+                {{ player.result }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endif %}
 {% if member and member.uid in tournament.judges %}
 <a href="{{ url_for('tournament_edit', uid=tournament.uid) }}" class="btn btn-primary my-3">Edit</a>
