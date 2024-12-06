@@ -23,6 +23,22 @@ function swap_nodes(el1: HTMLElement, el2: HTMLElement) {
     if (next2 != el1) { parent2.insertBefore(el1, next2) }
 }
 
+function swap_row_and_empty(el: HTMLTableRowElement, empty: HTMLTableRowElement) {
+    console.log("swapping (empty)", el, empty)
+    if (el === empty) { return }
+    const parent = el.parentElement
+    const parent_empty = empty.parentElement
+    var next_non_empty = parent_empty.firstElementChild
+    while (true) {
+        const candidate = next_non_empty.nextElementSibling as HTMLTableRowElement | undefined
+        if (!candidate?.dataset?.player_uid) { break }
+        next_non_empty = candidate
+    }
+    parent_empty.insertBefore(el, next_non_empty.nextElementSibling)
+    parent.append(empty)
+}
+
+
 function normalize_string(s: string) {
     var res = unidecode(s).toLowerCase()
     // remove non-letters non-numbers
@@ -487,6 +503,8 @@ class RoundTab {
     reseat_button: HTMLButtonElement
     finals: boolean
     dragging: HTMLTableRowElement | undefined
+    dragging_origin: HTMLTableSectionElement | undefined
+    cross_table_drag: HTMLTableRowElement | undefined
     constructor(con: TournamentConsole, index: number, finals: boolean = false) {
         this.console = con
         this.index = index
@@ -510,7 +528,7 @@ class RoundTab {
         var div = undefined
         for (const table of round.tables) {
             if (j % 2 === 0) {
-                div = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
+                div = base.create_append(this.panel, "div", ["row", "g-5", "my-4"])
             }
             this.display_table(div, table, j + 1)
             j++
@@ -642,8 +660,7 @@ class RoundTab {
         row.draggable = true
         row.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row))
         row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row))
-        row.addEventListener("dragover", (ev) => this.dragover_row(ev, row))
-        row.addEventListener("dragleave", (ev) => this.dragleave_row(ev, row))
+        row.addEventListener("dragover", (ev) => ev.preventDefault())
         row.addEventListener("dragend", (ev) => this.dragend_row(ev, row))
     }
 
@@ -652,34 +669,47 @@ class RoundTab {
         console.log("dragstart", ev, target_row)
         this.dragging = target_row
         this.dragging.classList.add("dragged")
-        // ev.dataTransfer.setData("text/html", row.innerHTML)
+        this.dragging_origin = this.dragging.parentElement as HTMLTableSectionElement
     }
 
-    dragover_row(ev: DragEvent, row: HTMLTableRowElement) {
-        ev.preventDefault()
-    }
-
-    dragenter_row(ev: DragEvent, row: HTMLTableRowElement) {
-        // TODO: swap previous swap back when we're in another table
-        ev.preventDefault()
+    dragenter_row(ev: DragEvent, target_row: HTMLTableRowElement) {
         if (this.dragging == undefined) { return }
-        const target = ev.target as HTMLElement
-        const target_row = target.closest("tr")
         if (this.dragging == target_row) { return }
-        console.log("dragenter", ev, this.dragging, target_row)
+        ev.preventDefault()
+        if (this.cross_table_drag && this.cross_table_drag != target_row) {
+            swap_nodes(this.dragging, this.cross_table_drag)
+            this.cross_table_drag.classList.remove("dragged")
+            this.cross_table_drag = undefined
+        }
+        if (this.dragging_origin != target_row.parentElement as HTMLTableSectionElement) {
+            this.cross_table_drag = target_row
+            this.cross_table_drag.classList.add("dragged")
+        }
         swap_nodes(this.dragging, target_row)
     }
 
-    dragleave_row(ev: DragEvent, row: HTMLTableRowElement) {
-        // Note enter usually fires before leave: no point handling this event
+    dragenter_empty_row(ev: DragEvent, target_row: HTMLTableRowElement) {
+        if (this.dragging == undefined) { return }
+        if (this.cross_table_drag && this.cross_table_drag != target_row) {
+            swap_nodes(this.dragging, this.cross_table_drag)
+            this.cross_table_drag.classList.remove("dragged")
+            this.cross_table_drag = undefined
+        }
+        if (this.dragging.parentElement == target_row.parentElement) { return }
         ev.preventDefault()
+        swap_row_and_empty(this.dragging, target_row)
+        this.dragging_origin = this.dragging.parentElement as HTMLTableSectionElement
     }
 
     dragend_row(ev: DragEvent, row: HTMLTableRowElement) {
-        ev.preventDefault()
         console.log("dragend", ev, this.dragging)
         this.dragging.classList.remove("dragged")
         this.dragging = undefined
+        if (this.cross_table_drag) {
+            this.cross_table_drag.classList.remove("dragged")
+        }
+        this.cross_table_drag = undefined
+        this.dragging_origin = undefined
     }
 
     remove_row(row: HTMLTableRowElement) {
@@ -702,6 +732,9 @@ class RoundTab {
         const plus_button = base.create_append(action_row, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
         plus_button.innerHTML = '<i class="bi bi-plus"></i>'
         plus_button.addEventListener("click", (ev) => { this.display_player_lookup_modal(empty_row) })
+        empty_row.addEventListener("dragenter", (ev) => this.dragenter_empty_row(ev, empty_row))
+        empty_row.addEventListener("dragover", (ev) => ev.preventDefault())
+        empty_row.addEventListener("dragend", (ev) => this.dragend_row(ev, empty_row))
     }
 
     async reseat() {
