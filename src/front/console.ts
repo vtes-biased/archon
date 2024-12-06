@@ -498,6 +498,8 @@ class Registration {
 class RoundTab {
     console: TournamentConsole
     index: number
+    next_table_index: number
+    table_div: HTMLDivElement | undefined
     panel: HTMLDivElement
     action_row: HTMLDivElement
     reseat_button: HTMLButtonElement
@@ -514,7 +516,6 @@ class RoundTab {
         } else {
             this.panel = this.console.add_nav(`Round ${this.index}`, (ev) => this.setup_player_lookup_modal())
         }
-        console.log("adding action row", this.panel)
     }
 
     display() {
@@ -524,14 +525,9 @@ class RoundTab {
         this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
         this.reseat_button.addEventListener("click", (ev) => { this.start_reseat() })
         const round = this.console.tournament.rounds[this.index - 1]
-        var j = 0
-        var div = undefined
+        this.next_table_index = 1
         for (const table of round.tables) {
-            if (j % 2 === 0) {
-                div = base.create_append(this.panel, "div", ["row", "g-5", "my-4"])
-            }
-            this.display_table(div, table, j + 1)
-            j++
+            this.display_table(table)
         }
         if (this.console.tournament.state == TournamentState.PLAYING
             && this.index == this.console.tournament.rounds.length
@@ -551,8 +547,12 @@ class RoundTab {
         }
     }
 
-    display_table(root: HTMLDivElement, data: Table, table_index: number) {
-        const div = base.create_append(root, "div", ["col-md-6"])
+    display_table(data: Table | undefined): HTMLTableSectionElement {
+        if (this.next_table_index % 2 === 1) {
+            this.table_div = base.create_append(this.panel, "div", ["row", "g-5", "my-4"])
+        }
+        const table_index = this.next_table_index++
+        const div = base.create_append(this.table_div, "div", ["col-md-6"])
         const title_div = base.create_append(div, "div", ["d-inline-flex", "flex-row", "mb-2", "align-items-center"])
         const title = base.create_append(title_div, "h2", ["m-0", "me-2"])
         if (this.finals) {
@@ -560,6 +560,20 @@ class RoundTab {
         } else {
             title.innerText = `Table ${table_index}`
         }
+        const table = base.create_append(div, "table", ["table"])
+        const head = base.create_append(table, "thead")
+        const tr = base.create_append(head, "tr")
+        var headers = ["VEKN#", "Name", "Score", ""]
+        if (this.finals) {
+            headers = ["Seed", "VEKN#", "Name", "Score", ""]
+        }
+        for (const label of headers) {
+            const th = base.create_append(tr, "th", [], { scope: "col" })
+            th.innerText = label
+        }
+        const body = base.create_append(table, "tbody")
+        // Empty table creation stops here
+        if (!data) { return body }
         const badge = base.create_append(title_div, "span", ["badge", "me-2"])
         badge.innerText = data.state
         switch (data.state) {
@@ -583,18 +597,6 @@ class RoundTab {
             override_badge.innerText = "Overriden"
             // TODO: add comment as tooltip?
         }
-        const table = base.create_append(div, "table", ["table"])
-        const head = base.create_append(table, "thead")
-        const tr = base.create_append(head, "tr")
-        var headers = ["VEKN#", "Name", "Score", ""]
-        if (this.finals) {
-            headers = ["Seed", "VEKN#", "Name", "Score", ""]
-        }
-        for (const label of headers) {
-            const th = base.create_append(tr, "th", [], { scope: "col" })
-            th.innerText = label
-        }
-        const body = base.create_append(table, "tbody")
         for (const seat of data.seating) {
             const player = this.console.tournament.players[seat.player_uid]
             const row = base.create_append(body, "tr")
@@ -605,6 +607,7 @@ class RoundTab {
                 this.console.score_modal.show(player, this.index, seat.result.vp)
             })
         }
+        return body
     }
 
     display_player(
@@ -629,27 +632,33 @@ class RoundTab {
         return base.create_append(row, "td", ["action-row"])
     }
 
+    setup_reseat_table_body(table: HTMLTableSectionElement) {
+        var rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+        for (const row of rows) {
+            const action_row = row.querySelector(".action-row") as HTMLTableCellElement
+            remove_children(action_row)
+            this.display_reseat_actions(row, action_row)
+        }
+        while (rows.length < 5) {
+            this.add_empty_row(table)
+            rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+        }
+    }
     start_reseat() {
         remove_children(this.action_row)
         this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
         this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
         this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
+        const add_table_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-primary"])
+        add_table_button.innerHTML = '<i class="bi bi-plus"></i> Add Table'
+        add_table_button.addEventListener("click", (ev) => { this.setup_reseat_table_body(this.display_table(undefined)) })
         const cancel_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-secondary"])
         cancel_button.innerHTML = '<i class="bi bi-x"></i> Cancel'
         cancel_button.addEventListener("click", (ev) => { this.display() })
 
         const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
         for (const table of tables.values()) {
-            var rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
-            for (const row of rows) {
-                const action_row = row.querySelector(".action-row") as HTMLTableCellElement
-                remove_children(action_row)
-                this.display_reseat_actions(row, action_row)
-            }
-            while (rows.length < 5) {
-                this.add_empty_row(table)
-                rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
-            }
+            this.setup_reseat_table_body(table)
         }
     }
 
@@ -703,7 +712,9 @@ class RoundTab {
 
     dragend_row(ev: DragEvent, row: HTMLTableRowElement) {
         console.log("dragend", ev, this.dragging)
-        this.dragging.classList.remove("dragged")
+        if (this.dragging) {
+            this.dragging.classList.remove("dragged")
+        }
         this.dragging = undefined
         if (this.cross_table_drag) {
             this.cross_table_drag.classList.remove("dragged")
@@ -749,7 +760,9 @@ class RoundTab {
                     table_seating.push(player_uid)
                 }
             }
-            round_seating.push(table_seating)
+            if (table_seating.length > 0) {
+                round_seating.push(table_seating)
+            }
         }
         await this.console.alter_seating(this.index, round_seating)
     }
