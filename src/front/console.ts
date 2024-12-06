@@ -649,9 +649,11 @@ class RoundTab {
         this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
         this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
         this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
-        const add_table_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-primary"])
-        add_table_button.innerHTML = '<i class="bi bi-plus"></i> Add Table'
-        add_table_button.addEventListener("click", (ev) => { this.setup_reseat_table_body(this.display_table(undefined)) })
+        if (!this.finals) {
+            const add_table_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-primary"])
+            add_table_button.innerHTML = '<i class="bi bi-plus"></i> Add Table'
+            add_table_button.addEventListener("click", (ev) => { this.setup_reseat_table_body(this.display_table(undefined)) })
+        }
         const cancel_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-secondary"])
         cancel_button.innerHTML = '<i class="bi bi-x"></i> Cancel'
         cancel_button.addEventListener("click", (ev) => { this.display() })
@@ -750,9 +752,9 @@ class RoundTab {
 
     async reseat() {
         const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
-        const round_seating = []
+        const round_seating: string[][] = []
         for (const table of tables.values()) {
-            const table_seating = []
+            const table_seating: string[] = []
             const rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
             for (const row of rows) {
                 const player_uid = row.dataset.player_uid
@@ -764,7 +766,11 @@ class RoundTab {
                 round_seating.push(table_seating)
             }
         }
-        await this.console.alter_seating(this.index, round_seating)
+        if (this.finals) {
+            await this.console.seat_finals(round_seating[0])
+        } else {
+            await this.console.alter_seating(this.index, round_seating)
+        }
     }
 
     setup_player_lookup_modal() {
@@ -1092,6 +1098,14 @@ class TournamentConsole {
             type: events.EventType.ROUND_ALTER,
             uid: uuid.v4(),
             round: round,
+            seating: seating,
+        }
+        await this.handle_tournament_event(event)
+    }
+    async seat_finals(seating: string[]) {
+        const event: events.SeatFinals = {
+            type: events.EventType.SEAT_FINALS,
+            uid: uuid.v4(),
             seating: seating,
         }
         await this.handle_tournament_event(event)

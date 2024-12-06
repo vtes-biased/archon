@@ -553,7 +553,7 @@ class TournamentOrchestrator(TournamentManager):
                 raise NonFinalist(ev, ev.winner_uid)
         if any(uid not in ev.seating for uid in self.finals_seeds):
             raise BadSeeding(ev)
-        self._check_seating([ev.seating])
+        self._check_seating(ev, [ev.seating])
         # for a finals, you really need at least 3
         if len(ev.seating) < 4 or len(ev.seating) > 5:
             raise BadSeating()
