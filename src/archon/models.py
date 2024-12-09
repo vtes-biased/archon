@@ -116,15 +116,15 @@ class Sanction:
 
 
 @dataclasses.dataclass
-class Tournament:
+class TournamentConfig:
     name: str
     format: TournamentFormat
     start: datetime.datetime
+    timezone: str = "UTC"
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     judges: list[str] = pydantic.Field(default_factory=list)
     rank: TournamentRank = TournamentRank.BASIC
     country: str | None = None
-    city: str | None = None
     venue: str = ""
     venue_url: str = ""
     address: str = ""
@@ -135,6 +135,10 @@ class Tournament:
     finish: datetime.datetime | None = None
     description: str = ""
     max_rounds: int = 0
+
+
+@dataclasses.dataclass
+class Tournament(TournamentConfig):
     # active tournament console
     # # For now, rounds[-1] is always current.
     # # This might come back to bite us for staggered tournament, but let's try to avoid it.

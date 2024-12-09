@@ -14,6 +14,7 @@ import pydantic.dataclasses
 import typing
 import urllib.parse
 import uuid
+import zoneinfo
 
 
 from .. import db
@@ -114,6 +115,13 @@ async def get_tournament(
     return await op.get_tournament(uid)
 
 
+async def get_tournament_config(
+    op: DbOperator,
+    uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
+) -> models.Tournament:
+    return await op.get_tournament(uid, models.TournamentConfig)
+
+
 async def get_tournament_orchestrator(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
@@ -125,6 +133,9 @@ async def get_tournament_orchestrator(
 
 
 Tournament = typing.Annotated[models.Tournament, fastapi.Depends(get_tournament)]
+TournamentConfig = typing.Annotated[
+    models.TournamentConfig, fastapi.Depends(get_tournament_config)
+]
 TournamentOrchestrator = typing.Annotated[
     engine.TournamentOrchestrator, fastapi.Depends(get_tournament_orchestrator)
 ]

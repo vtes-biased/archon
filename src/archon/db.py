@@ -159,7 +159,7 @@ class Operator:
             stored_hash = (await res.fetchone())[0]
         return hmac.compare_digest(secret_hash, stored_hash)
 
-    async def create_tournament(self, tournament: models.Tournament) -> str:
+    async def create_tournament(self, tournament: models.TournamentConfig) -> str:
         """Create a tournament, returns its uid"""
         uid = uuid.uuid4()
         tournament.uid = str(uid)
@@ -170,13 +170,15 @@ class Operator:
             )
             return str((await res.fetchone())[0])
 
-    async def get_tournaments(self) -> list[models.Tournament]:
+    async def get_tournaments(
+        self, cls: typing.Type[T] = models.Tournament
+    ) -> list[models.Tournament]:
         """List all tournaments.
         TODO: paginate. We'll need an index on tournament.start
         """
         async with self.conn.cursor() as cursor:
             res = await cursor.execute("SELECT data FROM tournaments")
-            return [models.Tournament(**row[0]) for row in await res.fetchall()]
+            return [cls(**row[0]) for row in await res.fetchall()]
 
     async def get_tournament(
         self, uid: str, cls: typing.Type[T] = models.Tournament

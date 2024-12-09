@@ -63,11 +63,6 @@
                 <option selected value="">Country</option>
             </select>
         </div>
-        <div class="col-md-3">
-            <select disabled class="form-select" aria-label="City" id="selectCity" name="city">
-                <option selected value="">City</option>
-            </select>
-        </div>
         {# ----------------------------------------------------------------------------------------------- line 4#}
         <div class="col-4">
             <div class="input-group">
@@ -87,15 +82,31 @@
         </div>
         {# ----------------------------------------------------------------------------------------------- line 5 #}
         <div class="col-md-4">
-            <div class="form-floating">
-                <input required class="form-control" type="datetime-local" id="tournamentStart" name="start">
+            <div class="input-group form-floating" id="pickerStart" data-td-target-input="nearest"
+                data-td-target-toggle="nearest">
+                <input required class=" form-control" type="text" id="tournamentStart" placeholder="Start" name="start"
+                    data-td-target="#pickerStart">
                 <label class="form-label" for="tournamentStart">Start</label>
+                <span class="input-group-text" data-td-target="#pickerStart" data-td-toggle="datetimepicker">
+                    <i class="bi bi-calendar"></i>
+                </span>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="form-floating">
-                <input class="form-control" type="datetime-local" id="tournamentFinish" name="finish">
+            <div class="input-group form-floating" id="pickerFinish" data-td-target-input="nearest"
+                data-td-target-toggle="nearest">
+                <input required class=" form-control" type="text" id="tournamentFinish" placeholder="Finish"
+                    name="finish" data-td-target="#pickerFinish">
                 <label class="form-label" for="tournamentFinish">Finish</label>
+                <span class="input-group-text" data-td-target="#pickerFinish" data-td-toggle="datetimepicker">
+                    <i class="bi bi-calendar"></i>
+                </span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="input-group form-floating" id="timezoneDiv">
+                <select class="form-select" aria-label="Timezone" id="timezoneSelect" name="timezone"></select>
+                <label class="form-label" for="timezone">Timezone</label>
             </div>
         </div>
         {# ----------------------------------------------------------------------------------------------- line 6 #}

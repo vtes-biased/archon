@@ -17,21 +17,22 @@ router = fastapi.APIRouter(
 @router.get("/", summary="List all tournaments")
 async def api_tournaments(
     op: dependencies.DbOperator,
-) -> list[models.Tournament]:
+) -> list[models.TournamentConfig]:
     """List all tournaments"""
-    return await op.get_tournaments()
+    return await op.get_tournaments(models.TournamentConfig)
 
 
 @router.post("/", summary="Create a new tournament")
 async def api_tournaments_post(
     request: fastapi.Request,
-    tournament: typing.Annotated[models.Tournament, fastapi.Body()],
+    data: typing.Annotated[models.TournamentConfig, fastapi.Body()],
     member_uid: dependencies.MemberUidFromToken,
     op: dependencies.DbOperator,
 ) -> dependencies.TournamentUrl:
     """Create a new tournament"""
-    tournament.judges = [member_uid]
-    uid = await op.create_tournament(tournament)
+    data.judges = [member_uid]
+    LOG.info("Creating new tournament: %s", data)
+    uid = await op.create_tournament(data)
     return dependencies.TournamentUrl(
         uid=uid, url=str(request.url_for("tournament_display", uid=uid))
     )
@@ -41,7 +42,7 @@ async def api_tournaments_post(
 async def api_tournament_put(
     request: fastapi.Request,
     tournament: dependencies.Tournament,
-    data: typing.Annotated[models.Tournament, fastapi.Body()],
+    data: typing.Annotated[models.TournamentConfig, fastapi.Body()],
     member_uid: dependencies.MemberUidFromToken,
     op: dependencies.DbOperator,
 ) -> dependencies.TournamentUrl:
@@ -53,27 +54,9 @@ async def api_tournament_put(
         raise fastapi.HTTPException(
             fastapi.status.HTTP_403_FORBIDDEN, detail="A judge is required"
         )
-    LOG.warning(data)
-    # partial update: do not update console-side data
-    for attr in [
-        "name",
-        "format",
-        "start",
-        "rank",
-        "country",
-        "city",
-        "venue",
-        "venue_url",
-        "address",
-        "map_url",
-        "online",
-        "proxies",
-        "multideck",
-        "finish",
-        "description",
-        "max_rounds",
-    ]:
-        setattr(tournament, attr, getattr(data, attr))
+    LOG.info("Updating tournament config: %s", data)
+    for field in data.model_fields_set:
+        setattr(tournament, field, getattr(data, field))
     uid = await op.update_tournament(tournament)
     return dependencies.TournamentUrl(
         uid=uid, url=str(request.url_for("tournament_display", uid=uid))

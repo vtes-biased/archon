@@ -22,15 +22,19 @@
                 <th scope="row"><a href="{{ url_for('tournament_display', uid=tournament.uid) }}">{{
                         tournament.name }}</a></th>
                 {% if tournament.finish %}
-                <td>{{ tournament.start.strftime("%Y-%m-%d %H:%M (%Z)") }} - {{ tournament.finish.strftime("%Y-%m-%d
-                    %H:%M (%Z)") }}</td>
+                <td>
+                    {{ tournament.start.strftime("%Y-%m-%d %H:%M") }}
+                    <i class="bi bi-arrow-right"></i>
+                    {{ tournament.finish.strftime("%Y-%m-%d %H:%M") }}
+                    ({{ tournament.timezone }})
+                </td>
                 {% else %}
-                <td>{{ tournament.start.strftime("%Y-%m-%d %H:%M (%Z)") }}</td>
+                <td>{{ tournament.start.strftime("%Y-%m-%d %H:%M") }} ({{ tournament.timezone }})</td>
                 {% endif %}
                 {% if tournament.online %}
                 <td>Online</td>
                 {% else %}
-                <td>{{ tournament.country }} - {{ tournament.city }}</td>
+                <td>{{ tournament.country }}</td>
                 {% endif %}
                 <td>{{ tournament.rank }}</td>
                 <td>{{ tournament.state }}</td>

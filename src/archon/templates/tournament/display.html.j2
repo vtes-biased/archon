@@ -1,19 +1,25 @@
 {% extends "layout.html.j2" %}
 
 {% block scripts %}
+<script async src="{{ url_for('static', path='tournament_display.js') }}" type="module"></script>
 {% endblock%}
 
 {% block content %}
 <h1 class="mb-4">{{ tournament.name }}</h1>
 <div class="mb-2 d-flex">
+    {% if tournament.state == "Registration" %}
+    <span class="me-2 badge bg-info text-dark">{{ tournament.state }}</span>
+    {% elif tournament.state == "Finished" %}
+    <span class="me-2 badge bg-secondary">{{ tournament.state }}</span>
+    {% else %}
+    <span class="me-2 badge bg-warning text-dark">In Progress</span>
+    {% endif %}
     {% if tournament.format == "Standard" %}
-    <span class="me-2 badge bg-success">{{ tournament.format }}</span>
+    <span class="me-2 badge bg-secondary">{{ tournament.format }}</span>
     {% elif tournament.format == "Limited" %}
     <span class="me-2 badge bg-warning text-dark">{{ tournament.format }}</span>
     {% elif tournament.format == "Draft" %}
     <span class="me-2 badge bg-info text-dark">{{ tournament.format }}</span>
-    {% else %}
-    <span class="me-2 badge bg-secondary">{{ tournament.format }}</span>
     {% endif %}
     {% if tournament.rank == "National Championship" %}
     <span class="me-2 badge bg-primary">{{ tournament.rank }}</span>
@@ -37,28 +43,29 @@
     {% endif %}
 </div>
 <div class="mb-2 d-flex">
-    <div class="me-2">{{ tournament.state }}</div>
-    <div class="me-2">Start: {{ tournament.start.strftime("%Y-%m-%d %H:%M (%Z)") }}</div>
-    <div class="me-2">Finish: {{ tournament.finish.strftime("%Y-%m-%d %H:%M (%Z)") }}</div>
+    <div class="me-2">{{ tournament.start.strftime("%Y-%m-%d %H:%M") }}</div>
+    <div class="me-2"><i class="bi bi-arrow-right"></i></div>
+    <div class="me-2">{{ tournament.finish.strftime("%Y-%m-%d %H:%M") }}</div>
+    <div class="me-2">({{ tournament.timezone }})</div>
 </div>
 {% if not tournament.online and tournament.venue %}
 <h2 class="mt-3 mb-1">Venue</h2>
 <div class="d-flex">
-    <div class="me-2">
-        {% if tournament.venue_url %}
-        <a href="{{ tournament.venue_url }}" target="_blank">{{ tournament.venue }}, {{ tournament.address }}</a>
-        {% else %}
-        <div>{{ tournament.venue }}</div>
-        {% endif %}
-    </div>
+    <div class="me-2">{{ tournament.venue }}</div>
+    {% if tournament.venue_url %}
+    <a class="me-2" href="{{ tournament.venue_url }}" target="_blank"><i class="bi bi-globe"></i></a>
+    {% endif %}
+    {% if tournament.address %}
+    <div class="me-2">{{ tournament.address }}</div>
+    {% endif %}
     {% if tournament.map_url %}
-    <a href="{{ tournament.map_url }}" target="_blank"><i class="bi bi-geo-alt-fill"></i></a>
+    <a class="me-2" href="{{ tournament.map_url }}" target="_blank"><i class="bi bi-geo-alt-fill"></i></a>
     {% endif %}
 </div>
 {% endif %}
 {% if tournament.description %}
 <h2 class="mt-3 mb-1">Description</h2>
-<div>{{ tournament.description }}</div>
+<div id="tournamentDescription" data-markdown="{{ tournament.description | safe }}"></div>
 {% endif %}
 <div>{{ tournament.players | length }} participants</div>
 {% if standings %}

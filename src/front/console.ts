@@ -650,9 +650,13 @@ class RoundTab {
         this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
         this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
         if (!this.finals) {
-            const add_table_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-primary"])
+            const add_table_button = base.create_append(this.action_row, "button",
+                ["col-2", "me-2", "btn", "btn-primary"]
+            )
             add_table_button.innerHTML = '<i class="bi bi-plus"></i> Add Table'
-            add_table_button.addEventListener("click", (ev) => { this.setup_reseat_table_body(this.display_table(undefined)) })
+            add_table_button.addEventListener("click",
+                (ev) => { this.setup_reseat_table_body(this.display_table(undefined)) }
+            )
         }
         const cancel_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-secondary"])
         cancel_button.innerHTML = '<i class="bi bi-x"></i> Cancel'
@@ -987,7 +991,8 @@ class TournamentConsole {
     async handle_tournament_event(tev: events.TournamentEvent) {
         console.log("handle event", tev)
         // TODO: implement offline mode
-        const res = await base.do_fetch(`/api/tournaments/${this.tournament.uid}/event`, {
+        const res = await base.do_fetch(
+            `/api/tournaments/${this.tournament.uid}/event`, {
             method: "post",
             headers: {
                 'Accept': 'application/json',
@@ -995,7 +1000,8 @@ class TournamentConsole {
                 'Authorization': `Bearer ${this.token.access_token}`
             },
             body: JSON.stringify(tev)
-        })
+        }
+        )
         if (!res) { return }
         const response = await res.json()
         console.log(response)
@@ -1232,7 +1238,6 @@ enum SanctionLevel {
     DISQUALIFICATION = "Disqualification",
 }
 
-
 interface Sanction {
     judge_uid: string,
     player_uid: string,
@@ -1240,11 +1245,11 @@ interface Sanction {
     comment: string
 }
 
-
-interface Tournament {
+interface TournamentConfig {
     name: string,
     format: TournamentFormat,
     start: string,
+    timezone: string,
     uid: string | undefined,
     rank: TournamentRank | undefined,
     country?: string | undefined,
@@ -1259,6 +1264,9 @@ interface Tournament {
     finish?: string,
     description?: string,
     judges?: string[],
+}
+
+interface Tournament extends TournamentConfig {
     // active tournament console
     // current_round: number,
     limited: LimitedFormat | undefined,

@@ -190,7 +190,7 @@ async def tournament_list(
 ):
     request.session["next"] = str(request.url_for("tournament_list"))
     tournaments = await op.get_tournaments()
-    tournaments.sort(key=lambda x: x.start)
+    tournaments.sort(key=lambda x: x.start, reverse=True)
     context["tournaments"] = tournaments
     return TEMPLATES.TemplateResponse(
         request=request,
@@ -225,7 +225,7 @@ async def tournament_display(
 async def tournament_edit(
     request: fastapi.Request,
     context: dependencies.SessionContext,
-    tournament: dependencies.Tournament,
+    tournament: dependencies.TournamentConfig,
     member_uid: dependencies.MemberUidFromSession,
 ):
     if member_uid not in tournament.judges:

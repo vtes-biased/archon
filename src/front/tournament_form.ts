@@ -1,43 +1,46 @@
 import * as base from "./base"
+import * as tempusDominus from '@eonasdan/tempus-dominus'
+import { biOneIcons } from '@eonasdan/tempus-dominus/dist/plugins/bi-one'
 
-async function select_country(ev: Event) {
-    // Fetch the cities (>15k pop) depending on the country. Disambiguate names.
-    const selectCountry = ev.currentTarget as HTMLSelectElement
-    const selectCity = document.getElementById("selectCity") as HTMLSelectElement
-    selectCity.options.selectedIndex = 0
-    selectCity.dispatchEvent(new Event('change', { bubbles: true }))
-    while (selectCity.options.length > 1) {
-        selectCity.options.remove(1)
-    }
-    if (selectCountry.selectedIndex < 1) {
-        selectCity.disabled = true
-    } else {
-        const res = await base.do_fetch(`/api/vekn/country/${selectCountry.value}/city`, {})
-        const cities = await res.json() as City[]
-        // find duplicate city names, add administrative divisions for distinction
-        const names_count = {}
-        for (const city of cities) {
-            var name = city.name
-            names_count[name] = (names_count[name] || 0) + 1
-            name += `, ${city.admin1}`
-            names_count[name] = (names_count[name] || 0) + 1
-        }
-        for (const city of cities) {
-            var name = city.name
-            if (names_count[name] > 1) {
-                name += `, ${city.admin1}`
-            }
-            if (names_count[name] > 1) {
-                name += `, ${city.admin2}`
-            }
-            const option = document.createElement("option")
-            option.value = name
-            option.label = name
-            selectCity.options.add(option)
-        }
-        selectCity.disabled = false
-    }
-}
+// Keep it around, we'll need it for player city 
+// async function select_country(ev: Event) {
+//     // Fetch the cities (>15k pop) depending on the country. Disambiguate names.
+//     const selectCountry = ev.currentTarget as HTMLSelectElement
+//     const selectCity = document.getElementById("selectCity") as HTMLSelectElement
+//     selectCity.options.selectedIndex = 0
+//     selectCity.dispatchEvent(new Event('change', { bubbles: true }))
+//     while (selectCity.options.length > 1) {
+//         selectCity.options.remove(1)
+//     }
+//     if (selectCountry.selectedIndex < 1) {
+//         selectCity.disabled = true
+//     } else {
+//         const res = await base.do_fetch(`/api/vekn/country/${selectCountry.value}/city`, {})
+//         const cities = await res.json() as City[]
+//         // find duplicate city names, add administrative divisions for distinction
+//         const names_count = {}
+//         for (const city of cities) {
+//             var name = city.name
+//             names_count[name] = (names_count[name] || 0) + 1
+//             name += `, ${city.admin1}`
+//             names_count[name] = (names_count[name] || 0) + 1
+//         }
+//         for (const city of cities) {
+//             var name = city.name
+//             if (names_count[name] > 1) {
+//                 name += `, ${city.admin1}`
+//             }
+//             if (names_count[name] > 1) {
+//                 name += `, ${city.admin2}`
+//             }
+//             const option = document.createElement("option")
+//             option.value = name
+//             option.label = name
+//             selectCity.options.add(option)
+//         }
+//         selectCity.disabled = false
+//     }
+// }
 
 function select_format(ev: Event) {
     // Ranks are only available for Standard constructed
@@ -137,16 +140,17 @@ function switch_online(ev: Event) {
 async function submit_tournament(ev: Event, token: base.Token) {
     // create or update tournament
     ev.preventDefault()
+    console.log("submitting")
     const tournamentForm = ev.currentTarget as HTMLFormElement
     const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
     const data = new FormData(tournamentForm)
-    var json_data = Object.fromEntries(data.entries()) as unknown as Tournament
+    var json_data = Object.fromEntries(data.entries()) as unknown as TournamentConfig
     if (json_data.finish.length < 1) { json_data.finish = undefined }
-    var url = "/api/tournaments"
+    var url = "/api/tournaments/"
     var method = "post"
     if (tournamentData) {
         // we are in edit mode
-        const tournament = JSON.parse(tournamentData.dataset.tournament) as Tournament
+        const tournament = JSON.parse(tournamentData.dataset.tournament) as TournamentConfig
         url += `/${tournament.uid}`
         method = "put"
     }
@@ -161,7 +165,7 @@ async function submit_tournament(ev: Event, token: base.Token) {
     window.location.href = response.url
 }
 
-async function fill_data(tournamentData: Tournament) {
+async function fill_data(tournamentData: TournamentConfig) {
     // only for tournament/edit.html
     console.log(tournamentData)
     const tournamentName = document.getElementById("tournamentName") as HTMLInputElement
@@ -172,7 +176,6 @@ async function fill_data(tournamentData: Tournament) {
     const switchOnline = document.getElementById("switchOnline") as HTMLInputElement
     const tournamentVenueName = document.getElementById("tournamentVenueName") as HTMLInputElement
     const selectCountry = document.getElementById("selectCountry") as HTMLSelectElement
-    const selectCity = document.getElementById("selectCity") as HTMLSelectElement
     const tournamentVenueUrl = document.getElementById("tournamentVenueUrl") as HTMLInputElement
     const tournamentAddress = document.getElementById("tournamentAddress") as HTMLInputElement
     const tournamentMapUrl = document.getElementById("tournamentMapUrl") as HTMLInputElement
@@ -227,15 +230,15 @@ async function fill_data(tournamentData: Tournament) {
         }
     }
     selectCountry.dispatchEvent(new Event('change', { bubbles: true }))
-    for (const op of selectCity.options) {
-        if (op.label === tournamentData.city) {
-            op.selected = true
-        }
-        else {
-            op.selected = false
-        }
-    }
-    selectCity.dispatchEvent(new Event('change', { bubbles: true }))
+    // for (const op of selectCity.options) {
+    //     if (op.label === tournamentData.city) {
+    //         op.selected = true
+    //     }
+    //     else {
+    //         op.selected = false
+    //     }
+    // }
+    // selectCity.dispatchEvent(new Event('change', { bubbles: true }))
     tournamentVenueUrl.value = tournamentData.venue_url
     tournamentAddress.value = tournamentData.address
     tournamentMapUrl.value = tournamentData.map_url
@@ -257,9 +260,8 @@ async function load() {
         selectCountry.options.add(option)
     }
     // select_country is an async function, wait for its completion
-    selectCountry.addEventListener("change", (ev) => { select_country(ev).then() })
+    // selectCountry.addEventListener("change", (ev) => { select_country(ev).then() })
     // fetch the user API token
-    console.log("going for token")
     const token = await base.fetchToken()
     // setup callbacks for other form controls
     const switchOnline = document.getElementById("switchOnline") as HTMLInputElement
@@ -278,6 +280,19 @@ async function load() {
     const tournamentData = document.getElementById("tournamentData") as HTMLDivElement
     if (tournamentData) {
         await fill_data(JSON.parse(tournamentData.dataset.tournament))
+    }
+    const pickerStart = new tempusDominus.TempusDominus(document.getElementById('pickerStart'), { display: { icons: biOneIcons }, localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" }, stepping: 15, promptTimeOnDateChange: true })
+    const pickerFinish = new tempusDominus.TempusDominus(document.getElementById('pickerFinish'), { display: { icons: biOneIcons }, localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" }, stepping: 15, promptTimeOnDateChange: true })
+    const timezoneSelect = document.getElementById('timezoneSelect') as HTMLSelectElement
+    const browser_timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    for (const tz of Intl.supportedValuesOf('timeZone')) {
+        const option = document.createElement("option") as HTMLOptionElement
+        option.value = tz
+        option.label = tz
+        if (tz == browser_timezone) {
+            option.selected = true
+        }
+        timezoneSelect.append(option)
     }
 }
 
@@ -332,14 +347,33 @@ enum TournamentRank {
     GP = "Grand Prix",
 }
 
-interface Tournament {
+// interface Tournament {
+//     name: string,
+//     format: TournamentFormat,
+//     start: string,
+//     rank: TournamentRank,
+//     uid: string | undefined,
+//     country?: string | undefined,
+//     city?: string | undefined,
+//     venue?: string,
+//     venue_url?: string,
+//     address?: string,
+//     map_url?: string,
+//     online?: boolean,
+//     proxies?: boolean,
+//     multideck?: boolean,
+//     finish?: string,
+//     description?: string,
+// }
+
+interface TournamentConfig {
     name: string,
     format: TournamentFormat,
     start: string,
-    rank: TournamentRank,
+    timezone: string,
     uid: string | undefined,
+    rank: TournamentRank | undefined,
     country?: string | undefined,
-    city?: string | undefined,
     venue?: string,
     venue_url?: string,
     address?: string,
@@ -349,4 +383,5 @@ interface Tournament {
     multideck?: boolean,
     finish?: string,
     description?: string,
+    judges?: string[],
 }
