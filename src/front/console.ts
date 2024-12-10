@@ -617,7 +617,8 @@ class RoundTab {
     ): HTMLTableCellElement {
         row.dataset.player_uid = player.uid
         if (this.finals) {
-            base.create_append(row, "th", [], { scope: "row" }).innerText = player.seed.toString()
+            const seed_score = `${player.seed.toString()} (${score_string(player.result)})`
+            base.create_append(row, "th", [], { scope: "row" }).innerText = seed_score
             base.create_append(row, "td", [], { scope: "row" }).innerText = player.vekn
         } else {
             base.create_append(row, "th", [], { scope: "row" }).innerText = player.vekn
