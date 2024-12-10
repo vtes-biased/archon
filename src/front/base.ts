@@ -27,6 +27,23 @@ export function create_append<K extends keyof HTMLElementTagNameMap>(
     return ret
 }
 
+export function create_prepend<K extends keyof HTMLElementTagNameMap>(
+    el: HTMLElement,
+    tag_name: K,
+    classes: string[] = [],
+    init: Object = {}
+): HTMLElementTagNameMap[K] {
+    const ret = create_element(tag_name, classes, init)
+    el.prepend(ret)
+    return ret
+}
+
+export function add_tooltip(el: HTMLElement, tip: string): bootstrap.Tooltip {
+    el.dataset.bsToggle = "tooltip"
+    el.dataset.bsTitle = tip
+    return bootstrap.Tooltip.getOrCreateInstance(el)
+}
+
 export async function do_fetch(url: string, options: Object) {
     // fetch the given url, handle errors and display them in the toaster
     try {

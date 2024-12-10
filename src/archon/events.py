@@ -18,6 +18,7 @@ class EventType(enum.StrEnum):
     APPOINT_HEAD_JUDGE = "APPOINT_HEAD_JUDGE"
     REMOVE_JUDGE = "REMOVE_JUDGE"
     CHECK_IN = "CHECK_IN"
+    CHECK_OUT = "CHECK_OUT"
     ROUND_START = "ROUND_START"
     ROUND_ALTER = "ROUND_ALTER"
     ROUND_FINISH = "ROUND_FINISH"
@@ -89,6 +90,12 @@ class RemoveJudge(Event):
 @dataclasses.dataclass(kw_only=True)
 class CheckIn(Event):
     type: typing.Literal[EventType.CHECK_IN]
+    player_uid: str
+
+
+@dataclasses.dataclass(kw_only=True)
+class CheckOut(Event):
+    type: typing.Literal[EventType.CHECK_OUT]
     player_uid: str
 
 
@@ -173,6 +180,7 @@ TournamentEvent = typing.Union[
     AppointHeadJudge,
     RemoveJudge,
     CheckIn,
+    CheckOut,
     RoundStart,
     RoundAlter,
     RoundFinish,

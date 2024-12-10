@@ -32,6 +32,8 @@ class TournamentManager(models.Tournament):
                 self.remove_judge(ev, member_uid)
             case events.EventType.CHECK_IN:
                 self.check_in(ev, member_uid)
+            case events.EventType.CHECK_OUT:
+                self.check_out(ev, member_uid)
             case events.EventType.ROUND_START:
                 self.round_start(ev, member_uid)
             case events.EventType.ROUND_ALTER:
@@ -82,6 +84,9 @@ class TournamentManager(models.Tournament):
 
     def check_in(self, ev: events.CheckIn, member_uid: str) -> None:
         self.players[ev.player_uid].state = models.PlayerState.CHECKED_IN
+
+    def check_out(self, ev: events.CheckIn, member_uid: str) -> None:
+        self.players[ev.player_uid].state = models.PlayerState.REGISTERED
 
     def round_start(self, ev: events.RoundStart, member_uid: str) -> None:
         self.state = models.TournamentState.PLAYING
@@ -394,6 +399,14 @@ class TournamentOrchestrator(TournamentManager):
         if player.barriers:  # maybe judges should be allowed to?
             raise CheckinBarrier(ev, player.barrier)
         super().check_in(ev, member_uid)
+
+    def check_out(self, ev: events.CheckIn, member_uid: str) -> None:
+        self._check_not_playing(ev)
+        if self.state != models.TournamentState.WAITING:
+            raise CheckinClosed(ev)
+        if ev.player_uid not in self.players:
+            raise UnregisteredPlayer(ev, ev.player_uid)
+        super().check_out(ev, member_uid)
 
     def round_start(self, ev: events.RoundStart, member_uid: str) -> None:
         self._check_not_playing(ev)

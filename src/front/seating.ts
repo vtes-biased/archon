@@ -147,7 +147,6 @@ class Evaluator {
             }
             for (const [idx_p, player] of table.entries()) {
                 const index = this.mapping.get(player)
-                console.log("measure", table.length, idx_p)
                 measure[index][index] = POSITIONS.get(table.length)[idx_p].slice()
                 for (var idx_r = 1; idx_r < table.length; idx_r++) {
                     // We skip when opponent index > player index to do 1/2 less copies (symmetry)

@@ -60,7 +60,7 @@ function score_string(score: Score, rank: number = undefined): string {
         res = `${score.vp}VP`
     }
     if (rank) {
-        res = `1. ${res} (${score.tp}TPs)`
+        res = `${rank}. ${res} (${score.tp}TPs)`
     }
     return res
 }
@@ -100,7 +100,7 @@ function standings(players: Player[]): [number, Player][] {
     for (const player of sorted) {
         const standings = standings_array(player)
         const cmp = compare_arrays(last_standings, standings)
-        if (cmp > 0) {
+        if (cmp < 0) {
             rank++
             last_standings = standings
         }
@@ -431,29 +431,113 @@ class PlayerSelectModal {
 class Registration {
     console: TournamentConsole
     panel: HTMLDivElement
+    toast_container: HTMLDivElement
     action_row: HTMLDivElement
     register_element: PersonLookup<Member>
+    filter_switch: HTMLInputElement
+    filter_label: HTMLLabelElement
     players_table: HTMLTableElement
     players_table_body: HTMLTableSectionElement
+    filter: PlayerFilter
+    order: PlayerOrder
     constructor(console: TournamentConsole) {
         this.console = console
+        this.filter = PlayerFilter.ALL
+        if (this.console.tournament.rounds.length > 0) {
+            this.order = PlayerOrder.SCORE
+        } else {
+            this.order = PlayerOrder.NAME
+        }
         this.panel = console.add_nav("Registration")
+        const toast_div = base.create_append(this.panel, "div", ["position-relative"],
+            { ariaAtomic: true, ariaLive: "polite" }
+        )
+        this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
         this.action_row = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
         this.register_element = new PersonLookup<Member>(console.members_map, this.panel, "Register", true)
         this.register_element.form.addEventListener("submit", (ev) => { this.add_player(ev) })
-        this.players_table = base.create_append(this.panel, "table", ["table", "my-4"])
+        const table_div = base.create_append(this.panel, "div", ["my-4"])
+        const table_controls = base.create_append(table_div, "div", ["d-flex", "align-items-center"])
+        const order_dropdown = base.create_append(table_controls, "div", ["dropdown", "me-4"])
+        const order_button = base.create_append(order_dropdown, "button", ["btn", "btn-sm", "btn-secondary", "dropdown-toggle"], { type: "button" })
+        order_button.dataset.bsToggle = "dropdown"
+        order_button.innerHTML = '<i class="bi bi-filter-circle-fill"></i>'
+        const dropdown_menu = base.create_append(order_dropdown, "ul", ["dropdown-menu"])
+        for (const sort_type of Object.values(PlayerOrder)) {
+            const li = base.create_append(dropdown_menu, "li", [])
+            const button = base.create_append(li, "button", ["dropdown-item"], { type: "button" })
+            button.innerText = sort_type
+            button.addEventListener("click", (ev) => { this.order = sort_type; this.display() })
+        }
+        bootstrap.Dropdown.getOrCreateInstance(order_dropdown)
+        const filter_switch_div = base.create_append(table_controls, "div", ["form-check", "form-switch"])
+        this.filter_switch = base.create_append(filter_switch_div, "input", ["form-check-input"], { type: "checkbox", role: "switch", id: "filterSwitch" })
+        this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label"], { for: "filterSwitch" })
+        if (this.console.tournament.state == TournamentState.WAITING) {
+            this.filter = PlayerFilter.UNCHECKED
+            this.filter_switch.checked = true
+            this.filter_label.innerText = "Filter checked-in players out"
+        } else {
+            this.filter = PlayerFilter.ALL
+            this.filter_switch.checked = false
+            this.filter_label.innerText = "All players"
+        }
+        this.filter_switch.addEventListener("change", (ev) => this.toggle_filter())
+        this.players_table = base.create_append(table_div, "table", ["table"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
-        for (const label of ["VEKN #", "Name", "Score", "State", ""]) {
+        for (const label of ["VEKN #", "Name", "Score", "Status", ""]) {
             const cel = base.create_append(row, "th", [], { scope: "col" })
             cel.innerText = label
         }
         this.players_table_body = base.create_append(this.players_table, "tbody")
     }
-
+    sorted_players() {
+        var players = standings(Object.values(this.console.tournament.players))
+        if (this.filter == PlayerFilter.UNCHECKED) {
+            players = players.filter(([r, p]) => p.state != PlayerState.CHECKED_IN)
+        }
+        switch (this.order) {
+            case PlayerOrder.NAME:
+                players.sort(([r1, p1], [r2, p2]) => p1.name.localeCompare(p2.name))
+                break;
+            case PlayerOrder.SCORE:
+                players.sort(([r1, p1], [r2, p2]) => r1 === r2 ? p1.name.localeCompare(p2.name) : (r1 < r2 ? -1 : 1))
+                break
+            case PlayerOrder.STATUS:
+                const idx = {
+                    "Playing": 0,
+                    "Checked-in": 1,
+                    "Registered": 2,
+                    "Finished": 3,
+                }
+                players.sort(([r1, p1], [r2, p2]) =>
+                    idx[p1.state.valueOf()] === idx[p2.state.valueOf()] ? p1.name.localeCompare(p2.name) : (
+                        idx[p1.state.valueOf()] < idx[p2.state.valueOf()] ? -1 : 1
+                    )
+                )
+                break
+            case PlayerOrder.VEKN:
+                players.sort(([r1, p1], [r2, p2]) =>
+                    p1.vekn == p2.vekn ? p1.name.localeCompare(p2.name) : p1.vekn.localeCompare(p2.vekn)
+                )
+                break
+        }
+        return players
+    }
+    toggle_filter() {
+        if (this.filter_switch.checked) {
+            this.filter = PlayerFilter.UNCHECKED
+            this.filter_label.innerText = "Filter checked-in players out"
+        } else {
+            this.filter = PlayerFilter.ALL
+            this.filter_label.innerText = "All players"
+        }
+        this.display()
+    }
     display() {
         remove_children(this.players_table_body)
-        const players = standings(Object.values(this.console.tournament.players))
+        const players = this.sorted_players()
         for (const [rank, player] of players) {
             const row = base.create_append(this.players_table_body, "tr")
             const head = base.create_append(row, "th", [], { scope: "row" })
@@ -466,15 +550,23 @@ class Registration {
             state.innerText = player.state
             const actions = base.create_append(row, "td")
             if (this.console.tournament.state == TournamentState.WAITING) {
-                if (player.state == PlayerState.REGISTERED) {
-                    const button = base.create_append(actions, "button", ["btn", "btn-success"])
-                    button.innerText = "Check In"
-                    button.addEventListener("click", (ev) => { this.console.check_in(player.uid) })
+                if (player.state == PlayerState.REGISTERED || player.state == PlayerState.FINISHED) {
+                    const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-success", "me-2"])
+                    button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
+                    const tip = base.add_tooltip(button, "Check in")
+                    button.addEventListener("click", (ev) => { tip.dispose(); this.check_in(player) })
+                } else if (player.state == PlayerState.CHECKED_IN) {
+                    const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-warning", "me-2"])
+                    button.innerHTML = '<i class="bi bi-box-arrow-left"></i>'
+                    const tip = base.add_tooltip(button, "Check out")
+                    button.addEventListener("click", (ev) => { tip.dispose(); this.check_out(player) })
                 }
+
                 if (player.state == PlayerState.REGISTERED || player.state == PlayerState.CHECKED_IN) {
-                    const button = base.create_append(actions, "button", ["btn", "btn-warning"])
-                    button.innerText = "Drop"
-                    button.addEventListener("click", (ev) => { this.console.drop(player.uid) })
+                    const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-danger", "me-2"])
+                    button.innerHTML = '<i class="bi bi-x-circle-fill"></i>'
+                    const tip = base.add_tooltip(button, "Drop")
+                    button.addEventListener("click", (ev) => { tip.dispose(); this.drop(player) })
                 }
             }
         }
@@ -506,7 +598,52 @@ class Registration {
     add_player(ev: SubmitEvent) {
         ev.preventDefault()
         this.console.register_player(this.register_element.person)
+        this.alert(`Registered ${this.register_element.person.name}`)
         this.register_element.reset()
+    }
+
+    async check_in(player: Player) {
+        await this.console.check_in(player.uid)
+        // this.alert(`Checked ${player.name} in`)
+    }
+
+    async check_out(player: Player) {
+        await this.console.check_out(player.uid)
+        this.alert(`Checked ${player.name} out`)
+    }
+
+    async drop(player: Player) {
+        await this.console.drop(player.uid)
+        this.alert(`Dropped ${player.name}`)
+    }
+
+    alert(message: string, level: AlertLevel = AlertLevel.INFO) {
+        var background: string
+        var icon: string
+        switch (level) {
+            case AlertLevel.INFO:
+                background = "bg-primary-subtle"
+                icon = '<i class="bi bi-info-circle-fill"></i>'
+                break;
+            case AlertLevel.WARNING:
+                background = "bg-warning-subtle"
+                icon = '<i class="bi bi-exclamation-circle-fill"></i>'
+                break;
+        }
+        const toast = base.create_prepend(this.toast_container, "div",
+            ["toast", "align-items-center", "border-0"],
+            { ariaLive: "assertive", ariaAtomic: "true" }
+        )
+        const flex_div = base.create_append(toast, "div", ["d-flex", background])
+        const body = base.create_append(flex_div, "div", ["toast-body"])
+        body.innerHTML = `${icon} ${message}`
+        const close_button = base.create_append(flex_div, "button",
+            ["btn-close", "me-2", "m-auto"],
+            { ariaLabel: "Close" }
+        )
+        close_button.dataset.bsDismiss = "toast"
+        const bs_toast = bootstrap.Toast.getOrCreateInstance(toast)
+        bs_toast.show()
     }
 }
 
@@ -796,9 +933,15 @@ class RoundTab {
     setup_player_lookup_modal() {
         const players = []
         const player_in_round = new Set<string>()
-        for (const table of this.console.tournament.rounds[this.index - 1].tables) {
-            for (const seat of table.seating) {
-                player_in_round.add(seat.player_uid)
+        // check the DOM (in case we're altering seating)
+        const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
+        for (const table of tables.values()) {
+            const rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+            for (const row of rows) {
+                const player_uid = row.dataset.player_uid
+                if (player_uid) {
+                    player_in_round.add(player_uid)
+                }
             }
         }
         for (const player of Object.values(this.console.tournament.players)) {
@@ -890,6 +1033,7 @@ class ScoreModal {
 }
 
 class TournamentConsole {
+    root: HTMLDivElement
     token: base.Token
     members_map: MemberMap | undefined
     tournament: Tournament | undefined
@@ -901,6 +1045,7 @@ class TournamentConsole {
     registration: Registration
     rounds: RoundTab[]
     constructor(el: HTMLDivElement, token: base.Token) {
+        this.root = el
         this.token = token
         this.members_map = new MemberMap()
         this.score_modal = new ScoreModal(el, this)
@@ -1072,6 +1217,14 @@ class TournamentConsole {
         }
         await this.handle_tournament_event(event)
     }
+    async check_out(player_uid: string) {
+        const event: events.CheckOut = {
+            type: events.EventType.CHECK_OUT,
+            uid: uuid.v4(),
+            player_uid: player_uid,
+        }
+        await this.handle_tournament_event(event)
+    }
     async drop(player_uid: string) {
         const event: events.Drop = {
             type: events.EventType.DROP,
@@ -1208,6 +1361,23 @@ enum Barrier {
     BANNED = "Banned",
     DISQUALIFIED = "Disqualified",
     MAX_ROUNDS = "Max Rounds",
+}
+
+enum AlertLevel {
+    INFO = "Info",
+    WARNING = "Warning",
+}
+
+enum PlayerFilter {
+    ALL = "All",
+    UNCHECKED = "Unchecked",
+}
+
+enum PlayerOrder {
+    VEKN = "VEKN",
+    NAME = "Name",
+    SCORE = "Score",
+    STATUS = "Status",
 }
 
 interface Score {

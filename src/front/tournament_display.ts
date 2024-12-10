@@ -4,7 +4,9 @@ import { marked } from 'marked'
 
 async function load() {
     const tournamentDescription = document.getElementById("tournamentDescription")
-    tournamentDescription.innerHTML = DOMPurify.sanitize(await marked.parse(tournamentDescription.dataset.markdown))
+    if (tournamentDescription) {
+        tournamentDescription.innerHTML = DOMPurify.sanitize(await marked.parse(tournamentDescription.dataset.markdown))
+    }
 }
 
 window.addEventListener("load", (ev) => { base.load() })

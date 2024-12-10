@@ -214,6 +214,17 @@ Mark a player as ready to play. Players can self-check-in.
 }
 ```
 
+#### CheckOut
+
+Move a player back to registration.
+
+```json
+{
+    "type": "CheckOut",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
+}
+```
+
 #### RoundStart
 
 Start the next round. The provided seating must list players UID forming the tables.

@@ -6,6 +6,7 @@ export enum EventType {
     APPOINT_HEAD_JUDGE = "APPOINT_HEAD_JUDGE",
     REMOVE_JUDGE = "REMOVE_JUDGE",
     CHECK_IN = "CHECK_IN",
+    CHECK_OUT = "CHECK_OUT",
     ROUND_START = "ROUND_START",
     ROUND_ALTER = "ROUND_ALTER",
     ROUND_FINISH = "ROUND_FINISH",
@@ -65,6 +66,11 @@ export interface RemoveJudge extends Event {
 
 export interface CheckIn extends Event {
     type: EventType.CHECK_IN,
+    player_uid: string
+}
+
+export interface CheckOut extends Event {
+    type: EventType.CHECK_OUT,
     player_uid: string
 }
 
@@ -138,6 +144,7 @@ export type TournamentEvent = (
     AppointHeadJudge |
     RemoveJudge |
     CheckIn |
+    CheckOut |
     RoundStart |
     RoundAlter |
     RoundFinish |
