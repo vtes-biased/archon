@@ -812,7 +812,6 @@ class ScoreModal {
     modal_div: HTMLDivElement
     modal: bootstrap.Modal
     title: HTMLHeadingElement
-    input_vps: HTMLInputElement
     constructor(el: HTMLDivElement, console: TournamentConsole) {
         this.console = console
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],
@@ -823,25 +822,54 @@ class ScoreModal {
         const header = base.create_append(content, "div", ["modal-header"])
         this.title = base.create_append(header, "h1", ["modal-title", "fs-5"])
         base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        const body = base.create_append(content, "div", ["modal-body"])
-        const form = base.create_append(body, "form")
-        this.input_vps = base.create_append(form, "input", ["form-control", "my-2"],
-            { type: "number", name: "vp", min: "0", max: "5", step: "0.5" }
-        )
-        base.create_append(form, "button", ["btn", "btn-primary", "my-2"], { type: "submit" }).innerText = "Submit"
-        form.addEventListener("submit", (ev) => {
-            ev.preventDefault()
-            this.console.set_score(this.player_uid, this.round_number, parseFloat(this.input_vps.value))
-            this.modal.hide()
-        })
+        const body = base.create_append(content, "div", ["modal-body", "d-flex", "flex-column", "align-items-center"])
+        const row_1 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
+        const button_00 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_10 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_20 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_30 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_40 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_50 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const row_2 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
+        const button_05 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_15 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_25 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_35 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_45 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        button_00.innerText = "0"
+        button_05.innerText = "0.5"
+        button_10.innerText = "1"
+        button_15.innerText = "1.5"
+        button_20.innerText = "2"
+        button_25.innerText = "2.5"
+        button_30.innerText = "3"
+        button_35.innerText = "3.5"
+        button_40.innerText = "4"
+        button_45.innerText = "4.5"
+        button_50.innerText = "5"
+        button_00.addEventListener("click", (ev) => this.set_score(0))
+        button_05.addEventListener("click", (ev) => this.set_score(0.5))
+        button_10.addEventListener("click", (ev) => this.set_score(1))
+        button_15.addEventListener("click", (ev) => this.set_score(1.5))
+        button_20.addEventListener("click", (ev) => this.set_score(2))
+        button_25.addEventListener("click", (ev) => this.set_score(2.5))
+        button_30.addEventListener("click", (ev) => this.set_score(3))
+        button_35.addEventListener("click", (ev) => this.set_score(3.5))
+        button_40.addEventListener("click", (ev) => this.set_score(4))
+        button_45.addEventListener("click", (ev) => this.set_score(4.5))
+        button_50.addEventListener("click", (ev) => this.set_score(5))
         this.modal = new bootstrap.Modal(this.modal_div)
+    }
+
+    async set_score(score: number) {
+        await this.console.set_score(this.player_uid, this.round_number, score)
+        this.modal.hide()
     }
 
     show(player: Player, round_number: number, vps: number = 0) {
         this.title.innerText = `${player.name} result: round ${round_number}`
         this.player_uid = player.uid
         this.round_number = round_number
-        this.input_vps.value = vps.toString()
         this.modal.show()
     }
 }
