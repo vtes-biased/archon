@@ -367,49 +367,64 @@ class PersonLookup<Type extends Person> {
     }
 }
 
-class PlayerLookupModal extends PersonLookup<Player> {
+class PlayerSelectModal {
     modal_div: HTMLDivElement
     header: HTMLHeadingElement
+    body: HTMLDivElement
+    select: HTMLSelectElement
     modal: bootstrap.Modal
     round_tab: RoundTab | undefined
     empty_row: HTMLTableRowElement | undefined
-    constructor(el: HTMLElement, title: string = "Add player", label: string = "Add") {
-        const modal_div = base.create_append(el, "div", ["modal", "fade"],
+    players: Map<string, Player>
+    constructor(el: HTMLElement, title: string = "Add player") {
+        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
             { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "LookupModalLabel" }
         )
-        const dialog = base.create_append(modal_div, "div", ["modal-dialog"])
+        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
         const content = base.create_append(dialog, "div", ["modal-content"])
         const header_div = base.create_append(content, "div", ["modal-header"])
-        const header = base.create_append(header_div, "h1", ["modal-title", "fs-5"])
-        header.innerText = title
+        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"])
+        this.header.innerText = title
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        const body = base.create_append(content, "div", ["modal-body"])
-        const players_map = new PersonMap<Player>()
-        super(players_map, body, label, false)
-        this.modal_div = modal_div
-        this.header = header
+        this.body = base.create_append(content, "div", ["modal-body"])
+        this.select = base.create_append(this.body, "select", ["form-select"], { size: "10" })
+        this.players = new Map()
         this.modal = new bootstrap.Modal(this.modal_div)
-        this.form.addEventListener("submit", (ev) => this.add_player(ev))
     }
 
     init(round_tab: RoundTab, players: Player[]) {
         this.round_tab = round_tab
-        this.persons_map.by_uid.clear()
-        this.persons_map.by_vekn.clear()
-        this.persons_map.trie.clear()
-        this.persons_map.add(players)
+        this.players.clear()
+        for (const player of players) {
+            this.players.set(player.uid, player)
+        }
     }
 
     show(empty_row: HTMLTableRowElement) {
         this.empty_row = empty_row
+        remove_children(this.select)
+        const players = [...this.players.values()].sort((a, b) => a.name.localeCompare(b.name))
+        for (const player of players) {
+            const option = base.create_append(this.select, "option", ["mb-2"], {
+                value: player.uid,
+                label: `${player.name} (#${player.vekn})`
+            })
+            option.addEventListener("click", (ev) => this.select_player(player))
+        }
         this.modal.show()
     }
 
-    add_player(ev: SubmitEvent) {
-        ev.preventDefault()
-        this.round_tab.add_player(this.empty_row, this.person)
-        this.reset()
+    select_player(player: Player) {
+        this.round_tab.add_player(this.empty_row, player)
         this.modal.hide()
+    }
+
+    add(player: Player) {
+        this.players.set(player.uid, player)
+    }
+
+    remove(player: Player) {
+        this.players.delete(player.uid)
     }
 }
 
@@ -733,7 +748,7 @@ class RoundTab {
     remove_row(row: HTMLTableRowElement) {
         const parent = row.parentElement as HTMLTableSectionElement
         if (Object.hasOwn(this.console.tournament.players, row.dataset.player_uid)) {
-            this.console.player_lookup.persons_map.add([this.console.tournament.players[row.dataset.player_uid]])
+            this.console.player_select.add(this.console.tournament.players[row.dataset.player_uid])
         } else {
             console.log("Removing unregistered player", row)
         }
@@ -790,18 +805,18 @@ class RoundTab {
             if (player_in_round.has(player.uid)) { continue }
             players.push(player)
         }
-        this.console.player_lookup.init(this, players)
+        this.console.player_select.init(this, players)
     }
 
     display_player_lookup_modal(empty_row: HTMLTableRowElement) {
-        this.console.player_lookup.show(empty_row)
+        this.console.player_select.show(empty_row)
     }
 
     add_player(empty_row, player: Player) {
         remove_children(empty_row)
         const actions = this.display_player(empty_row, player)
         this.display_reseat_actions(empty_row, actions)
-        this.console.player_lookup.persons_map.remove(player.uid)
+        this.console.player_select.remove(player)
     }
 }
 
@@ -882,14 +897,14 @@ class TournamentConsole {
     tabs_div: HTMLDivElement
     score_modal: ScoreModal
     tabs: Map<string, bootstrap.Tab>
-    player_lookup: PlayerLookupModal
+    player_select: PlayerSelectModal
     registration: Registration
     rounds: RoundTab[]
     constructor(el: HTMLDivElement, token: base.Token) {
         this.token = token
         this.members_map = new MemberMap()
         this.score_modal = new ScoreModal(el, this)
-        this.player_lookup = new PlayerLookupModal(el)
+        this.player_select = new PlayerSelectModal(el)
         this.nav = base.create_append(el, "nav", ["nav", "nav-tabs"], { role: "tablist" })
         this.tabs_div = base.create_append(el, "div", ["tab-content"])
     }
