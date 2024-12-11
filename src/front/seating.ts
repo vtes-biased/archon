@@ -1,4 +1,4 @@
-enum RULE {
+export enum RULE {
     R1_PREDATOR_PREY = 0,
     R2_OPPONENT_ALWAYS = 1,
     R3_AVAILABLE_VPS = 2,
@@ -159,7 +159,7 @@ class Evaluator {
         return measure
     }
 
-    measure_rounds(rounds: string[][][]) {
+    measure_rounds(rounds: string[][][]): number[][][] {
         var result = undefined
         for (const round of rounds) {
             const M = this.measure(round)
@@ -204,7 +204,7 @@ class Evaluator {
                     if (Math.abs(mean_vps - relationship[IDX.VPS] / rounds_played) > 1 / rounds_played) {
                         result[RULE.R3_AVAILABLE_VPS].push([this.reverse.get(i)])
                     }
-                    if (Math.abs(mean_vps - relationship[IDX.TRS] / rounds_played) > 2 / rounds_played) {
+                    if (Math.abs(mean_trs - relationship[IDX.TRS] / rounds_played) > 2 / rounds_played) {
                         result[RULE.R8_STARTING_TRANSFERS].push([this.reverse.get(i)])
                     }
                     if (relationship[IDX.SEAT_1] > 1) {
@@ -274,7 +274,7 @@ class Evaluator {
                     if (Math.abs(mean_vps - relationship[IDX.VPS] / rounds_played) > 1 / rounds_played) {
                         result[RULE.R3_AVAILABLE_VPS]++
                     }
-                    if (Math.abs(mean_vps - relationship[IDX.TRS] / rounds_played) > 2 / rounds_played) {
+                    if (Math.abs(mean_trs - relationship[IDX.TRS] / rounds_played) > 2 / rounds_played) {
                         result[RULE.R8_STARTING_TRANSFERS]++
                     }
                     if (relationship[IDX.SEAT_1] > 1) {
@@ -356,6 +356,49 @@ function zero_issues(issues: string[][][]) {
     return !issues.some(x => x.length > 0)
 }
 
+class Seating {
+    seat_index: Map<number, number[]> = new Map()  // seat number to [table, seat] indexes
+    player_index: Map<string, number> = new Map()  // player string to seat number
+    seating: string[][]
+    constructor(seating: string[][]) {
+        this.seating = seating.map(s => s.slice())  // copy seating
+        var x = 0
+        for (const [i, table] of seating.entries()) {
+            for (const [j, player] of table.entries()) {
+                this.player_index.set(player, x)
+                this.seat_index.set(x, [i, j])
+                x++
+            }
+        }
+    }
+
+    random_swap(player: string) {
+        const x = this.player_index.get(player)
+        var y = x
+        while (y == x) {
+            y = Math.floor(Math.random() * this.seat_index.size)
+        }
+        this.swap(x, y)
+    }
+
+    shuffle() {
+        for (var i = this.seat_index.size - 1; i >= 0; i--) {
+            const a = i
+            const b = Math.floor(Math.random() * (i + 1))
+            this.swap(a, b)
+        }
+    }
+
+    swap(a: number, b: number) {
+        const [x, y] = [this.seat_index.get(a), this.seat_index.get(b)]
+        const [player_a, player_b] = [this.seating[x[0]][x[1]], this.seating[y[0]][y[1]]]
+        this.seating[x[0]][x[1]] = player_b
+        this.seating[y[0]][y[1]] = player_a
+        this.player_index.set(player_a, b)
+        this.player_index.set(player_b, a)
+    }
+}
+
 export function initial_seating(previous_rounds: string[][][], players: string[]): string[][] {
     players = players.slice()
     if (previous_rounds.length <= 0) {
@@ -405,45 +448,17 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
     return best_seating.seating
 }
 
-class Seating {
-    seat_index: Map<number, number[]> = new Map()  // seat number to [table, seat] indexes
-    player_index: Map<string, number> = new Map()  // player string to seat number
-    seating: string[][]
-    constructor(seating: string[][]) {
-        this.seating = seating.map(s => s.slice())  // copy seating
-        var x = 0
-        for (const [i, table] of seating.entries()) {
-            for (const [j, player] of table.entries()) {
-                this.player_index.set(player, x)
-                this.seat_index.set(x, [i, j])
-                x++
+
+export function compute_issues(rounds: string[][][]): string[][][] {
+    const all_players = new Set<string>()
+    for (const round_ of rounds) {
+        for (const table of round_) {
+            for (const player of table) {
+                all_players.add(player)
             }
         }
     }
-
-    random_swap(player: string) {
-        const x = this.player_index.get(player)
-        var y = x
-        while (y == x) {
-            y = Math.floor(Math.random() * this.seat_index.size)
-        }
-        this.swap(x, y)
-    }
-
-    shuffle() {
-        for (var i = this.seat_index.size - 1; i >= 0; i--) {
-            const a = i
-            const b = Math.floor(Math.random() * (i + 1))
-            this.swap(a, b)
-        }
-    }
-
-    swap(a: number, b: number) {
-        const [x, y] = [this.seat_index.get(a), this.seat_index.get(b)]
-        const [player_a, player_b] = [this.seating[x[0]][x[1]], this.seating[y[0]][y[1]]]
-        this.seating[x[0]][x[1]] = player_b
-        this.seating[y[0]][y[1]] = player_a
-        this.player_index.set(player_a, b)
-        this.player_index.set(player_b, a)
-    }
+    const evaluator = new Evaluator(all_players)
+    const measure = evaluator.measure_rounds(rounds)
+    return evaluator.issues(measure)
 }

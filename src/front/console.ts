@@ -785,6 +785,23 @@ class RoundTab {
         return base.create_append(row, "td", ["action-row"])
     }
 
+    iter_tables(): ArrayIterator<HTMLTableSectionElement> {
+        const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
+        return tables.values()
+    }
+
+    iter_rows(table: HTMLTableSectionElement | undefined = undefined): ArrayIterator<HTMLTableRowElement> {
+        const rows = (table ?? this.panel).querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
+        return rows.values()
+    }
+
+    *iter_player_uids(table: HTMLTableSectionElement | undefined = undefined): Generator<string> {
+        for (const row of this.iter_rows(table)) {
+            const player_uid = row.dataset.player_uid
+            if (player_uid) { yield player_uid }
+        }
+    }
+
     setup_reseat_table_body(table: HTMLTableSectionElement) {
         var rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
         for (const row of rows) {
@@ -815,10 +832,10 @@ class RoundTab {
         cancel_button.innerHTML = '<i class="bi bi-x"></i> Cancel'
         cancel_button.addEventListener("click", (ev) => { this.display() })
 
-        const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
-        for (const table of tables.values()) {
+        for (const table of this.iter_tables()) {
             this.setup_reseat_table_body(table)
         }
+        this.display_seating_issues()
     }
 
     display_reseat_actions(row: HTMLTableRowElement, actions_row: HTMLTableCellElement) {
@@ -830,6 +847,71 @@ class RoundTab {
         row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row))
         row.addEventListener("dragover", (ev) => ev.preventDefault())
         row.addEventListener("dragend", (ev) => this.dragend_row(ev, row))
+    }
+
+    display_seating_issues() {
+        const issues = this.console.compute_seating_issues()
+        const warnings = new Map<string, [number, string]>()
+        for (const [idx, instances] of issues.entries()) {
+            var message: string = undefined
+            switch (idx) {
+                case seating.RULE.R1_PREDATOR_PREY:
+                    message = "R1. Repeated Predator-Prey relationship"
+                    break;
+                case seating.RULE.R2_OPPONENT_ALWAYS:
+                    message = "R2. Repeated Opponents"
+                    break;
+                case seating.RULE.R3_AVAILABLE_VPS:
+                    message = "R3. Non-average available VPs"
+                    break;
+                case seating.RULE.R4_OPPONENT_TWICE:
+                    message = "R4. Opponents twice"
+                    break;
+                case seating.RULE.R5_FIFTH_SEAT:
+                    message = "R5. Fifth seat twice"
+                    break;
+                case seating.RULE.R6_SAME_POSITION:
+                    message = "R6. Repeated opponent position"
+                    break;
+                case seating.RULE.R7_SAME_SEAT:
+                    message = "R7. Repeated seat"
+                    break;
+                case seating.RULE.R8_STARTING_TRANSFERS:
+                    message = "R8. Non-average starting transfers"
+                    break;
+                case seating.RULE.R9_SAME_POSITION_GROUP:
+                    message = "R9. Repeated opponent position group"
+                    break;
+                default:
+                    console.log("Unknown issue index!!")
+                    break;
+            }
+            for (const instance of instances) {
+                for (const player_uid of instance) {
+                    if (warnings.has(player_uid) && warnings.get(player_uid)[0] < idx) {
+                        continue
+                    }
+                    warnings.set(player_uid, [idx + 1, message])
+                }
+            }
+        }
+        for (const row of this.iter_rows()) {
+            const player_uid = row.dataset.player_uid
+            if (player_uid && warnings.has(player_uid)) {
+                const [level, message] = warnings.get(player_uid)
+                if (level > 7) { continue }
+                const cell = row.querySelector("th") as HTMLTableCellElement
+                cell.innerText = " " + cell.innerText
+                const classes = ["bi", "bi-exclamation-triangle-fill"]
+                if (level < 2) {
+                    classes.push("text-danger")
+                } else {
+                    classes.push("text-warning")
+                }
+                const icon = base.create_prepend(cell, "i", classes)
+                base.add_tooltip(icon, message)
+            }
+        }
     }
 
     dragstart_row(ev: DragEvent, row: HTMLTableRowElement) {
@@ -908,16 +990,11 @@ class RoundTab {
     }
 
     async reseat() {
-        const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
         const round_seating: string[][] = []
-        for (const table of tables.values()) {
+        for (const table of this.iter_tables()) {
             const table_seating: string[] = []
-            const rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
-            for (const row of rows) {
-                const player_uid = row.dataset.player_uid
-                if (player_uid) {
-                    table_seating.push(player_uid)
-                }
+            for (const player_uid of this.iter_player_uids(table)) {
+                table_seating.push(player_uid)
             }
             if (table_seating.length > 0) {
                 round_seating.push(table_seating)
@@ -932,18 +1009,8 @@ class RoundTab {
 
     setup_player_lookup_modal() {
         const players = []
-        const player_in_round = new Set<string>()
         // check the DOM (in case we're altering seating)
-        const tables = this.panel.querySelectorAll("tbody") as NodeListOf<HTMLTableSectionElement>
-        for (const table of tables.values()) {
-            const rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
-            for (const row of rows) {
-                const player_uid = row.dataset.player_uid
-                if (player_uid) {
-                    player_in_round.add(player_uid)
-                }
-            }
-        }
+        const player_in_round = new Set<string>(this.iter_player_uids())
         for (const player of Object.values(this.console.tournament.players)) {
             if (player_in_round.has(player.uid)) { continue }
             players.push(player)
@@ -1150,6 +1217,23 @@ class TournamentConsole {
         }
         this.tabs.set(label, tabTrigger)
         return tab
+    }
+
+    compute_seating_issues(): string[][][] {
+        const rounds: string[][][] = []
+        for (const tab of this.rounds) {
+            const tables = []
+            for (const table of tab.iter_tables()) {
+                const seating = [...tab.iter_player_uids(table)]
+                if (seating) {
+                    tables.push(seating)
+                }
+            }
+            if (tables) {
+                rounds.push(tables)
+            }
+        }
+        return seating.compute_issues(rounds)
     }
 
     toss_for_finals(): [string[], Record<string, number>] {
