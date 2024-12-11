@@ -897,16 +897,25 @@ class RoundTab {
         }
         for (const row of this.iter_rows()) {
             const player_uid = row.dataset.player_uid
+            const cell = row.querySelector("th") as HTMLTableCellElement
+            const previous_icons = cell.querySelectorAll("i") as NodeListOf<HTMLElement>
+            for (const icon of previous_icons) {
+                icon.remove()
+            }
             if (player_uid && warnings.has(player_uid)) {
                 const [level, message] = warnings.get(player_uid)
-                if (level > 7) { continue }
-                const cell = row.querySelector("th") as HTMLTableCellElement
-                cell.innerText = " " + cell.innerText
-                const classes = ["bi", "bi-exclamation-triangle-fill"]
+                const classes = ["bi", "bi-exclamation-triangle-fill", "me-1"]
                 if (level < 2) {
+                    // Rule 1 is forbidden by the rules (repeated predator-prey)
                     classes.push("text-danger")
-                } else {
+                } else if (level < 8) {
+                    // Rules 2->7 are mostly avoidable, except on very small tournaments
+                    // Rule 4 (opponents twice) is ignored in tournaments with <5 tables 
                     classes.push("text-warning")
+                } else {
+                    // Rule 8 is unavoidable in small tournaments
+                    // Rule 9 can be hard to satisfy
+                    classes.push("text-info")
                 }
                 const icon = base.create_prepend(cell, "i", classes)
                 base.add_tooltip(icon, message)
@@ -962,6 +971,7 @@ class RoundTab {
         }
         this.cross_table_drag = undefined
         this.dragging_origin = undefined
+        this.display_seating_issues()
     }
 
     remove_row(row: HTMLTableRowElement) {

@@ -227,8 +227,10 @@ class Evaluator {
                     for (const [k, value] of relationship.entries()) {
                         if (value > 1) {
                             if (k == IDX.OPPONENT) {
-                                result[RULE.R4_OPPONENT_TWICE].push([this.reverse.get(i), this.reverse.get(j)])
-                                if (value >= rounds) {
+                                if (playing > 20) {
+                                    result[RULE.R4_OPPONENT_TWICE].push([this.reverse.get(i), this.reverse.get(j)])
+                                }
+                                if (value >= rounds && rounds > 2) {
                                     result[RULE.R2_OPPONENT_ALWAYS].push([this.reverse.get(i), this.reverse.get(j)])
                                 }
                             } else if (k <= IDX.PREDATOR) {
@@ -236,7 +238,7 @@ class Evaluator {
                                 result[RULE.R6_SAME_POSITION].push([this.reverse.get(i), this.reverse.get(j)])
                             } else if (k <= IDX.CROSS_TABLE) {
                                 result[RULE.R6_SAME_POSITION].push([this.reverse.get(i), this.reverse.get(j)])
-                            } else {
+                            } else if (playing > 20) {
                                 result[RULE.R9_SAME_POSITION_GROUP].push([this.reverse.get(i), this.reverse.get(j)])
                             }
                         }
