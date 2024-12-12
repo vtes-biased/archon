@@ -459,7 +459,9 @@ class Registration {
         const table_div = base.create_append(this.panel, "div", ["my-4"])
         const table_controls = base.create_append(table_div, "div", ["d-flex", "align-items-center"])
         const order_dropdown = base.create_append(table_controls, "div", ["dropdown", "me-4"])
-        const order_button = base.create_append(order_dropdown, "button", ["btn", "btn-sm", "btn-secondary", "dropdown-toggle"], { type: "button" })
+        const order_button = base.create_append(order_dropdown, "button",
+            ["btn", "btn-sm", "btn-secondary", "dropdown-toggle"], { type: "button" }
+        )
         order_button.dataset.bsToggle = "dropdown"
         order_button.innerHTML = '<i class="bi bi-filter-circle-fill"></i>'
         const dropdown_menu = base.create_append(order_dropdown, "ul", ["dropdown-menu"])
@@ -471,8 +473,12 @@ class Registration {
         }
         bootstrap.Dropdown.getOrCreateInstance(order_dropdown)
         const filter_switch_div = base.create_append(table_controls, "div", ["form-check", "form-switch"])
-        this.filter_switch = base.create_append(filter_switch_div, "input", ["form-check-input"], { type: "checkbox", role: "switch", id: "filterSwitch" })
-        this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label"], { for: "filterSwitch" })
+        this.filter_switch = base.create_append(filter_switch_div, "input", ["form-check-input"],
+            { type: "checkbox", role: "switch", id: "filterSwitch" }
+        )
+        this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label"],
+            { for: "filterSwitch" }
+        )
         if (this.console.tournament.state == TournamentState.WAITING) {
             this.filter = PlayerFilter.UNCHECKED
             this.filter_switch.checked = true

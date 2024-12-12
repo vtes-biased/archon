@@ -287,40 +287,106 @@ class TournamentManager(models.Tournament):
 class TournamentError(ValueError): ...
 
 
-class DuplicateEvent(TournamentError): ...
+class UnregisteredPlayer(TournamentError):
+    def __init__(self, ev: events.TournamentEvent, players: list[str] | None):
+        super().__init__(ev, players or [ev.player_uid])
+
+    def __str__(self):
+        if len(self.args[1] > 1):
+            return "Some players are not registered"
+        return "Player is not registered"
 
 
-class UnregisteredPlayer(TournamentError): ...
+class DisqualifiedPlayer(TournamentError):
+    def __init__(self, ev: events.TournamentEvent):
+        super().__init__(ev)
+
+    def __str__(self):
+        return "Player was disqualified"
 
 
-class DisqualifiedPlayer(TournamentError): ...
+class UnnamedPlayer(TournamentError):
+    def __init__(self, ev: events.TournamentEvent):
+        super().__init__(ev)
+
+    def __str__(self):
+        return "Player has no name: a name is required."
 
 
-class UnnamedPlayer(TournamentError): ...
+class PlayerAbsent(TournamentError):
+    def __init__(self, ev: events.TournamentEvent):
+        super().__init__(ev)
+
+    def __str__(self):
+        return "Player is playing this round"
 
 
-class PlayerAbsent(TournamentError): ...
+class BadRoundNumber(TournamentError):
+    def __init__(self, ev: events.TournamentEvent):
+        super().__init__(ev)
+
+    def __str__(self):
+        return "Bad round number"
 
 
-class BadRoundNumber(TournamentError): ...
+class BadTableNumber(TournamentError):
+    def __init__(self, ev: events.TournamentEvent):
+        super().__init__(ev)
+
+    def __str__(self):
+        return "Bad table number"
 
 
-class BadTableNumber(TournamentError): ...
+class CheckinBarrier(TournamentError):
+
+    def __init__(self, ev: events.TournamentEvent, barriers: list[models.Barrier]):
+        super().__init__(ev, barriers)
+
+    def __str__(self):
+        return f"Player cannot check in: {', '.join(self.args[1])}"
 
 
-class CheckinBarrier(TournamentError): ...
+class InvalidTables(TournamentError):
+
+    def __init__(self, ev: events.TournamentEvent, tables: list[int]):
+        super().__init__(ev, tables)
+
+    def __str__(self):
+        return f"Invalid tables: {', '.join(self.args[1])}"
 
 
-class InvalidTables(TournamentError): ...
+class NotJudge(TournamentError):
+
+    def __init__(self, ev: events.TournamentEvent, tables: list[int]):
+        super().__init__(ev, tables)
+
+    def __str__(self):
+        return f"Only a judge can do this"
 
 
-class NotJudge(TournamentError): ...
+class SeatingDuplicates(TournamentError):
+
+    def __init__(self, ev: events.TournamentEvent, players: list[models.Player]):
+        super().__init__(ev, players)
+
+    def __str__(self):
+        if len(self.args[1] > 1):
+            players = ", ".join([p.name for p in self.args[1]])
+            return f"Some players are on two tables: {players}"
+        return f"{self.args[1][0].name} is on two tables"
 
 
-class SeatingDuplicates(TournamentError): ...
+class PredatorPreyDuplicate(TournamentError):
+    def __init__(
+        self, ev: events.TournamentEvent, players: tuple[models.Player, models.Player]
+    ):
+        super().__init__(ev, players)
 
-
-class PredatorPreyDuplicate(TournamentError): ...
+    def __str__(self):
+        return (
+            f"{self.args[1][0].name} and {self.args[1][1].name} "
+            "are predator and prey twice: this is forbidden."
+        )
 
 
 class BadSeating(TournamentError): ...
@@ -394,10 +460,10 @@ class TournamentOrchestrator(TournamentManager):
         if self.state != models.TournamentState.WAITING:
             raise CheckinClosed(ev)
         if ev.player_uid not in self.players:
-            raise UnregisteredPlayer(ev, ev.player_uid)
+            raise UnregisteredPlayer(ev)
         player = self.players[ev.player_uid]
         if player.barriers:  # maybe judges should be allowed to?
-            raise CheckinBarrier(ev, player.barrier)
+            raise CheckinBarrier(ev, player.barriers)
         super().check_in(ev, member_uid)
 
     def check_out(self, ev: events.CheckIn, member_uid: str) -> None:
@@ -405,7 +471,7 @@ class TournamentOrchestrator(TournamentManager):
         if self.state != models.TournamentState.WAITING:
             raise CheckinClosed(ev)
         if ev.player_uid not in self.players:
-            raise UnregisteredPlayer(ev, ev.player_uid)
+            raise UnregisteredPlayer(ev)
         super().check_out(ev, member_uid)
 
     def round_start(self, ev: events.RoundStart, member_uid: str) -> None:
@@ -433,7 +499,9 @@ class TournamentOrchestrator(TournamentManager):
         ]:
             raise NoRoundInProgress(ev)
         invalid_tables = [
-            t for t in self.rounds[-1].tables if t.state != models.TableState.FINISHED
+            idx
+            for idx, t in enumerate(self.rounds[-1].tables, 1)
+            if t.state != models.TableState.FINISHED
         ]
         if invalid_tables:
             raise InvalidTables(ev, invalid_tables)
@@ -448,7 +516,9 @@ class TournamentOrchestrator(TournamentManager):
         if unregistered:
             raise UnregisteredPlayer(ev, unregistered)
         duplicates = [
-            uid for uid, count in collections.Counter(players).items() if count > 1
+            self.players[uid]
+            for uid, count in collections.Counter(players).items()
+            if count > 1
         ]
         if duplicates:
             raise SeatingDuplicates(ev, duplicates)
@@ -478,7 +548,13 @@ class TournamentOrchestrator(TournamentManager):
             for i, predator in enumerate(table):
                 prey = table[(i + 1) % len(table)]
                 if (predator, prey) in pp:
-                    raise PredatorPreyDuplicate(ev, (predator, prey))
+                    raise PredatorPreyDuplicate(
+                        ev,
+                        (
+                            self.players.get(predator, predator),
+                            self.players.get(prey, prey),
+                        ),
+                    )
 
     def _get_player_table(
         self, ev: events.SetResult, round_number: int, player_uid: str
@@ -494,14 +570,9 @@ class TournamentOrchestrator(TournamentManager):
 
     def set_result(self, ev: events.SetResult, member_uid: str) -> None:
         if ev.player_uid not in self.players:
-            raise UnregisteredPlayer(ev, ev.player_uid)
+            raise UnregisteredPlayer(ev)
         if ev.round < 1 or ev.round > len(self.rounds):
             raise BadRoundNumber(ev)
-        round_ = self.rounds[ev.round - 1]
-        if ev.player_uid not in [
-            seat.player_uid for table in round_.tables for seat in table.seating
-        ]:
-            raise PlayerAbsent(ev)
         table = self._get_player_table(ev, ev.round, ev.player_uid)
         if ev.player_uid != member_uid:
             if ev.round != len(self.rounds) or member_uid not in [
@@ -514,7 +585,7 @@ class TournamentOrchestrator(TournamentManager):
 
     def drop(self, ev: events.Drop, member_uid: str) -> None:
         if ev.player_uid not in self.players:
-            raise UnregisteredPlayer(ev, ev.player_uid)
+            raise UnregisteredPlayer(ev)
         if member_uid != ev.player_uid:
             self._check_judge(ev, member_uid)
         super().drop(ev, member_uid)
@@ -522,13 +593,13 @@ class TournamentOrchestrator(TournamentManager):
     def sanction(self, ev: events.Sanction, member_uid: str) -> None:
         self._check_judge(ev, member_uid)
         if ev.player_uid not in self.players:
-            raise UnregisteredPlayer(ev, ev.player_uid)
+            raise UnregisteredPlayer(ev)
         super().sanction(ev, member_uid)
 
     def unsanction(self, ev: events.Unsanction, member_uid: str) -> None:
         self._check_judge(ev, member_uid)
         if ev.player_uid not in self.players:
-            raise UnregisteredPlayer(ev, ev.player_uid)
+            raise UnregisteredPlayer(ev)
         super().unsanction(ev, member_uid)
 
     def override(self, ev: events.Override, member_uid: str) -> None:
@@ -545,12 +616,11 @@ class TournamentOrchestrator(TournamentManager):
         self._check_not_playing(ev)
         if self.state == models.TournamentState.FINISHED:
             raise TournamentFinished(ev)
-        for uid in ev.toss.keys():
-            if uid not in self.players:
-                raise UnregisteredPlayer(ev, uid)
-        for uid in ev.seeds:
-            if uid not in self.players:
-                raise UnregisteredPlayer(ev, uid)
+        unregistered = [uid for uid in ev.toss.keys() if uid not in self.players] + [
+            uid for uid in ev.seeds if uid not in self.players
+        ]
+        if unregistered:
+            raise UnregisteredPlayer(ev, unregistered)
         if len(ev.seeds) < 4 or len(ev.seeds) > 5:
             raise BadSeeding(ev)
         super().seed_finals(ev, member_uid)
@@ -560,8 +630,6 @@ class TournamentOrchestrator(TournamentManager):
         if self.state != models.TournamentState.FINALS:
             raise FinalsNotSeeded(ev)
         for uid in ev.seating:
-            if uid not in self.players:
-                raise UnregisteredPlayer(ev, uid)
             if uid not in self.finals_seeds:
                 raise NonFinalist(ev, ev.winner_uid)
         if any(uid not in ev.seating for uid in self.finals_seeds):
@@ -569,7 +637,7 @@ class TournamentOrchestrator(TournamentManager):
         self._check_seating(ev, [ev.seating])
         # for a finals, you really need at least 3
         if len(ev.seating) < 4 or len(ev.seating) > 5:
-            raise BadSeating()
+            raise BadSeating(ev)
         super().seat_finals(ev, member_uid)
 
     def finish_tournament(self, ev: events.FinishTournament, member_uid: str) -> None:
@@ -578,7 +646,7 @@ class TournamentOrchestrator(TournamentManager):
             raise FinalsNotSeeded(ev)
         final_table = self.rounds[-1].tables[0]
         if final_table.state != models.TableState.FINISHED:
-            raise InvalidTables(ev, final_table)
+            raise InvalidTables(ev, [1])
         super().finish_tournament(ev, member_uid)
 
 
