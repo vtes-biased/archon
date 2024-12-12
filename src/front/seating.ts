@@ -142,9 +142,8 @@ class Evaluator {
             )
         )
         for (const [idx_t, table] of round_.entries()) {
-            if (hints && !hints.includes(idx_t)) {
-                continue
-            }
+            if (hints && !hints.includes(idx_t)) { continue }
+            if (!POSITIONS.has(table.length)) { continue }
             for (const [idx_p, player] of table.entries()) {
                 const index = this.mapping.get(player)
                 measure[index][index] = POSITIONS.get(table.length)[idx_p].slice()

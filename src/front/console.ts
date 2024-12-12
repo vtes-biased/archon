@@ -28,13 +28,13 @@ function swap_row_and_empty(el: HTMLTableRowElement, empty: HTMLTableRowElement)
     if (el === empty) { return }
     const parent = el.parentElement
     const parent_empty = empty.parentElement
-    var next_non_empty = parent_empty.firstElementChild
+    var last_non_empty = parent_empty.firstElementChild
     while (true) {
-        const candidate = next_non_empty.nextElementSibling as HTMLTableRowElement | undefined
+        const candidate = last_non_empty.nextElementSibling as HTMLTableRowElement | undefined
         if (!candidate?.dataset?.player_uid) { break }
-        next_non_empty = candidate
+        last_non_empty = candidate
     }
-    parent_empty.insertBefore(el, next_non_empty.nextElementSibling)
+    parent_empty.insertBefore(el, last_non_empty.nextElementSibling)
     parent.append(empty)
 }
 
@@ -653,6 +653,95 @@ class Registration {
     }
 }
 
+class PlayerDrag {
+    // this drag & drop thing is tricky enough to deserve its own class
+    dragging: HTMLTableRowElement | null
+    origin_parent: HTMLTableSectionElement | null
+    origin_next: HTMLTableRowElement | null
+    previous_switch: HTMLTableRowElement | null
+    constructor() {
+        this.dragging = null
+        this.origin_parent = null
+        this.origin_next = null
+        this.previous_switch = null
+    }
+    start(dragging: HTMLTableRowElement) {
+        this.dragging = dragging
+        this.dragging.classList.add("dragged")
+        this.origin_parent = this.dragging.parentElement as HTMLTableSectionElement
+        this.origin_next = this.dragging.nextElementSibling as HTMLTableRowElement | null
+    }
+    end() {
+        if (this.dragging) {
+            this.dragging.classList.remove("dragged")
+        }
+        this.dragging = null
+        if (this.previous_switch) {
+            this.previous_switch.classList.remove("dragged")
+        }
+        this.previous_switch = null
+        this.origin_parent = null
+        this.origin_next = null
+    }
+    is_empty(target: HTMLTableRowElement): boolean {
+        return target.dataset.player_uid == null
+    }
+    same_table(target: HTMLTableRowElement): boolean {
+        return this.origin_parent == target.parentElement as HTMLTableSectionElement
+    }
+    is_sibling(target: HTMLTableRowElement): boolean {
+        return this.dragging.nextElementSibling == target || this.dragging.previousElementSibling == target
+    }
+    update(target: HTMLTableRowElement) {
+        // this is where the drag & drop (d&d) magic happens
+        // we switch rows as we go while dragging for instant comfortable UX update
+        if (!this.dragging) { return }
+        if (this.dragging == target) { return }
+        // in all other cases, we switch cells so dragging is in place of target in the end
+        // first, if there was a previous switch, reset back
+        if (this.previous_switch) {
+            // if it was an empty row, it goes to the last seat
+            if (this.is_empty(this.previous_switch)) {
+                // do not swap for an empty slot if we already swapped for an empty slot on the same table
+                if (this.is_empty(target) && target.parentElement == this.previous_switch.parentElement) { return }
+                this.dragging.parentElement.append(this.previous_switch)
+            }
+            // otherwise, put it back where we are
+            else {
+                this.dragging.parentElement.insertBefore(this.previous_switch, this.dragging)
+            }
+            // put the dragged item back to its original position
+            this.origin_parent.insertBefore(this.dragging, this.origin_next)
+            this.previous_switch.classList.remove("dragged")
+            this.previous_switch = null
+        }
+        // on the same table (local d&d), we swap continuously, so as to keep the players order set
+        if (this.same_table(target)) {
+            // do not swap to an empty seat in the same table
+            if (this.is_empty(target)) { return }
+            // only swap with siblings
+            if (!this.is_sibling(target)) { return }
+            // use our _current_ position, not our original position: this is what continuous swap means
+            const current_next = this.dragging.nextElementSibling
+            target.parentElement.insertBefore(this.dragging, target.nextElementSibling)
+            target.parentElement.insertBefore(target, current_next)
+        }
+        // on another table (cross d&d), we do a "simple" swap: the end state of the whole dragging operation
+        // including hovering many other rows, must as if we just swap the origin and the target
+        // so we record our target to swap it back (first part of this method) if we change target later in the drag
+        else {
+            this.previous_switch = target
+            this.previous_switch.classList.add("dragged")
+            target.parentElement.insertBefore(this.dragging, target)
+            if (this.is_empty(target)) {
+                this.origin_parent.append(target)
+            } else {
+                this.origin_parent.insertBefore(target, this.origin_next)
+            }
+        }
+    }
+}
+
 class RoundTab {
     console: TournamentConsole
     index: number
@@ -662,9 +751,7 @@ class RoundTab {
     action_row: HTMLDivElement
     reseat_button: HTMLButtonElement
     finals: boolean
-    dragging: HTMLTableRowElement | undefined
-    dragging_origin: HTMLTableSectionElement | undefined
-    cross_table_drag: HTMLTableRowElement | undefined
+    player_drag: PlayerDrag
     constructor(con: TournamentConsole, index: number, finals: boolean = false) {
         this.console = con
         this.index = index
@@ -674,6 +761,7 @@ class RoundTab {
         } else {
             this.panel = this.console.add_nav(`Round ${this.index}`, (ev) => this.setup_player_lookup_modal())
         }
+        this.player_drag = new PlayerDrag()
     }
 
     display() {
@@ -852,7 +940,7 @@ class RoundTab {
         row.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row))
         row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row))
         row.addEventListener("dragover", (ev) => ev.preventDefault())
-        row.addEventListener("dragend", (ev) => this.dragend_row(ev, row))
+        row.addEventListener("dragend", (ev) => this.dragend_row(ev))
     }
 
     display_seating_issues() {
@@ -930,53 +1018,18 @@ class RoundTab {
     }
 
     dragstart_row(ev: DragEvent, row: HTMLTableRowElement) {
-        const target_row = ev.target as HTMLTableRowElement
-        console.log("dragstart", ev, target_row)
-        this.dragging = target_row
-        this.dragging.classList.add("dragged")
-        this.dragging_origin = this.dragging.parentElement as HTMLTableSectionElement
+        console.log("dragstart", ev, row)
+        this.player_drag.start(row)
     }
 
-    dragenter_row(ev: DragEvent, target_row: HTMLTableRowElement) {
-        if (this.dragging == undefined) { return }
-        if (this.dragging == target_row) { return }
+    dragenter_row(ev: DragEvent, row: HTMLTableRowElement) {
         ev.preventDefault()
-        if (this.cross_table_drag && this.cross_table_drag != target_row) {
-            swap_nodes(this.dragging, this.cross_table_drag)
-            this.cross_table_drag.classList.remove("dragged")
-            this.cross_table_drag = undefined
-        }
-        if (this.dragging_origin != target_row.parentElement as HTMLTableSectionElement) {
-            this.cross_table_drag = target_row
-            this.cross_table_drag.classList.add("dragged")
-        }
-        swap_nodes(this.dragging, target_row)
+        this.player_drag.update(row)
     }
 
-    dragenter_empty_row(ev: DragEvent, target_row: HTMLTableRowElement) {
-        if (this.dragging == undefined) { return }
-        if (this.cross_table_drag && this.cross_table_drag != target_row) {
-            swap_nodes(this.dragging, this.cross_table_drag)
-            this.cross_table_drag.classList.remove("dragged")
-            this.cross_table_drag = undefined
-        }
-        if (this.dragging.parentElement == target_row.parentElement) { return }
-        ev.preventDefault()
-        swap_row_and_empty(this.dragging, target_row)
-        this.dragging_origin = this.dragging.parentElement as HTMLTableSectionElement
-    }
-
-    dragend_row(ev: DragEvent, row: HTMLTableRowElement) {
-        console.log("dragend", ev, this.dragging)
-        if (this.dragging) {
-            this.dragging.classList.remove("dragged")
-        }
-        this.dragging = undefined
-        if (this.cross_table_drag) {
-            this.cross_table_drag.classList.remove("dragged")
-        }
-        this.cross_table_drag = undefined
-        this.dragging_origin = undefined
+    dragend_row(ev: DragEvent) {
+        console.log("dragend", ev)
+        this.player_drag.end()
         this.display_seating_issues()
     }
 
@@ -1000,9 +1053,10 @@ class RoundTab {
         const plus_button = base.create_append(action_row, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
         plus_button.innerHTML = '<i class="bi bi-plus"></i>'
         plus_button.addEventListener("click", (ev) => { this.display_player_lookup_modal(empty_row) })
-        empty_row.addEventListener("dragenter", (ev) => this.dragenter_empty_row(ev, empty_row))
+        // no dragstart for empty rows
+        empty_row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, empty_row))
         empty_row.addEventListener("dragover", (ev) => ev.preventDefault())
-        empty_row.addEventListener("dragend", (ev) => this.dragend_row(ev, empty_row))
+        empty_row.addEventListener("dragend", (ev) => this.dragend_row(ev))
     }
 
     async reseat() {
