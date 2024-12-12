@@ -58,6 +58,9 @@ class TournamentManager(models.Tournament):
                 self.finish_tournament(ev, member_uid)
 
     def register(self, ev: events.Register, member_uid: str) -> None:
+        # if player is already registered do nothing
+        if ev.player_uid and ev.player_uid in self.players:
+            return
         self.players[ev.player_uid] = models.Player(
             name=ev.name,
             uid=ev.player_uid,
