@@ -61,12 +61,19 @@ class TournamentManager(models.Tournament):
         # if player is already registered do nothing
         if ev.player_uid and ev.player_uid in self.players:
             return
+        state = models.PlayerState.REGISTERED
+        if self.state in [
+            models.TournamentState.FINALS,
+            models.TournamentState.FINISHED,
+        ]:
+            state = models.PlayerState.FINISHED
         self.players[ev.player_uid] = models.Player(
             name=ev.name,
             uid=ev.player_uid,
             vekn=ev.vekn,
             country=ev.country,
             city=ev.city,
+            state=state,
         )
 
     def open_checkin(self, ev: events.OpenCheckin, member_uid: str) -> None:
