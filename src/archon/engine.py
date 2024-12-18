@@ -24,12 +24,6 @@ class TournamentManager(models.Tournament):
                 self.register(ev, member_uid)
             case events.EventType.OPEN_CHECKIN:
                 self.open_checkin(ev, member_uid)
-            case events.EventType.APPOINT_JUDGE:
-                self.appoint_judge(ev, member_uid)
-            case events.EventType.APPOINT_HEAD_JUDGE:
-                self.appoint_head_judge(ev, member_uid)
-            case events.EventType.REMOVE_JUDGE:
-                self.remove_judge(ev, member_uid)
             case events.EventType.CHECK_IN:
                 self.check_in(ev, member_uid)
             case events.EventType.CHECK_OUT:
@@ -78,19 +72,6 @@ class TournamentManager(models.Tournament):
 
     def open_checkin(self, ev: events.OpenCheckin, member_uid: str) -> None:
         self.state = models.TournamentState.WAITING
-
-    def appoint_judge(self, ev: events.AppointJudge, member_uid: str) -> None:
-        if ev.judge_uid not in self.judges:
-            self.judges.append(ev.judge_uid)
-
-    def appoint_head_judge(self, ev: events.AppointHeadJudge, member_uid: str) -> None:
-        if ev.judge_uid in self.judges:
-            self.judges.remove(ev.judge_uid)
-        self.judges.insert(0, ev.judge_uid)
-
-    def remove_judge(self, ev: events.RemoveJudge, member_uid: str) -> None:
-        if ev.judge_uid in self.judges:
-            self.judges.remove(ev.judge_uid)
 
     def check_in(self, ev: events.CheckIn, member_uid: str) -> None:
         self.players[ev.player_uid].state = models.PlayerState.CHECKED_IN

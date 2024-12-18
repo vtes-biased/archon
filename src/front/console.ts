@@ -1,21 +1,12 @@
 import * as d from "./d"
 import * as base from "./base"
 import * as events from "./events"
+import * as member from "./member"
 import * as seating from "./seating"
 import { standings, TournamentDisplay } from "./tournament_display"
 import * as bootstrap from 'bootstrap'
-import unidecode from 'unidecode'
 import * as uuid from 'uuid'
 
-
-function normalize_string(s: string) {
-    var res = unidecode(s).toLowerCase()
-    // remove non-letters non-numbers
-    res.replace(/[^\p{L}\p{N}\s]/gu, "")
-    // remove spurious spaces
-    res.replace(/\s{2,}/g, " ");
-    return res
-}
 
 function score_string(score: d.Score, rank: number = undefined): string {
     var res: string
@@ -34,263 +25,6 @@ function score_string(score: d.Score, rank: number = undefined): string {
     return res
 }
 
-class PersonMap<Type extends d.Person> {
-    by_vekn: Map<string, Type>
-    by_uid: Map<string, Type>
-    trie: Map<string, Array<Type>>
-    constructor() {
-        this.by_vekn = new Map()
-        this.by_uid = new Map()
-        this.trie = new Map()
-    }
-
-    add(persons: Type[]) {
-        for (const person of persons) {
-            if (person.vekn && person.vekn.length > 0) {
-                this.by_vekn.set(person.vekn, person)
-            }
-            this.by_uid.set(person.uid, person)
-            const parts = normalize_string(person.name).split(" ")
-            for (const part of parts) {
-                for (var i = 1; i < part.length + 1; i++) {
-                    const piece = part.slice(0, i)
-                    if (!this.trie.has(piece)) {
-                        this.trie.set(piece, [])
-                    }
-                    this.trie.get(piece).push(person)
-                }
-            }
-        }
-    }
-
-    remove(s: string) {
-        if (!this.by_uid.has(s)) { return }
-        const person = this.by_uid.get(s)
-        this.by_uid.delete(person.uid)
-        if (person.vekn && person.vekn.length > 0) {
-            this.by_vekn.delete(person.vekn)
-        }
-        // we could through the name parts and pieces... not necessarily faster
-        for (const pieces of this.trie.values()) {
-            var idx = pieces.findIndex(p => p.uid == s)
-            while (idx >= 0) {
-                pieces.splice(idx, 1)
-                idx = pieces.findIndex(p => p.uid == s)
-            }
-            // it is fine to let empty arrays be 
-        }
-    }
-
-    complete_name(s: string): Type[] {
-        var members_list: Type[] | undefined = undefined
-        for (const part of normalize_string(s).toLowerCase().split(" ")) {
-            const members = this.trie.get(part)
-            if (members) {
-                if (members_list) {
-                    members_list = members_list.filter(m => members.includes(m))
-                } else {
-                    members_list = members
-                }
-            }
-        }
-        return members_list ? members_list : []
-    }
-}
-
-class MemberMap extends PersonMap<d.Member> {
-    async init(token: base.Token) {
-        const res = await base.do_fetch("/api/vekn/members", {
-            method: "get",
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token.access_token}`
-            },
-        })
-        const members = await res.json() as d.Member[]
-        this.add(members)
-    }
-}
-
-class PersonLookup<Type extends d.Person> {
-    form: HTMLFormElement
-    input_vekn_id: HTMLInputElement
-    input_name: HTMLInputElement
-    dropdown_menu: HTMLUListElement
-    button: HTMLButtonElement
-    dropdown: bootstrap.Dropdown
-    persons_map: PersonMap<Type>
-    person: Type | undefined
-    focus: HTMLLIElement | undefined
-    constructor(persons_map: PersonMap<Type>, root: HTMLElement, label: string, inline: boolean = false) {
-        this.persons_map = persons_map
-        this.form = base.create_append(root, "form")
-        const top_div = base.create_append(this.form, "div", ["d-flex"])
-        if (inline) {
-            top_div.classList.add("flex-row", "align-items-center")
-        } else {
-            top_div.classList.add("flex-column")
-        }
-        const vekn_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
-        this.input_vekn_id = base.create_append(vekn_div, "input", ["form-control"],
-            { type: "text", placeholder: "VEKN ID number", autocomplete: "off", "aria-autocomplete": "off" }
-        )
-        this.input_vekn_id.spellcheck = false
-
-        const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2", "dropdown"])
-        if (inline) {
-            dropdown_div.classList.add("col-xl-4")
-        }
-        this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"],
-            { type: "text", placeholder: "Name", autocomplete: "off", "aria-autocomplete": "off" }
-        )
-        this.input_name.spellcheck = false
-        this.dropdown_menu = base.create_append(dropdown_div, "ul", ["dropdown-menu"])
-        const button_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
-        this.button = base.create_append(button_div, "button", ["btn", "btn-primary"], { type: "submit" })
-        this.button.innerText = label
-        this.button.disabled = true
-        this.dropdown = new bootstrap.Dropdown(this.input_name)
-        this.dropdown.hide()
-        this.input_vekn_id.addEventListener("input", (ev) => this.select_member_by_vekn())
-        this.input_name.addEventListener("input", base.debounce((ev) => this.complete_member_name()))
-        dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev));
-    }
-
-    reset_focus(new_focus: HTMLLIElement | undefined = undefined) {
-        if (this.focus) {
-            this.focus.firstElementChild.classList.remove("active")
-        }
-        this.focus = new_focus
-        if (this.focus) {
-            this.focus.firstElementChild.classList.add("active")
-        }
-    }
-
-    reset() {
-        this.person = undefined
-        this.input_vekn_id.value = ""
-        this.input_name.value = ""
-        this.button.disabled = true
-        this.reset_focus()
-    }
-
-    select_member_by_vekn() {
-        this.person = this.persons_map.by_vekn.get(this.input_vekn_id.value)
-        if (this.person) {
-            this.input_name.value = this.person.name
-            this.button.disabled = false
-        }
-        else {
-            this.input_name.value = ""
-            this.button.disabled = true
-        }
-    }
-
-    select_member_name(ev: Event) {
-        const button = ev.currentTarget as HTMLButtonElement
-        this.person = this.persons_map.by_uid.get(button.dataset.memberUid)
-        if (this.person) {
-            this.input_vekn_id.value = this.person.vekn
-            this.input_name.value = this.person.name
-            this.button.disabled = false
-        }
-        else {
-            this.input_vekn_id.value = ""
-            this.input_name.value = ""
-            this.button.disabled = true
-        }
-        this.reset_focus()
-        this.dropdown.hide()
-    }
-
-    complete_member_name() {
-        while (this.dropdown_menu.lastElementChild) {
-            this.dropdown_menu.removeChild(this.dropdown_menu.lastElementChild)
-        }
-        this.reset_focus()
-        this.input_vekn_id.value = ""
-        this.button.disabled = true
-        if (this.input_name.value.length < 3) {
-            this.dropdown.hide()
-            return
-        }
-        const persons_list = this.persons_map.complete_name(this.input_name.value)
-        if (!persons_list) {
-            this.dropdown.hide()
-            return
-        }
-        for (const person of persons_list.slice(0, 10)) {
-            const li = base.create_append(this.dropdown_menu, "li")
-            const button = base.create_append(li, "button", ["dropdown-item"],
-                { type: "button", "data-member-uid": person.uid }
-            )
-            var tail: string[] = []
-            if (person.city) {
-                tail.push(person.city)
-            }
-            if (person.country) {
-                tail.push(person.country)
-            }
-            button.innerText = person.name
-            if (tail.length > 0) {
-                button.innerText += ` (${tail.join(", ")})`
-            }
-            button.addEventListener("click", (ev) => this.select_member_name(ev))
-        }
-        this.dropdown.show()
-    }
-
-    keydown(ev: KeyboardEvent) {
-        var next_focus: HTMLLIElement | undefined = undefined
-        switch (ev.key) {
-            case "ArrowDown": {
-                if (this.focus) {
-                    next_focus = this.focus.nextElementSibling as HTMLLIElement
-                } else {
-                    next_focus = this.dropdown_menu.firstElementChild as HTMLLIElement
-                }
-                if (next_focus === null) {
-                    next_focus = this.focus
-                }
-                break
-            }
-            case "ArrowUp": {
-                if (this.focus) {
-                    next_focus = this.focus.previousElementSibling as HTMLLIElement
-                } else {
-                    next_focus = this.dropdown_menu.lastElementChild as HTMLLIElement
-                }
-                if (next_focus === null) {
-                    next_focus = this.focus
-                }
-                break
-            }
-            case "Escape": {
-                break
-            }
-            case "Enter": {
-                if (this.focus) {
-                    this.focus.firstElementChild.dispatchEvent(new Event("click"))
-                } else {
-                    return
-                }
-                break
-            }
-            default: return
-        }
-        ev.stopPropagation()
-        ev.preventDefault()
-        if (next_focus === this.focus) { return }
-        if (this.focus) {
-            this.focus.firstElementChild.classList.remove("active")
-        }
-        this.focus = next_focus
-        if (this.focus) {
-            this.focus.firstElementChild.classList.add("active")
-        }
-    }
-}
 
 class PlayerSelectModal {
     modal_div: HTMLDivElement
@@ -370,7 +104,7 @@ class Registration {
     panel: HTMLDivElement
     toast_container: HTMLDivElement
     action_row: HTMLDivElement
-    register_element: PersonLookup<d.Member>
+    register_element: member.PersonLookup<d.Member>
     filter_switch: HTMLInputElement
     filter_label: HTMLLabelElement
     players_table: HTMLTableElement
@@ -390,8 +124,8 @@ class Registration {
             { ariaAtomic: true, ariaLive: "polite" }
         )
         this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
-        this.action_row = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
-        this.register_element = new PersonLookup<d.Member>(console.members_map, this.panel, "Register", true)
+        this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
+        this.register_element = new member.PersonLookup<d.Member>(console.members_map, this.panel, "Register", true)
         this.register_element.form.addEventListener("submit", (ev) => { this.add_player(ev) })
         const table_div = base.create_append(this.panel, "div", ["my-4"])
         const table_controls = base.create_append(table_div, "div", ["d-flex", "align-items-center"])
@@ -519,12 +253,12 @@ class Registration {
         }
         base.remove_children(this.action_row)
         if (this.console.tournament.state == d.TournamentState.REGISTRATION) {
-            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = "Open Check-In"
             button.addEventListener("click", (ev) => { this.console.open_checkin() })
         }
         else if (this.console.tournament.state == d.TournamentState.WAITING) {
-            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
             button.addEventListener("click", (ev) => { this.console.start_round() })
         }
@@ -532,7 +266,7 @@ class Registration {
             this.console.tournament.state == d.TournamentState.WAITING) {
             if (this.console.tournament.rounds.length > 0) {
                 const finals_button = base.create_append(this.action_row, "button",
-                    ["col-2", "me-2", "btn", "btn-success"]
+                    ["me-2", "btn", "btn-success"]
                 )
                 finals_button.innerText = "Seed Finals"
                 finals_button.addEventListener("click", (ev) => {
@@ -707,8 +441,8 @@ class RoundTab {
 
     display() {
         base.remove_children(this.panel)
-        this.action_row = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
-        this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-warning"])
+        this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
+        this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-warning"])
         this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
         this.reseat_button.addEventListener("click", (ev) => { this.start_reseat() })
         const round = this.console.tournament.rounds[this.index - 1]
@@ -720,7 +454,7 @@ class RoundTab {
             && this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.state == d.TableState.FINISHED)
         ) {
-            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = "Finish round"
             button.addEventListener("click", (ev) => { this.console.finish_round() })
         }
@@ -728,7 +462,7 @@ class RoundTab {
             && this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.state == d.TableState.FINISHED)
         ) {
-            const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = "Finish tournament"
             button.addEventListener("click", (ev) => { this.console.finish_tournament() })
         }
@@ -851,7 +585,7 @@ class RoundTab {
     }
     start_reseat() {
         base.remove_children(this.action_row)
-        this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
+        this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
         this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
         this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
         if (!this.finals) {
@@ -863,7 +597,7 @@ class RoundTab {
                 (ev) => { this.setup_reseat_table_body(this.display_table(undefined)) }
             )
         }
-        const cancel_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-secondary"])
+        const cancel_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-secondary"])
         cancel_button.innerHTML = '<i class="bi bi-x"></i> Cancel'
         cancel_button.addEventListener("click", (ev) => { this.display() })
 
@@ -1113,7 +847,7 @@ class ScoreModal {
 class TournamentConsole {
     root: HTMLDivElement
     token: base.Token
-    members_map: MemberMap | undefined
+    members_map: member.MemberMap | undefined
     tournament: d.Tournament | undefined
     nav: HTMLElement
     tabs_div: HTMLDivElement
@@ -1126,7 +860,7 @@ class TournamentConsole {
     constructor(el: HTMLDivElement, token: base.Token) {
         this.root = el
         this.token = token
-        this.members_map = new MemberMap()
+        this.members_map = new member.MemberMap()
         this.score_modal = new ScoreModal(el, this)
         this.player_select = new PlayerSelectModal(el)
         this.nav = base.create_append(el, "nav", ["nav", "nav-tabs"], { role: "tablist" })
@@ -1167,7 +901,7 @@ class TournamentConsole {
         while (this.nav.parentElement.firstElementChild != this.nav) {
             this.nav.parentElement.firstElementChild.remove()
         }
-        await this.info.init(this.token)
+        await this.info.init(this.token, this.members_map)
         await this.info.display(this.tournament, true)
         if (this.tournament.state == d.TournamentState.FINISHED) {
             const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })

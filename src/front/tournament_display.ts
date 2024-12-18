@@ -1,5 +1,6 @@
 import * as d from "./d"
 import * as base from "./base"
+import * as member from "./member"
 import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
 import { DateTime, DateTimeFormatOptions } from 'luxon'
@@ -98,6 +99,8 @@ export class TournamentDisplay {
     root: HTMLDivElement
     countries: d.Country[]
     token: base.Token
+    user_id: string
+    members_map: member.MemberMap
     // form inputs
     name: HTMLInputElement
     format: HTMLSelectElement
@@ -116,23 +119,28 @@ export class TournamentDisplay {
     finish: HTMLInputElement
     timezone: HTMLSelectElement
     description: HTMLTextAreaElement
+    judges: Set<string>
     constructor(root: HTMLDivElement) {
         this.root = root
     }
-    async init(token: base.Token) {
+    async init(token: base.Token, members_map: member.MemberMap | undefined) {
         this.token = token
+        this.user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
         const res = await base.do_fetch("/api/vekn/country", {})
         this.countries = await res.json() as d.Country[]
+        if (members_map) {
+            this.members_map = members_map
+        } else {
+            this.members_map = new member.MemberMap()
+            await this.members_map.init(token)
+        }
     }
     async display(tournament: d.Tournament, included: boolean = false) {
         base.remove_children(this.root)
+        this.judges = new Set(tournament.judges)
         // ----------------------------------------------------------------------------------------------------- User ID
-        const [p1, p2, p3] = this.token.access_token.split(".")
-        const payload = JSON.parse(window.atob(p2))
-        console.log("JWT payload", payload)
-        const user_id = payload["sub"]
-        if (Object.hasOwn(tournament.players, user_id)) {
-            const player = tournament.players[user_id]
+        if (Object.hasOwn(tournament.players, this.user_id)) {
+            const player = tournament.players[this.user_id]
             if (player.state != d.PlayerState.FINISHED) {
                 const alert = base.create_append(this.root, "div", ["alert", "alert-success"], { role: "alert" })
                 alert.innerText = "You are registered for this tournament"
@@ -144,10 +152,10 @@ export class TournamentDisplay {
         }
         // ----------------------------------------------------------------------------------------------------- Buttons
         if (included) {
-            const edit_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-3"])
+            const edit_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-4"])
             edit_button.innerText = "Edit"
             edit_button.addEventListener("click", (ev) => this.display_form(tournament))
-        } else if (tournament.judges.includes(user_id)) {
+        } else if (tournament.judges.includes(this.user_id)) {
             base.create_append(this.root, "a", ["btn", "btn-primary", "my-3"],
                 { href: `/tournament/${tournament.uid}/console.html` }
             ).innerText = "Console"
@@ -247,7 +255,7 @@ export class TournamentDisplay {
         }
         // ------------------------------------------------------------------------------------------------------- Venue
         if (!tournament.online && tournament.venue) {
-            base.create_append(this.root, "h2", ["mt-3", "mb-1"]).innerText = "Venue"
+            base.create_append(this.root, "h2", ["mt-5", "mb-1"]).innerText = "Venue"
             const venue_div = base.create_append(this.root, "div", ["d-flex"])
             base.create_append(venue_div, "div", ["me-2"]).innerText = tournament.venue
             if (tournament.venue_url) {
@@ -264,9 +272,24 @@ export class TournamentDisplay {
                 ).innerHTML = '<i class="bi bi-geo-alt-fill"></i>'
             }
         }
+        // ------------------------------------------------------------------------------------------------------ Judges
+        const table = base.create_append(this.root, "table", ["table", "table-striped", "my-2"])
+        base.create_append(table, "caption", []).innerText = "Judges"
+        const head = base.create_append(table, "thead")
+        const row = base.create_append(head, "tr")
+        for (const label of ["VEKN #", "Name", ""]) {
+            const cel = base.create_append(row, "th", [], { scope: "col" })
+            cel.innerText = label
+        }
+
+        const body = base.create_append(table, "tbody")
+        for (const judge_uid of this.judges.values()) {
+            const member = this.members_map.by_uid.get(judge_uid)
+            body.append(this.create_judge_row(member, false))
+        }
         // ------------------------------------------------------------------------------------------------- Description
         if (tournament.description) {
-            const description_div = base.create_append(this.root, "div", ["mt-3", "mb-1"])
+            const description_div = base.create_append(this.root, "div", ["mt-5", "mb-1"])
             const renderer = new marked.Renderer();
             const linkRenderer = renderer.link;
             renderer.link = ({ href, title, tokens }: Tokens.Link): string => {
@@ -292,7 +315,7 @@ export class TournamentDisplay {
                 const classes = []
                 if (rank == 1 && tournament.state == d.TournamentState.FINISHED) {
                     classes.push("bg-warning-subtle")
-                } else if (player.uid == user_id) {
+                } else if (player.uid == this.user_id) {
                     classes.push("bg-primary-subtle")
                 }
                 base.create_append(tr, "th", classes, { scope: "row" }).innerText = rank
@@ -593,6 +616,34 @@ export class TournamentDisplay {
                 this.description.value = tournament.description
             }
         }
+        // ------------------------------------------------------------------------------------------------------ Judges
+        {
+            const table = base.create_append(form, "table", ["table", "table-striped", "my-2"])
+            base.create_append(table, "caption", []).innerText = "Judges"
+            const head = base.create_append(table, "thead")
+            const row = base.create_append(head, "tr")
+            for (const label of ["VEKN #", "Name", ""]) {
+                const cel = base.create_append(row, "th", [], { scope: "col" })
+                cel.innerText = label
+            }
+
+            const body = base.create_append(table, "tbody")
+            for (const judge_uid of this.judges.values()) {
+                const member = this.members_map.by_uid.get(judge_uid)
+                body.append(this.create_judge_row(member, true))
+            }
+            const lookup_row = base.create_append(body, "tr", [])
+            const lookup_cell = base.create_append(body, "td", [], { colspan: "3" })
+            const lookup = new member.PersonLookup(this.members_map, lookup_cell, "Add Judge", true)
+            lookup.form.addEventListener("submit", (ev) => {
+                ev.preventDefault()
+                const person = lookup.person
+                lookup.reset()
+                if (this.judges.has(person.uid)) { return }
+                this.judges.add(person.uid)
+                body.insertBefore(this.create_judge_row(person, true), lookup_row)
+            })
+        }
         // ------------------------------------------------------------------------------------------------------ submit
         {
             const div = base.create_append(form, "div", ["col-auto"])
@@ -607,6 +658,24 @@ export class TournamentDisplay {
                 cancel_button.addEventListener("click", (ev) => history.back())
             }
         }
+    }
+
+    create_judge_row(member: d.Member, edit: boolean) {
+        const row = base.create_element("tr")
+        base.create_append(row, "th", [], { scope: "row" }).innerText = member.vekn
+        base.create_append(row, "td", ["w-100"]).innerText = member.name
+        const actions = base.create_append(row, "td")
+        if (edit && this.user_id != member.uid) {
+            const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-danger", "me-2"])
+            button.innerHTML = '<i class="bi bi-x-circle-fill"></i>'
+            const tip = base.add_tooltip(button, "Remove")
+            button.addEventListener("click", (ev) => {
+                tip.dispose();
+                this.judges.delete(member.uid);
+                row.remove()
+            })
+        }
+        return row
     }
 
     select_format() {
@@ -693,6 +762,7 @@ export class TournamentDisplay {
         const data = new FormData(tournamentForm)
         var json_data = Object.fromEntries(data.entries()) as unknown as d.TournamentConfig
         if (json_data.finish.length < 1) { json_data.finish = undefined }
+        json_data.judges = [...this.judges.values()]
         var url = "/api/tournaments/"
         var method = "post"
         if (tournament) {
@@ -714,7 +784,7 @@ export class TournamentDisplay {
         console.log(response)
         if (tournament) {
             Object.assign(tournament, json_data)
-            await this.display(tournament)
+            await this.display(tournament, true)
         } else {
             window.location.href = response.url
         }
@@ -730,7 +800,7 @@ async function load() {
             tournament = JSON.parse(tournamentDisplay.dataset.tournament)
         }
         const token = await base.fetchToken()
-        await display.init(token)
+        await display.init(token, undefined)
         if (tournament) {
             await display.display(tournament)
         } else {

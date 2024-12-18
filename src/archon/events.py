@@ -14,9 +14,6 @@ def uuid_str() -> str:
 class EventType(enum.StrEnum):
     REGISTER = "REGISTER"
     OPEN_CHECKIN = "OPEN_CHECKIN"
-    APPOINT_JUDGE = "APPOINT_JUDGE"
-    APPOINT_HEAD_JUDGE = "APPOINT_HEAD_JUDGE"
-    REMOVE_JUDGE = "REMOVE_JUDGE"
     CHECK_IN = "CHECK_IN"
     CHECK_OUT = "CHECK_OUT"
     ROUND_START = "ROUND_START"
@@ -67,24 +64,6 @@ class Register(Event):
 @dataclasses.dataclass(kw_only=True)
 class OpenCheckin(Event):
     type: typing.Literal[EventType.OPEN_CHECKIN]
-
-
-@dataclasses.dataclass(kw_only=True)
-class AppointJudge(Event):
-    type: typing.Literal[EventType.APPOINT_JUDGE]
-    judge_uid: str = pydantic.Field(default_factory=uuid_str)
-
-
-@dataclasses.dataclass(kw_only=True)
-class AppointHeadJudge(Event):
-    type: typing.Literal[EventType.APPOINT_HEAD_JUDGE]
-    judge_uid: str = pydantic.Field(default_factory=uuid_str)
-
-
-@dataclasses.dataclass(kw_only=True)
-class RemoveJudge(Event):
-    type: typing.Literal[EventType.REMOVE_JUDGE]
-    judge_uid: str
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -176,9 +155,6 @@ class FinishTournament(Event):
 TournamentEvent = typing.Union[
     Register,
     OpenCheckin,
-    AppointJudge,
-    AppointHeadJudge,
-    RemoveJudge,
     CheckIn,
     CheckOut,
     RoundStart,

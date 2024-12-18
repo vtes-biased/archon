@@ -180,29 +180,6 @@ who do not show up to their table.
 }
 ```
 
-#### AppointJudge
-
-Judges have permission to send all events, simple players are limited.
-The UID must match a VEKN member UID.
-
-```json
-{
-    "type": "AppointJudge",
-    "judge_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
-}
-```
-
-#### AppointJudge
-
-Remove a judge.
-
-```json
-{
-    "type": "RemoveJudge",
-    "judge_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
-}
-```
-
 #### CheckIn
 
 Mark a player as ready to play. Players can self-check-in. 
