@@ -277,6 +277,7 @@ class TournamentManager(models.Tournament):
         for i, uid in enumerate(self.finals_seeds, 1):
             self.players[uid].table = 1
             self.players[uid].seed = i
+            self.players[uid].toss = ev.toss.get(uid, 0)
             self.players[uid].state = models.PlayerState.PLAYING
 
     def seat_finals(self, ev: events.SeatFinals, member_uid: str) -> None:
