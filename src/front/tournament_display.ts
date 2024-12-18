@@ -126,6 +126,7 @@ export class TournamentDisplay {
     async init(token: base.Token, members_map: member.MemberMap | undefined) {
         this.token = token
         this.user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
+        this.judges = new Set([this.user_id])
         const res = await base.do_fetch("/api/vekn/country", {})
         this.countries = await res.json() as d.Country[]
         if (members_map) {
