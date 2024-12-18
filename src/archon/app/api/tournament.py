@@ -1,3 +1,4 @@
+import dataclasses
 import fastapi
 import logging
 import typing
@@ -55,8 +56,12 @@ async def api_tournament_put(
             fastapi.status.HTTP_403_FORBIDDEN, detail="A judge is required"
         )
     LOG.info("Updating tournament config: %s", data)
-    for field in data.model_fields_set:
-        setattr(tournament, field, getattr(data, field))
+    for field in dataclasses.fields(data):
+        if field.name == "uid":
+            continue
+        value = getattr(data, field.name)
+        if value:
+            setattr(tournament, field.name, value)
     uid = await op.update_tournament(tournament)
     return dependencies.TournamentUrl(
         uid=uid, url=str(request.url_for("tournament_display", uid=uid))

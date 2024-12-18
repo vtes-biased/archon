@@ -29,7 +29,6 @@
         "src/front/profile.ts",
         "src/front/seating.ts",
         "src/front/tournament_display.ts",
-        "src/front/tournament_form.ts",
         "src/front/layout.scss"
       ]
     }

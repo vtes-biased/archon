@@ -38,6 +38,12 @@ export function create_prepend<K extends keyof HTMLElementTagNameMap>(
     return ret
 }
 
+export function remove_children(el: HTMLElement) {
+    while (el.lastElementChild) {
+        el.removeChild(el.lastElementChild)
+    }
+}
+
 export function add_tooltip(el: HTMLElement, tip: string): bootstrap.Tooltip {
     el.dataset.bsToggle = "tooltip"
     el.dataset.bsTitle = tip

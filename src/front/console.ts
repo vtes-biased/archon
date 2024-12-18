@@ -8,39 +8,6 @@ import unidecode from 'unidecode'
 import * as uuid from 'uuid'
 
 
-function remove_children(el: HTMLElement) {
-    while (el.lastElementChild) {
-        el.removeChild(el.lastElementChild)
-    }
-}
-
-function swap_nodes(el1: HTMLElement, el2: HTMLElement) {
-    console.log("swapping", el1, el2)
-    if (el1 === el2) { return }
-    const next1 = el1.nextSibling
-    const next2 = el2.nextSibling
-    const parent1 = el1.parentElement
-    const parent2 = el2.parentElement
-    if (next1 != el2) { parent1.insertBefore(el2, next1) }
-    if (next2 != el1) { parent2.insertBefore(el1, next2) }
-}
-
-function swap_row_and_empty(el: HTMLTableRowElement, empty: HTMLTableRowElement) {
-    console.log("swapping (empty)", el, empty)
-    if (el === empty) { return }
-    const parent = el.parentElement
-    const parent_empty = empty.parentElement
-    var last_non_empty = parent_empty.firstElementChild
-    while (true) {
-        const candidate = last_non_empty.nextElementSibling as HTMLTableRowElement | undefined
-        if (!candidate?.dataset?.player_uid) { break }
-        last_non_empty = candidate
-    }
-    parent_empty.insertBefore(el, last_non_empty.nextElementSibling)
-    parent.append(empty)
-}
-
-
 function normalize_string(s: string) {
     var res = unidecode(s).toLowerCase()
     // remove non-letters non-numbers
@@ -360,7 +327,7 @@ class PlayerSelectModal {
 
     show(empty_row: HTMLTableRowElement) {
         this.empty_row = empty_row
-        remove_children(this.select)
+        base.remove_children(this.select)
         const players = [...this.players.values()].sort((a, b) => a.name.localeCompare(b.name))
         for (const player of players) {
             const option = base.create_append(this.select, "option", ["mb-2"], {
@@ -512,7 +479,7 @@ class Registration {
         this.display()
     }
     display() {
-        remove_children(this.players_table_body)
+        base.remove_children(this.players_table_body)
         const players = this.sorted_players()
         for (const [rank, player] of players) {
             const row = base.create_append(this.players_table_body, "tr")
@@ -550,7 +517,7 @@ class Registration {
                 }
             }
         }
-        remove_children(this.action_row)
+        base.remove_children(this.action_row)
         if (this.console.tournament.state == d.TournamentState.REGISTRATION) {
             const button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
             button.innerText = "Open Check-In"
@@ -739,7 +706,7 @@ class RoundTab {
     }
 
     display() {
-        remove_children(this.panel)
+        base.remove_children(this.panel)
         this.action_row = base.create_append(this.panel, "div", ["row", "g-3", "my-4"])
         this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-warning"])
         this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
@@ -874,7 +841,7 @@ class RoundTab {
         var rows = table.querySelectorAll("tr") as NodeListOf<HTMLTableRowElement>
         for (const row of rows) {
             const action_row = row.querySelector(".action-row") as HTMLTableCellElement
-            remove_children(action_row)
+            base.remove_children(action_row)
             this.display_reseat_actions(row, action_row)
         }
         while (rows.length < 5) {
@@ -883,7 +850,7 @@ class RoundTab {
         }
     }
     start_reseat() {
-        remove_children(this.action_row)
+        base.remove_children(this.action_row)
         this.reseat_button = base.create_append(this.action_row, "button", ["col-2", "me-2", "btn", "btn-success"])
         this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
         this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
@@ -1067,7 +1034,7 @@ class RoundTab {
     }
 
     add_player(empty_row, player: d.Player) {
-        remove_children(empty_row)
+        base.remove_children(empty_row)
         const actions = this.display_player(empty_row, player)
         this.display_reseat_actions(empty_row, actions)
         this.console.player_select.remove(player)
@@ -1196,11 +1163,12 @@ class TournamentConsole {
         await this.members_map.init(this.token)
     }
 
-    display() {
+    async display() {
         while (this.nav.parentElement.firstElementChild != this.nav) {
             this.nav.parentElement.firstElementChild.remove()
         }
-        this.info.display(this.tournament, this.token, true)
+        await this.info.init(this.token)
+        await this.info.display(this.tournament, true)
         if (this.tournament.state == d.TournamentState.FINISHED) {
             const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })
             var alert_text = "This tournament is Finished."
@@ -1459,7 +1427,7 @@ async function load() {
     const token = await base.fetchToken()
     const tournament = new TournamentConsole(consoleDiv, token)
     await tournament.init(consoleDiv.dataset.tournamentUid)
-    tournament.display()
+    await tournament.display()
 }
 
 window.addEventListener("load", (ev) => { base.load() })

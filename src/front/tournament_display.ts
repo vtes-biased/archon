@@ -3,6 +3,8 @@ import * as base from "./base"
 import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
 import { DateTime, DateTimeFormatOptions } from 'luxon'
+import * as tempusDominus from '@eonasdan/tempus-dominus'
+import { biOneIcons } from '@eonasdan/tempus-dominus/dist/plugins/bi-one'
 
 
 const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
@@ -43,6 +45,9 @@ export function standings(tournament: d.Tournament) {
     }
     const sorted_players: [number[], d.Player][] = Object.values(tournament.players).map(p => [standings_array(p), p])
     sorted_players.sort(compare_players_standings)
+    if (sorted_players.length < 1) {
+        return sorted_players
+    }
     var rank = 1
     var next_rank = 0
     const res = []
@@ -91,12 +96,38 @@ function score_string(score: d.Score, rank: number = undefined): string {
 
 export class TournamentDisplay {
     root: HTMLDivElement
+    countries: d.Country[]
+    token: base.Token
+    // form inputs
+    name: HTMLInputElement
+    format: HTMLSelectElement
+    rank: HTMLSelectElement
+    proxies: HTMLInputElement
+    proxies_label: HTMLLabelElement
+    multideck: HTMLInputElement
+    multideck_label: HTMLLabelElement
+    online: HTMLInputElement
+    venue: HTMLInputElement
+    country: HTMLSelectElement
+    venue_url: HTMLInputElement
+    address: HTMLInputElement
+    map_url: HTMLInputElement
+    start: HTMLInputElement
+    finish: HTMLInputElement
+    timezone: HTMLSelectElement
+    description: HTMLTextAreaElement
     constructor(root: HTMLDivElement) {
         this.root = root
     }
-    async display(tournament: d.Tournament, token: base.Token, included: boolean = false) {
+    async init(token: base.Token) {
+        this.token = token
+        const res = await base.do_fetch("/api/vekn/country", {})
+        this.countries = await res.json() as d.Country[]
+    }
+    async display(tournament: d.Tournament, included: boolean = false) {
+        base.remove_children(this.root)
         // ----------------------------------------------------------------------------------------------------- User ID
-        const [p1, p2, p3] = token.access_token.split(".")
+        const [p1, p2, p3] = this.token.access_token.split(".")
         const payload = JSON.parse(window.atob(p2))
         console.log("JWT payload", payload)
         const user_id = payload["sub"]
@@ -112,7 +143,11 @@ export class TournamentDisplay {
             base.create_append(this.root, "h1", ["mb-2"]).innerText = tournament.name
         }
         // ----------------------------------------------------------------------------------------------------- Buttons
-        if (!included && tournament.judges.includes(user_id)) {
+        if (included) {
+            const edit_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-3"])
+            edit_button.innerText = "Edit"
+            edit_button.addEventListener("click", (ev) => this.display_form(tournament))
+        } else if (tournament.judges.includes(user_id)) {
             base.create_append(this.root, "a", ["btn", "btn-primary", "my-3"],
                 { href: `/tournament/${tournament.uid}/console.html` }
             ).innerText = "Console"
@@ -269,15 +304,438 @@ export class TournamentDisplay {
             }
         }
     }
+    async display_form(tournament: d.Tournament | undefined) {
+        base.remove_children(this.root)
+        const form = base.create_append(this.root, "form", ["row", "g-3", "mt-3"])
+        form.addEventListener("submit", (ev) => this.submit_tournament(ev, tournament))
+        // ------------------------------------------------------------------------------------------------------ line 1
+        { // name
+            const div = base.create_append(form, "div", ["col-md-6"])
+            this.name = base.create_append(div, "input", ["form-control"],
+                { type: "text", name: "name", placeholder: "Tournament Name", autocomplete: "off", spellcheck: "false" }
+            )
+            if (tournament?.name && tournament.name.length > 0) {
+                this.name.value = tournament.name
+            }
+            this.name.ariaAutoComplete = "none"
+            this.name.required = true
+        }
+        { // format
+            const div = base.create_append(form, "div", ["col-md-3"])
+            this.format = base.create_append(div, "select", ["form-select"], { name: "format" })
+            this.format.required = true
+            for (const value of Object.values(d.TournamentFormat)) {
+                const option = base.create_append(this.format, "option")
+                option.innerText = value
+                option.value = value
+            }
+            if (tournament) {
+                this.format.value = tournament.format
+            } else {
+                this.format.value = d.TournamentFormat.Standard
+            }
+            this.format.addEventListener("change", (ev) => this.select_format())
+        }
+        { // rank
+            const div = base.create_append(form, "div", ["col-md-3"])
+            this.rank = base.create_append(div, "select", ["form-select"], { name: "rank" })
+            for (const value of Object.values(d.TournamentRank)) {
+                const option = base.create_append(this.rank, "option")
+                option.innerText = value
+                option.value = value
+                if (tournament?.rank == value) {
+                    option.selected = true
+                } else {
+                    option.selected = false
+                }
+            }
+            if (tournament) {
+                this.rank.value = tournament.rank
+            } else {
+                this.rank.value = d.TournamentRank.BASIC
+            }
+            if (this.format.value != d.TournamentFormat.Standard) {
+                this.rank.value = d.TournamentRank.BASIC
+                this.rank.disabled = true
+            }
+            this.rank.addEventListener("change", (ev) => this.select_rank())
+        }
+        // ------------------------------------------------------------------------------------------------------ line 2
+        { // proxies
+            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
+            this.proxies = base.create_append(field_div, "input", ["form-check-input"],
+                { type: "checkbox", name: "proxies", id: "switchProxy" }
+            )
+            this.proxies_label = base.create_append(field_div, "label", ["form-check-label"], { for: "switchProxy" })
+            if (tournament?.proxies) {
+                this.proxies.checked = true
+                this.proxies_label.innerText = "Proxies allowed"
+            } else {
+                this.proxies.checked = false
+                this.proxies_label.innerText = "No proxy"
+            }
+            if (this.rank.value != d.TournamentRank.BASIC || tournament?.online) {
+                this.proxies.checked = false
+                this.proxies_label.innerText = "No proxy"
+                this.proxies.disabled = true
+            }
+            this.proxies.addEventListener("change", (ev) => this.switch_proxies())
+        }
+        { // multideck
+            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
+            this.multideck = base.create_append(field_div, "input", ["form-check-input"],
+                { type: "checkbox", name: "multideck", id: "switchMultideck" }
+            )
+            this.multideck_label = base.create_append(field_div, "label", ["form-check-label"],
+                { for: "switchMultideck" }
+            )
+            if (tournament?.multideck) {
+                this.multideck.checked = true
+                this.multideck_label.innerText = "Multideck"
+            } else {
+                this.multideck.checked = false
+                this.multideck_label.innerText = "Single deck"
+            }
+            if (this.rank.value != d.TournamentRank.BASIC) {
+                this.multideck.checked = false
+                this.multideck.innerText = "Single deck"
+                this.multideck.disabled = true
+            }
+            this.multideck.addEventListener("change", (ev) => this.switch_multideck())
+        }
+        // filler
+        base.create_append(form, "div", ["w-100"])
+        // ------------------------------------------------------------------------------------------------------ line 3
+        { // online
+            const div = base.create_append(form, "div", ["col-md-2", "d-flex", "align-items-center"])
+            const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
+            this.online = base.create_append(field_div, "input", ["form-check-input"],
+                { type: "checkbox", name: "online", id: "switchOnline" }
+            )
+            base.create_append(field_div, "label", ["form-check-label"], { for: "switchOnline" }).innerText = "Online"
+            this.online.addEventListener("change", (ev) => this.switch_online())
+            if (tournament?.online) {
+                this.online.checked = true
+            } else {
+                this.online.checked = false
+            }
+        }
+        { // venue
+            const div = base.create_append(form, "div", ["col-md-6"])
+            this.venue = base.create_append(div, "input", ["form-control"],
+                { type: "text", name: "venue", placeholder: "Venue", autocomplete: "off", spellcheck: "false" }
+            )
+            this.venue.ariaLabel = "Venue"
+            this.venue.ariaAutoComplete = "none"
+            if (tournament?.venue && tournament.venue.length > 0) {
+                this.venue.value = tournament.venue
+            }
+        }
+        { // country
+            const div = base.create_append(form, "div", ["col-md-4"])
+            this.country = base.create_append(div, "select", ["form-select"], { name: "country" })
+            this.country.ariaLabel = "Country"
+            this.country.options.add(base.create_element("option", [], { value: "", label: "Country" }))
+            for (const country of this.countries) {
+                const option = document.createElement("option")
+                option.value = country.country
+                option.label = country.country
+                this.country.options.add(option)
+                if (tournament?.country == country.country) {
+                    option.selected = true
+                }
+            }
+            if (tournament?.online) {
+                this.country.selectedIndex = 0
+                this.country.disabled = true
+                this.country.required = false
+            } else {
+                this.country.required = true
+            }
+        }
+        // ------------------------------------------------------------------------------------------------------ line 4
+        { // venue_url
+            const div = base.create_append(form, "div", ["col-md-4"])
+            const group = base.create_append(div, "div", ["input-group"])
+            base.create_append(group, "i", ["input-group-text", "bi", "bi-link-45deg"])
+            this.venue_url = base.create_append(group, "input", ["form-control"],
+                { type: "text", name: "venue_url", placeholder: "Venue URL", autocomplete: "off", spellcheck: "false" }
+            )
+            this.venue_url.ariaLabel = "Venue URL"
+            this.venue_url.ariaAutoComplete = "none"
+            if (tournament?.venue_url && tournament.venue_url.length > 0) {
+                this.venue_url.value = tournament.venue_url
+            }
+        }
+        { // address
+            const div = base.create_append(form, "div", ["col-md-4"])
+            this.address = base.create_append(div, "input", ["form-control"],
+                { type: "text", name: "address", placeholder: "Address", autocomplete: "off", spellcheck: "false" }
+            )
+            this.address.ariaLabel = "Address"
+            this.address.ariaAutoComplete = "none"
+            if (tournament?.address && tournament.address.length > 0) {
+                this.address.value = tournament.address
+            }
+            if (tournament?.online) {
+                this.address.value = ""
+                this.address.disabled = true
+            }
+        }
+        { // map_url
+            const div = base.create_append(form, "div", ["col-md-4"])
+            const group = base.create_append(div, "div", ["input-group"])
+            base.create_append(group, "i", ["input-group-text", "bi", "bi-geo-alt-fill"])
+            this.map_url = base.create_append(group, "input", ["form-control"],
+                { type: "text", name: "map_url", placeholder: "Map URL", autocomplete: "off", spellcheck: "false" }
+            )
+            this.map_url.ariaLabel = "Address"
+            this.map_url.ariaAutoComplete = "none"
+            if (tournament?.map_url && tournament.map_url.length > 0) {
+                this.map_url.value = tournament.map_url
+            }
+            if (tournament?.online) {
+                this.map_url.value = ""
+                this.map_url.disabled = true
+            }
+        }
+        // ------------------------------------------------------------------------------------------------------ line 5
+        { // start
+            const div = base.create_append(form, "div", ["col-md-4"])
+            const group = base.create_append(div, "div", ["input-group", "form-floating"], { id: "pickerStart" })
+            group.dataset.tdTargetInput = "nearest"
+            group.dataset.tdTargetToggle = "nearest"
+            this.start = base.create_append(group, "input", ["form-control"], {
+                id: "tournamentStart",
+                type: "text",
+                name: "start",
+                autocomplete: "off",
+                spellcheck: "false"
+            })
+            this.start.ariaLabel = "Start"
+            this.start.ariaAutoComplete = "none"
+            this.start.dataset.tdTarget = "#pickerStart"
+            base.create_append(group, "label", ["form-label"], { for: "tournamentStart" }).innerText = "Start"
+            const span = base.create_append(group, "span", ["input-group-text"])
+            span.dataset.tdTarget = "#pickerStart"
+            span.dataset.tdToggle = "datetimepicker"
+            base.create_append(span, "i", ["bi", "bi-calendar"])
+            if (tournament?.start && tournament.start.length > 0) {
+                this.start.value = tournament.start
+            }
+            new tempusDominus.TempusDominus(group, { display: { icons: biOneIcons }, localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" }, stepping: 15, promptTimeOnDateChange: true })
+        }
+        { // finish
+            const div = base.create_append(form, "div", ["col-md-4"])
+            const group = base.create_append(div, "div", ["input-group", "form-floating"], { id: "pickerFinish" })
+            group.dataset.tdTargetInput = "nearest"
+            group.dataset.tdTargetToggle = "nearest"
+            this.finish = base.create_append(group, "input", ["form-control"], {
+                id: "tournamentFinish",
+                type: "text",
+                name: "finish",
+                autocomplete: "off",
+                spellcheck: "false"
+            })
+            this.finish.ariaLabel = "Finish"
+            this.finish.ariaAutoComplete = "none"
+            this.finish.dataset.tdTarget = "#pickerFinish"
+            base.create_append(group, "label", ["form-label"], { for: "tournamentFinish" }).innerText = "Finish"
+            const span = base.create_append(group, "span", ["input-group-text"])
+            span.dataset.tdTarget = "#pickerFinish"
+            span.dataset.tdToggle = "datetimepicker"
+            base.create_append(span, "i", ["bi", "bi-calendar"])
+            if (tournament?.finish && tournament.finish.length > 0) {
+                this.finish.value = tournament.finish
+            }
+            new tempusDominus.TempusDominus(group, { display: { icons: biOneIcons }, localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" }, stepping: 15, promptTimeOnDateChange: true })
+        }
+        { // timezone
+            const div = base.create_append(form, "div", ["col-md-4"])
+            const group = base.create_append(div, "div", ["input-group", "form-floating"])
+            this.timezone = base.create_append(group, "select", ["form-select"],
+                { id: "timezoneSelect", name: "timezone" }
+            )
+            this.timezone.ariaLabel = "Timezone"
+            base.create_append(group, "label", ["form-label"], { for: "timezoneSelect" }).innerText = "Timezone"
+            const browser_timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+            for (const tz of Intl.supportedValuesOf('timeZone')) {
+                const option = document.createElement("option") as HTMLOptionElement
+                option.value = tz
+                option.label = tz
+                if (tournament?.timezone && tournament.timezone.length > 0) {
+                    if (tz == tournament.timezone) {
+                        option.selected = true
+                    }
+                }
+                else if (tz == browser_timezone) {
+                    option.selected = true
+                }
+                this.timezone.append(option)
+            }
+        }
+        // ------------------------------------------------------------------------------------------------------ line 6
+        {
+            const div = base.create_append(form, "div", ["position-relative", "col-12"])
+            this.description = base.create_append(div, "textarea", ["form-control"],
+                { rows: "8", name: "description", placeholder: "Description" }
+            )
+            const mardown_link = base.create_append(div, "a",
+                ["btn", "btn-sm", "btn-outline-primary", "mb-2", "me-3", "position-absolute", "bottom-0", "end-0"],
+                { href: "https://www.markdownguide.org/basic-syntax/", target: "_blank" }
+            )
+            mardown_link.innerText = "Markdown"
+            base.create_append(mardown_link, "i", ["bi", "bi-question-circle-fill"])
+            if (tournament?.description && tournament.description.length > 0) {
+                console.log(tournament.description)
+                this.description.value = tournament.description
+            }
+        }
+        // ------------------------------------------------------------------------------------------------------ submit
+        {
+            const div = base.create_append(form, "div", ["col-auto"])
+            base.create_append(div, "button", ["btn", "btn-primary", "me-2"], { type: "submit" }).innerText = "Submit"
+            const cancel_button = base.create_append(div, "button", ["btn", "btn-secondary", "me-2"],
+                { type: "button" }
+            )
+            cancel_button.innerText = "Cancel"
+            if (tournament) {
+                cancel_button.addEventListener("click", (ev) => this.display(tournament, true))
+            } else {
+                cancel_button.addEventListener("click", (ev) => history.back())
+            }
+        }
+    }
+
+    select_format() {
+        // Ranks are only available for Standard constructed
+        if (this.format.value == d.TournamentFormat.Standard) {
+            this.rank.disabled = false
+        } else {
+            this.rank.value = d.TournamentRank.BASIC
+            this.rank.disabled = true
+            this.rank.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+    }
+
+    select_rank() {
+        // No proxy and no multideck for national tournaments and above
+        if (this.rank.value != d.TournamentRank.BASIC) {
+            this.proxies.checked = false
+            this.proxies.disabled = true
+            this.proxies.dispatchEvent(new Event('change', { bubbles: true }))
+            this.multideck.checked = false
+            this.multideck.disabled = true
+            this.multideck.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+        else {
+            if (!this.online.checked) {
+                this.proxies.disabled = false
+            }
+            this.multideck.disabled = false
+        }
+    }
+
+    switch_proxies() {
+        // Label change between "No Proxy" / "Proxies allowed"
+        if (this.proxies.checked) {
+            this.proxies_label.innerText = "Proxies allowed"
+        }
+        else {
+            this.proxies_label.innerText = "No Proxy"
+        }
+    }
+
+    switch_multideck() {
+        // Label change between "Multideck" / "Single deck"
+        if (this.multideck.checked) {
+            this.multideck_label.innerText = "Multideck"
+        }
+        else {
+            this.multideck_label.innerText = "Single deck"
+        }
+    }
+
+    switch_online() {
+        // No physical venue for online tournaments, pre-fill venue name and URL with official discord
+        if (this.online.checked) {
+            this.venue.value = "VTES Discord"
+            this.venue_url.value = "https://discord.com/servers/vampire-the-eternal-struggle-official-887471681277399091"
+            this.country.options.selectedIndex = 0
+            this.country.disabled = true
+            this.country.required = false
+            this.country.dispatchEvent(new Event('change', { bubbles: true }))
+            this.proxies.checked = false
+            this.proxies.disabled = true
+            this.proxies.dispatchEvent(new Event('change', { bubbles: true }))
+            this.address.disabled = true
+            this.map_url.disabled = true
+        } else {
+            this.venue.value = ""
+            this.venue_url.value = ""
+            this.country.disabled = false
+            this.country.required = true
+            if (this.rank.options.selectedIndex < 1) {
+                this.proxies.disabled = false
+            }
+            this.address.disabled = false
+            this.map_url.disabled = false
+        }
+    }
+
+    async submit_tournament(ev: Event, tournament: d.Tournament | undefined) {
+        // create or update tournament
+        ev.preventDefault()
+        console.log("submitting")
+        const tournamentForm = ev.currentTarget as HTMLFormElement
+        const data = new FormData(tournamentForm)
+        var json_data = Object.fromEntries(data.entries()) as unknown as d.TournamentConfig
+        if (json_data.finish.length < 1) { json_data.finish = undefined }
+        var url = "/api/tournaments/"
+        var method = "post"
+        if (tournament) {
+            // we are in edit mode
+            url += `${tournament.uid}/`
+            method = "put"
+        }
+        const res = await base.do_fetch(url, {
+            method: method,
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.token.access_token}`
+            },
+            body: JSON.stringify(json_data)
+        })
+        if (!res) { return }
+        const response = await res.json()
+        console.log(response)
+        if (tournament) {
+            Object.assign(tournament, json_data)
+            await this.display(tournament)
+        } else {
+            window.location.href = response.url
+        }
+    }
 }
 
 async function load() {
     const tournamentDisplay = document.getElementById("tournamentDisplay") as HTMLDivElement
     if (tournamentDisplay) {
         const display = new TournamentDisplay(tournamentDisplay)
-        const tournament = JSON.parse(tournamentDisplay.dataset.tournament) as d.Tournament
+        var tournament: d.Tournament | undefined
+        if (tournamentDisplay.dataset.tournament) {
+            tournament = JSON.parse(tournamentDisplay.dataset.tournament)
+        }
         const token = await base.fetchToken()
-        await display.display(tournament, token)
+        await display.init(token)
+        if (tournament) {
+            await display.display(tournament)
+        } else {
+            await display.display_form(tournament)
+        }
     }
 }
 
