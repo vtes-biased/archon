@@ -66,12 +66,24 @@ async def init():
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_member_name_trgm "
                 "ON members "
-                "USING GIST (((data -> 'name')::text) gist_trgm_ops)"
+                "USING GIST ((data ->> 'name') gist_trgm_ops)"
             )
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS tournaments("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
                 "data jsonb)"
+            )
+            # Index on tournaments players (and all other JSON keys and paths)
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_json "
+                "ON tournaments "
+                "USING GIN (data jsonb_path_ops)"
+            )
+            # Index on tournaments start date (as text)
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_json_start "
+                "ON tournaments "
+                "USING BTREE ((data ->> 'start'))"
             )
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
