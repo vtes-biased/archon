@@ -539,8 +539,8 @@ class RoundTab {
         row.dataset.player_uid = player.uid
         if (this.finals) {
             const seed_score = `${player.seed.toString()} (${score_string(player.result)})`
-            base.create_append(row, "th", [], { scope: "row" }).innerText = seed_score
-            base.create_append(row, "td", [], { scope: "row" }).innerText = player.vekn
+            base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = seed_score
+            base.create_append(row, "td", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         } else {
             base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         }
@@ -619,6 +619,7 @@ class RoundTab {
     }
 
     display_seating_issues() {
+        if (this.finals) { return }
         const issues = this.console.compute_seating_issues()
         const warnings = new Map<string, [number, string]>()
         for (const [idx, instances] of issues.entries()) {
@@ -729,7 +730,7 @@ class RoundTab {
         plus_button.innerHTML = '<i class="bi bi-plus"></i>'
         plus_button.addEventListener("click", (ev) => { this.display_player_lookup_modal(empty_row) })
         // no dragstart for empty rows
-        empty_row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, empty_row))
+        empty_row.addEventListener("dragenter", (ev) => this.dragenter_row(ev))
         empty_row.addEventListener("dragover", (ev) => ev.preventDefault())
         empty_row.addEventListener("dragend", (ev) => this.dragend_row(ev))
     }
@@ -1119,6 +1120,7 @@ class TournamentConsole {
             uid: uuid.v4(),
         }
         await this.handle_tournament_event(event)
+        this.tabs.get("Registration").show()
     }
     async seed_finals(seeds: string[], toss: Record<string, number>) {
         const event: events.SeedFinals = {
