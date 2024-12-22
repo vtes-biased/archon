@@ -110,15 +110,6 @@ export async function fetchToken(): Promise<Token | undefined> {
     }
 }
 
-export async function load() {
-    // activate tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map((el: HTMLElement) => bootstrap.Tooltip.getOrCreateInstance(el))
-    // init toast
-    const toastElList = document.querySelectorAll('.toast')
-    const toastList = [...toastElList].map(toastEl => bootstrap.Toast.getOrCreateInstance(toastEl))
-}
-
 export interface Token {
     access_token: string,
     token_type: string,

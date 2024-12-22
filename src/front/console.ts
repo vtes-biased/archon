@@ -3,27 +3,9 @@ import * as base from "./base"
 import * as events from "./events"
 import * as member from "./member"
 import * as seating from "./seating"
-import { standings, TournamentDisplay } from "./tournament_display"
+import { score_string, standings, TournamentDisplay } from "./tournament_display"
 import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
-
-
-function score_string(score: d.Score, rank: number = undefined): string {
-    var res: string
-    if (score.gw) {
-        res = `${score.gw}GW${score.vp}`
-    }
-    else if (score.vp > 1) {
-        res = `${score.vp}VPs`
-    }
-    else {
-        res = `${score.vp}VP`
-    }
-    if (rank) {
-        res = `${rank}. ${res} (${score.tp}TPs)`
-    }
-    return res
-}
 
 
 class PlayerSelectModal {
@@ -1158,7 +1140,6 @@ class TournamentConsole {
 }
 
 async function load() {
-    console.log("load")
     const consoleDiv = document.getElementById("consoleDiv") as HTMLDivElement
     const token = await base.fetchToken()
     const tournament = new TournamentConsole(consoleDiv, token)
@@ -1166,5 +1147,4 @@ async function load() {
     await tournament.display()
 }
 
-window.addEventListener("load", (ev) => { base.load() })
 window.addEventListener("load", (ev) => { load() })
