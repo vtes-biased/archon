@@ -31,7 +31,7 @@ async def api_tournaments_post(
     op: dependencies.DbOperator,
 ) -> dependencies.TournamentUrl:
     """Create a new tournament"""
-    data.judges = [member_uid]
+    data.judges = list(set(data.judges) | {member_uid})
     LOG.info("Creating new tournament: %s", data)
     uid = await op.create_tournament(data)
     return dependencies.TournamentUrl(

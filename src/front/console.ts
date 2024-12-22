@@ -217,15 +217,15 @@ class Registration {
         const players = this.sorted_players()
         for (const [rank, player] of players) {
             const row = base.create_append(this.players_table_body, "tr")
-            const head = base.create_append(row, "th", [], { scope: "row" })
+            const head = base.create_append(row, "th", ["text-nowrap"], { scope: "row" })
             head.innerText = player.vekn
-            const name = base.create_append(row, "td")
+            const name = base.create_append(row, "td", ["w-100"])
             name.innerText = player.name
-            const score = base.create_append(row, "td")
+            const score = base.create_append(row, "td", ["text-nowrap"])
             score.innerText = score_string(player.result, rank)
-            const state = base.create_append(row, "td")
+            const state = base.create_append(row, "td", ["text-nowrap"])
             state.innerText = player.state
-            const actions = base.create_append(row, "td")
+            const actions = base.create_append(row, "td", ["text-nowrap"])
             if (this.console.tournament.state == d.TournamentState.WAITING) {
                 if (player.state == d.PlayerState.REGISTERED || player.state == d.PlayerState.FINISHED) {
                     const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-success", "me-2"])
@@ -542,16 +542,16 @@ class RoundTab {
             base.create_append(row, "th", [], { scope: "row" }).innerText = seed_score
             base.create_append(row, "td", [], { scope: "row" }).innerText = player.vekn
         } else {
-            base.create_append(row, "th", [], { scope: "row" }).innerText = player.vekn
+            base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         }
-        base.create_append(row, "td").innerText = player.name
+        base.create_append(row, "td", ["w-100"]).innerText = player.name
         if (seat) {
-            base.create_append(row, "td").innerText = score_string(seat.result)
+            base.create_append(row, "td", ["text-nowrap"]).innerText = score_string(seat.result)
         } else {
             // not seated *yet*: we're in alter seating mode
-            base.create_append(row, "td").innerText = "0VP"
+            base.create_append(row, "td", ["text-nowrap"]).innerText = "0VP"
         }
-        return base.create_append(row, "td", ["action-row"])
+        return base.create_append(row, "td", ["action-row", "text-nowrap"])
     }
 
     iter_tables(): ArrayIterator<HTMLTableSectionElement> {
@@ -612,8 +612,8 @@ class RoundTab {
         remove_button.innerHTML = '<i class="bi bi-trash"></i>'
         remove_button.addEventListener("click", (ev) => { this.remove_row(row) })
         row.draggable = true
-        row.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row))
-        row.addEventListener("dragenter", (ev) => this.dragenter_row(ev, row))
+        row.addEventListener("dragstart", (ev) => this.dragstart_row(ev))
+        row.addEventListener("dragenter", (ev) => this.dragenter_row(ev))
         row.addEventListener("dragover", (ev) => ev.preventDefault())
         row.addEventListener("dragend", (ev) => this.dragend_row(ev))
     }
@@ -692,14 +692,14 @@ class RoundTab {
         }
     }
 
-    dragstart_row(ev: DragEvent, row: HTMLTableRowElement) {
-        console.log("dragstart", ev, row)
-        this.player_drag.start(row)
+    dragstart_row(ev: DragEvent) {
+        this.player_drag.start(ev.currentTarget as HTMLTableRowElement)
     }
 
-    dragenter_row(ev: DragEvent, row: HTMLTableRowElement) {
+    dragenter_row(ev: DragEvent) {
         ev.preventDefault()
-        this.player_drag.update(row)
+        const target = ev.currentTarget as HTMLElement
+        this.player_drag.update(target.closest("tr"))
     }
 
     dragend_row(ev: DragEvent) {

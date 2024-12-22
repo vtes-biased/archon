@@ -86,7 +86,7 @@ def auth_exception_handler(
     """
     Redirect the user to the login page if not logged in
     """
-    LOG.debug("Login failed", exc_info=exc.with_traceback())
+    LOG.debug("Login failed", exc_info=exc.with_traceback(None))
     return fastapi.responses.RedirectResponse(
         url=request.url_for("login").include_query_params(next=str(request.url))
     )
