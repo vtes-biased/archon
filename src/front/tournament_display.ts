@@ -123,12 +123,20 @@ export class TournamentDisplay {
     constructor(root: HTMLDivElement) {
         this.root = root
     }
-    async init(token: base.Token, members_map: member.MemberMap | undefined) {
+    async init(
+        token: base.Token,
+        members_map: member.MemberMap | undefined = undefined,
+        countries: d.Country[] | undefined = undefined
+    ) {
         this.token = token
         this.user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
         this.judges = new Set([this.user_id])
-        const res = await base.do_fetch("/api/vekn/country", {})
-        this.countries = await res.json() as d.Country[]
+        if (countries) {
+            this.countries = countries
+        } else {
+            const res = await base.do_fetch("/api/vekn/country", {})
+            this.countries = await res.json() as d.Country[]
+        }
         if (members_map) {
             this.members_map = members_map
         } else {

@@ -14,7 +14,6 @@ import pydantic.dataclasses
 import typing
 import urllib.parse
 import uuid
-import zoneinfo
 
 
 from .. import db
@@ -151,7 +150,11 @@ def custom_openapi(app: fastapi.FastAPI):
             version=importlib.metadata.version("vtes-archon"),
             summary="VTES tournament management",
             description="You can use this API to build tournament management tools",
-            routes=[r for r in app.routes if r.path.startswith("/api/")],
+            routes=[
+                r
+                for r in app.routes
+                if r.path.startswith("/api/") or r.path.startswith("/auth/oauth")
+            ],
         )
         return app.openapi_schema
 

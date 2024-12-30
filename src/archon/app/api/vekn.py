@@ -65,3 +65,13 @@ async def api_vekn_abandon(
     member_uid: dependencies.MemberUidFromToken, op: dependencies.DbOperator
 ) -> list[models.Member]:
     return await op.get_members()
+
+
+@router.post("/members")
+async def api_vekn_add_member(
+    posting_member: dependencies.MemberFromToken,
+    op: dependencies.DbOperator,
+    member: typing.Annotated[models.Member, fastapi.Body()],
+) -> models.Member:
+    # TODO: check posting_member is > prince
+    return await op.insert_member(member)

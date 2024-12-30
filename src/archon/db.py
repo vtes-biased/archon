@@ -228,6 +228,8 @@ class Operator:
                 "INSERT INTO tournament_events VALUES (%s, %s, %s, %s, %s)",
                 [event.uid, timestamp, tournament_uid, member_uid, jsonize(event)],
             )
+            if cursor.rowcount < 1:
+                raise RuntimeError("INSERT failed")
 
     async def purge_tournament_events(self) -> int:
         cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
@@ -271,6 +273,20 @@ class Operator:
                 ],
             )
 
+    async def insert_member(self, member: models.Member) -> models.Member:
+        """Insert a new member"""
+        # vekn must not be set
+        member.vekn = ""
+        async with self.conn.cursor() as cursor:
+            # insert new
+            await cursor.execute(
+                "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
+                [uuid.UUID(member.uid), "", jsonize(member)],
+            )
+            if cursor.rowcount < 1:
+                raise RuntimeError("INSERT failed")
+            return member
+
     async def get_member(self, uid: str) -> models.Member:
         """Get a member from their uid"""
         async with self.conn.cursor() as cursor:
@@ -309,6 +325,8 @@ class Operator:
                     "UPDATE members SET data=%s WHERE data -> 'discord' ->> 'id' = %s",
                     [jsonize(member), user.id],
                 )
+                if cursor.rowcount < 1:
+                    raise RuntimeError(f"Failed to update Discord ID# {user.id}")
             else:
                 uid = uuid.uuid4()
                 member = models.Member(
@@ -324,6 +342,8 @@ class Operator:
                     "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
                     [uid, member.vekn, jsonize(member)],
                 )
+                if cursor.rowcount < 1:
+                    raise RuntimeError("INSERT failed")
             return member
 
     async def claim_vekn(self, uid: str, vekn: str) -> models.Member | None:
@@ -373,6 +393,8 @@ class Operator:
                     "UPDATE members SET data=%s WHERE uid=%s",
                     [jsonize(vekn_member), uuid.UUID(uid)],
                 )
+                if cursor.rowcount < 1:
+                    raise RuntimeError(f"Failed to update Member {uid}")
             else:
                 # delete initial (non-vekn) member
                 await cursor.execute("DELETE FROM members WHERE uid=%s", [uid])
@@ -381,6 +403,8 @@ class Operator:
                 "UPDATE members SET data=%s WHERE vekn=%s",
                 [jsonize(vekn_member), vekn],
             )
+            if cursor.rowcount < 1:
+                raise RuntimeError(f"Failed to update VEKN {vekn}")
             return vekn_member
 
     async def abandon_vekn(self, uid: str) -> models.Member | None:
@@ -410,6 +434,8 @@ class Operator:
                 "UPDATE members SET data=%s WHERE uid=%s",
                 [jsonize(member), uuid.UUID(uid)],
             )
+            if cursor.rowcount < 1:
+                raise RuntimeError(f"Failed to find Member {uid}")
             logger.warning("Old member updated: %s", uid)
             if new_member.discord:
                 nick = new_member.discord.global_name or new_member.discord.username

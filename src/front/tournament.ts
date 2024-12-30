@@ -12,7 +12,7 @@ async function load() {
             tournament = JSON.parse(tournamentDisplay.dataset.tournament)
         }
         const token = await base.fetchToken()
-        await display.init(token, undefined)
+        await display.init(token, undefined, undefined)
         if (tournament) {
             await display.display(tournament)
         } else {

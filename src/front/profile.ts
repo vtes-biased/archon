@@ -1,5 +1,4 @@
 import * as bootstrap from 'bootstrap'
-import * as base from "./base"
 
 function load() {
     const veknModal = new bootstrap.Modal("#veknModal")
@@ -11,5 +10,4 @@ function load() {
     }
 }
 
-window.addEventListener("load", (ev) => { base.load().then() })
 window.addEventListener("load", (ev) => load())

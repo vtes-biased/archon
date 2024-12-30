@@ -37,7 +37,11 @@ router = fastapi.APIRouter(
 )
 
 
-@router.get("/auth/oauth", summary="Get an authorization code with the user's approval")
+@router.get(
+    "/auth/oauth",
+    summary="Get an authorization code with the user's approval",
+    tags=["oauth"],
+)
 async def html_auth_oauth(
     client_id: typing.Annotated[str, fastapi.Query()],
     redirect_uri: typing.Annotated[str, fastapi.Query()],
@@ -56,6 +60,7 @@ async def html_auth_oauth(
     "/auth/oauth/token",
     summary="Use the authorization code to get a bearer token to use the API.",
     response_class=fastapi.responses.ORJSONResponse,
+    tags=["oauth"],
 )
 async def html_auth_oauth_token(
     grant_type: typing.Annotated[str, fastapi.Form()],

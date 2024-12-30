@@ -69,6 +69,133 @@ class PlayerSelectModal {
     }
 }
 
+
+class AddMemberModal {
+    countries: d.Country[] | undefined
+    modal_div: HTMLDivElement
+    header: HTMLHeadingElement
+    body: HTMLDivElement
+    form: HTMLFormElement
+    name: HTMLInputElement
+    country: HTMLSelectElement
+    city: HTMLSelectElement
+    email: HTMLInputElement
+    submit_button: HTMLButtonElement
+    modal: bootstrap.Modal
+    console: TournamentConsole
+    constructor(el: HTMLElement, console: TournamentConsole, title: string = "Add member") {
+        this.console = console
+        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "LookupModalLabel" }
+        )
+        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
+        const content = base.create_append(dialog, "div", ["modal-content"])
+        const header_div = base.create_append(content, "div", ["modal-header"])
+        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"])
+        this.header.innerText = title
+        base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
+        this.body = base.create_append(content, "div", ["modal-body"])
+        this.form = base.create_append(this.body, "form")
+        this.name = base.create_append(this.form, "input", ["form-control", "my-2"],
+            { type: "text", autocomplete: "new-name" }
+        )
+        this.name.ariaAutoComplete = "none"
+        this.name.spellcheck = false
+        this.name.placeholder = "Name"
+        this.country = base.create_append(this.form, "select", ["form-select", "my-2"])
+        this.city = base.create_append(this.form, "select", ["form-select", "my-2"])
+        this.email = base.create_append(this.form, "input", ["form-control", "my-2"],
+            { type: "text", autocomplete: "new-email" }
+        )
+        this.email.placeholder = "E-mail"
+        this.email.ariaAutoComplete = "none"
+        this.email.spellcheck = false
+        this.submit_button = base.create_append(this.form, "button", ["btn", "btn-primary", "my-2"], { type: "submit" })
+        this.submit_button.innerText = "Submit"
+        this.country.ariaLabel = "Country"
+        this.country.options.add(base.create_element("option", [], { value: "", label: "Country" }))
+        this.country.required = true
+        this.city.options.add(base.create_element("option", [], { value: "", label: "City" }))
+        this.city.required = false
+        this.country.addEventListener("change", (ev) => this.change_country())
+        this.form.addEventListener("submit", (ev) => this.submit(ev))
+        this.modal = new bootstrap.Modal(this.modal_div)
+    }
+
+    async init(countries: d.Country[] | undefined = undefined) {
+        if (countries) {
+            this.countries = countries
+        } else {
+            const res = await base.do_fetch("/api/vekn/country", {})
+            this.countries = await res.json() as d.Country[]
+        }
+        for (const country of this.countries) {
+            const option = document.createElement("option")
+            option.value = country.country
+            option.label = country.country
+            this.country.options.add(option)
+        }
+    }
+
+    show() {
+        this.name.value = ""
+        this.email.value = ""
+        this.country.selectedIndex = 0
+        this.city.selectedIndex = 0
+        this.city.disabled = true
+        this.modal.show()
+    }
+
+    async change_country() {
+        while (this.city.options.length > 1) {
+            this.city.options.remove(1)
+        }
+        if (this.country.selectedIndex < 1) {
+            this.city.disabled = true
+        } else {
+            // TODO deactivate this or something for offline mode
+            const res = await base.do_fetch(`/api/vekn/country/${this.country.value}/city`, {})
+            const cities = await res.json() as d.City[]
+            // find duplicate city names, add administrative divisions for distinction
+            const names_count = {}
+            for (const city of cities) {
+                var name = city.name
+                names_count[name] = (names_count[name] || 0) + 1
+                name += `, ${city.admin1}`
+                names_count[name] = (names_count[name] || 0) + 1
+            }
+            for (const city of cities) {
+                var name = city.name
+                if (names_count[name] > 1) {
+                    name += `, ${city.admin1}`
+                }
+                if (names_count[name] > 1) {
+                    name += `, ${city.admin2}`
+                }
+                const option = document.createElement("option")
+                option.value = name
+                option.label = name
+                this.city.options.add(option)
+            }
+            this.city.disabled = false
+        }
+    }
+
+    async submit(ev: SubmitEvent) {
+        ev.preventDefault()
+        var member = {
+            uid: uuid.v4(),
+            name: this.name.value,
+            vekn: "",
+            country: this.country.value,
+            city: this.city.value,
+            email: this.email.value
+        } as d.Member
+        await this.console.add_member(member)
+        this.modal.hide()
+    }
+}
+
 enum PlayerFilter {
     ALL = "All",
     UNCHECKED = "Unchecked",
@@ -93,22 +220,32 @@ class Registration {
     players_table_body: HTMLTableSectionElement
     filter: PlayerFilter
     order: PlayerOrder
-    constructor(console: TournamentConsole) {
-        this.console = console
+    constructor(console_: TournamentConsole) {
+        console.log("build registration")
+        this.console = console_
         this.filter = PlayerFilter.ALL
         if (this.console.tournament.rounds.length > 0) {
             this.order = PlayerOrder.SCORE
         } else {
             this.order = PlayerOrder.NAME
         }
-        this.panel = console.add_nav("Registration")
+        this.panel = this.console.add_nav("Registration")
         const toast_div = base.create_append(this.panel, "div", ["position-relative"],
             { ariaAtomic: true, ariaLive: "polite" }
         )
         this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
         this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
-        this.register_element = new member.PersonLookup<d.Member>(console.members_map, this.panel, "Register", true)
+        const registration_controls = base.create_append(this.panel, "div", ["d-flex", "my-2"])
+        this.register_element = new member.PersonLookup<d.Member>(
+            this.console.members_map, registration_controls, "Register", true
+        )
         this.register_element.form.addEventListener("submit", (ev) => { this.add_player(ev) })
+        console.log("adding member button")
+        const add_member_button = base.create_append(
+            registration_controls, "button", ["btn", "btn-primary", "me-2", "mb-2"], { type: "button" }
+        )
+        add_member_button.innerText = "New member"
+        add_member_button.addEventListener("click", (ev) => this.console.add_member_modal.show())
         const table_div = base.create_append(this.panel, "div", ["my-4"])
         const table_controls = base.create_append(table_div, "div", ["d-flex", "align-items-center"])
         const order_dropdown = base.create_append(table_controls, "div", ["dropdown", "me-4"])
@@ -837,15 +974,18 @@ class TournamentConsole {
     score_modal: ScoreModal
     tabs: Map<string, bootstrap.Tab>
     player_select: PlayerSelectModal
+    add_member_modal: AddMemberModal
     info: TournamentDisplay
     registration: Registration
     rounds: RoundTab[]
     constructor(el: HTMLDivElement, token: base.Token) {
+        console.log("build conole")
         this.root = el
         this.token = token
         this.members_map = new member.MemberMap()
         this.score_modal = new ScoreModal(el, this)
         this.player_select = new PlayerSelectModal(el)
+        this.add_member_modal = new AddMemberModal(el, this)
         this.nav = base.create_append(el, "nav", ["nav", "nav-tabs"], { role: "tablist" })
         this.tabs_div = base.create_append(el, "div", ["tab-content"])
     }
@@ -878,13 +1018,18 @@ class TournamentConsole {
         }
         this.tabs.get("Info").show()
         await this.members_map.init(this.token)
+        { // init countries in components using them
+            const res = await base.do_fetch("/api/vekn/country", {})
+            const countries = await res.json() as d.Country[]
+            await this.add_member_modal.init(countries)
+            await this.info.init(this.token, this.members_map, countries)
+        }
     }
 
     async display() {
         while (this.nav.parentElement.firstElementChild != this.nav) {
             this.nav.parentElement.firstElementChild.remove()
         }
-        await this.info.init(this.token, this.members_map)
         await this.info.display(this.tournament, true)
         if (this.tournament.state == d.TournamentState.FINISHED) {
             const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })
@@ -1013,6 +1158,25 @@ class TournamentConsole {
         this.tournament = response
         this.display()
     }
+
+    async add_member(member: d.Member) {
+        // TODO figure out what to do in offline mode
+        const res = await base.do_fetch("/api/vekn/members", {
+            method: "post",
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.token.access_token}`
+            },
+            body: JSON.stringify(member)
+        })
+        if (res) {
+            member = await res.json()
+            this.register_player(member)
+        }
+        return
+    }
+
     async register_player(member: d.Member) {
         const event: events.Register = {
             type: events.EventType.REGISTER,

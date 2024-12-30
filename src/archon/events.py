@@ -4,8 +4,6 @@ import pydantic
 import typing
 from pydantic import dataclasses
 
-from . import scoring
-
 
 def uuid_str() -> str:
     return str(uuid.uuid4())
