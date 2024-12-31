@@ -1,6 +1,9 @@
 import * as d from "./d"
 import * as base from "./base"
+import * as events from "./events"
 import * as member from "./member"
+import * as bootstrap from 'bootstrap'
+import * as uuid from 'uuid'
 import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
 import { DateTime, DateTimeFormatOptions } from 'luxon'
@@ -95,8 +98,81 @@ export function score_string(score: d.Score, rank: number = undefined): string {
     return res
 }
 
+class ScoreModal {
+    display: TournamentDisplay
+    tournament: d.Tournament
+    player_uid: string
+    round_number: number
+    modal_div: HTMLDivElement
+    modal: bootstrap.Modal
+    title: HTMLHeadingElement
+    constructor(el: HTMLDivElement, display: TournamentDisplay) {
+        this.display = display
+        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "scoreModalLabel" }
+        )
+        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
+        const content = base.create_append(dialog, "div", ["modal-content"])
+        const header = base.create_append(content, "div", ["modal-header"])
+        this.title = base.create_append(header, "h1", ["modal-title", "fs-5"])
+        base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
+        const body = base.create_append(content, "div", ["modal-body", "d-flex", "flex-column", "align-items-center"])
+        const row_1 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
+        const button_00 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_10 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_20 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_30 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_40 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_50 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const row_2 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
+        const button_05 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_15 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_25 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_35 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const button_45 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        button_00.innerText = "0"
+        button_05.innerText = "0.5"
+        button_10.innerText = "1"
+        button_15.innerText = "1.5"
+        button_20.innerText = "2"
+        button_25.innerText = "2.5"
+        button_30.innerText = "3"
+        button_35.innerText = "3.5"
+        button_40.innerText = "4"
+        button_45.innerText = "4.5"
+        button_50.innerText = "5"
+        button_00.addEventListener("click", (ev) => this.set_score(0))
+        button_05.addEventListener("click", (ev) => this.set_score(0.5))
+        button_10.addEventListener("click", (ev) => this.set_score(1))
+        button_15.addEventListener("click", (ev) => this.set_score(1.5))
+        button_20.addEventListener("click", (ev) => this.set_score(2))
+        button_25.addEventListener("click", (ev) => this.set_score(2.5))
+        button_30.addEventListener("click", (ev) => this.set_score(3))
+        button_35.addEventListener("click", (ev) => this.set_score(3.5))
+        button_40.addEventListener("click", (ev) => this.set_score(4))
+        button_45.addEventListener("click", (ev) => this.set_score(4.5))
+        button_50.addEventListener("click", (ev) => this.set_score(5))
+        this.modal = new bootstrap.Modal(this.modal_div)
+    }
+
+    async set_score(score: number) {
+        await this.display.set_score(this.tournament, this.player_uid, this.round_number, score)
+        this.modal.hide()
+    }
+
+    show(tournament: d.Tournament, player: d.Player, round_number: number, vps: number = 0) {
+        this.title.innerText = `${player.name} result: round ${round_number}`
+        this.tournament = tournament
+        this.player_uid = player.uid
+        this.round_number = round_number
+        this.modal.show()
+    }
+}
+
 export class TournamentDisplay {
     root: HTMLDivElement
+    included: boolean
+    score_modal: ScoreModal | undefined
     countries: d.Country[]
     token: base.Token
     user_id: string
@@ -120,13 +196,17 @@ export class TournamentDisplay {
     timezone: HTMLSelectElement
     description: HTMLTextAreaElement
     judges: Set<string>
-    constructor(root: HTMLDivElement) {
+    constructor(root: HTMLDivElement, included: boolean = false) {
         this.root = root
+        this.included = included
+        if (!included) {
+            this.score_modal = new ScoreModal(root, this)
+        }
     }
     async init(
         token: base.Token,
         members_map: member.MemberMap | undefined = undefined,
-        countries: d.Country[] | undefined = undefined
+        countries: d.Country[] | undefined = undefined,
     ) {
         this.token = token
         this.user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
@@ -144,7 +224,7 @@ export class TournamentDisplay {
             await this.members_map.init(token)
         }
     }
-    async display(tournament: d.Tournament, included: boolean = false) {
+    async display(tournament: d.Tournament) {
         base.remove_children(this.root)
         this.judges = new Set(tournament.judges)
         // ----------------------------------------------------------------------------------------------------- User ID
@@ -156,11 +236,11 @@ export class TournamentDisplay {
             }
         }
         // ------------------------------------------------------------------------------------------------------- Title
-        if (!included) {
+        if (!this.included) {
             base.create_append(this.root, "h1", ["mb-2"]).innerText = tournament.name
         }
         // ----------------------------------------------------------------------------------------------------- Buttons
-        if (included) {
+        if (this.included) {
             const edit_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-4"])
             edit_button.innerText = "Edit"
             edit_button.addEventListener("click", (ev) => this.display_form(tournament))
@@ -310,6 +390,106 @@ export class TournamentDisplay {
                 { ADD_ATTR: ['target'] }
             )
         }
+        // ----------------------------------------------------------------------------------------------- User Commands
+        if (!this.included && tournament.state != d.TournamentState.FINISHED) {
+            const current_round = tournament.rounds.length
+            var status: string
+            switch (tournament.state) {
+                case d.TournamentState.REGISTRATION:
+                    status = `Round ${current_round} finished`
+                    break;
+                case d.TournamentState.WAITING:
+                    status = `Round ${current_round + 1} begins soon`
+                    break;
+                case d.TournamentState.PLAYING:
+                    status = `Round ${current_round} in progress`
+                    break;
+                case d.TournamentState.FINALS:
+                    status = `Finals in progress`
+                    break;
+            }
+            const status_title = base.create_append(this.root, "h2", ["my-2"])
+            status_title.innerText = status
+            if (Object.hasOwn(tournament.players, this.user_id)) {
+                const player = tournament.players[this.user_id]
+                if (tournament.state == d.TournamentState.WAITING && player.state == d.PlayerState.REGISTERED) {
+                    const message = base.create_append(this.root, "p")
+                    message.innerText = (
+                        "You need to check in to play the next round. If you do not check in, you won't be seated."
+                    )
+                    const checkin_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-2"])
+                    checkin_button.innerText = "Check In"
+                    checkin_button.addEventListener("click", (ev) => this.checkin(tournament, this.user_id))
+                }
+                else if (player.state == d.PlayerState.PLAYING) {
+                    const player_table = tournament.rounds[current_round - 1].tables[player.table - 1]
+                    const table_div = base.create_append(this.root, "div")
+                    if (tournament.state == d.TournamentState.FINALS) {
+                        status_title.innerText += ` — You play the finals`
+                    } else {
+                        status_title.innerText += ` — Your table: Table ${player.table}`
+                    }
+                    const table = base.create_append(table_div, "table", ["table"])
+                    const head = base.create_append(table, "thead")
+                    const tr = base.create_append(head, "tr")
+                    var headers = ["Seat", "VEKN#", "Name", "Score"]
+                    if (tournament.state == d.TournamentState.FINALS) {
+                        headers = ["Seed", "VEKN#", "Name", "Score"]
+                    }
+                    for (const label of headers) {
+                        const th = base.create_append(tr, "th", [], { scope: "col" })
+                        th.innerText = label
+                    }
+                    const body = base.create_append(table, "tbody")
+                    var player_seat: d.TableSeat
+                    for (const [idx, seat] of player_table.seating.entries()) {
+                        const seat_player = tournament.players[seat.player_uid]
+                        const row = base.create_append(body, "tr")
+                        var cell_cls = ["text-nowrap"]
+                        var name_cls = ["w-100"]
+                        if (player.uid == seat_player.uid) {
+                            player_seat = seat
+                            cell_cls.push("bg-primary-subtle")
+                            name_cls.push("bg-primary-subtle")
+                        }
+                        if (tournament.state == d.TournamentState.FINALS) {
+                            const seed_score = `${seat_player.seed.toString()} (${score_string(seat_player.result)})`
+                            base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = seed_score
+                            base.create_append(row, "td", cell_cls, { scope: "row" }).innerText = seat_player.vekn
+                        } else {
+                            base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = (idx + 1).toString()
+                            base.create_append(row, "td", cell_cls, { scope: "row" }).innerText = seat_player.vekn
+                        }
+                        base.create_append(row, "td", name_cls).innerText = seat_player.name
+                        if (seat) {
+                            base.create_append(row, "td", cell_cls).innerText = score_string(seat.result)
+                        }
+                    }
+                    if (player_seat && tournament.state != d.TournamentState.FINALS) {
+                        const report_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-2"])
+                        report_button.innerText = "Report Score"
+                        report_button.addEventListener("click",
+                            (ev) => this.score_modal.show(tournament, player, current_round, player_seat.result.vp)
+                        )
+                    }
+                }
+            }
+            else if (tournament.state != d.TournamentState.FINALS) {
+                const member = this.members_map.by_uid.get(this.user_id)
+                if (member && member.vekn.length > 0) {
+                    const register_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-2"])
+                    register_button.innerText = "Register"
+                    register_button.addEventListener("click", (ev) => this.register(tournament, member))
+                } else {
+                    const message = base.create_append(this.root, "p")
+                    message.innerText = (
+                        "A VEKN ID# is required to register to this event.\n" +
+                        "Claim your VEKN ID# if you have one, you can do it in your Profile.\n" +
+                        "If you don't, ask a Judge or an organizer to register you."
+                    )
+                }
+            }
+        }
         // --------------------------------------------------------------------------------------------------- Standings
         if (tournament.state == d.TournamentState.FINALS || tournament.state == d.TournamentState.FINISHED) {
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
@@ -335,6 +515,55 @@ export class TournamentDisplay {
                 base.create_append(tr, "td", classes).innerText = score_string(player.result, rank)
             }
         }
+    }
+    async handle_tournament_event(tid: string, tev: events.TournamentEvent) {
+        console.log("handle event", tev)
+        // TODO: implement offline mode
+        const res = await base.do_fetch(
+            `/api/tournaments/${tid}/event`, {
+            method: "post",
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.token.access_token}`
+            },
+            body: JSON.stringify(tev)
+        }
+        )
+        if (!res) { return }
+        const response = await res.json()
+        console.log(response)
+        await this.display(response)
+    }
+    async checkin(tournament: d.Tournament, user_id: string) {
+        const tev = {
+            uid: uuid.v4(),
+            type: events.EventType.CHECK_IN,
+            player_uid: user_id,
+        } as events.CheckIn
+        await this.handle_tournament_event(tournament.uid, tev)
+    }
+    async set_score(tournament: d.Tournament, player_uid: string, round_number: number, score: number) {
+        const tev = {
+            uid: uuid.v4(),
+            type: events.EventType.SET_RESULT,
+            player_uid: player_uid,
+            round: round_number,
+            vps: score,
+        } as events.SetResult
+        await this.handle_tournament_event(tournament.uid, tev)
+    }
+    async register(tournament: d.Tournament, member: d.Member) {
+        const tev = {
+            uid: uuid.v4(),
+            type: events.EventType.REGISTER,
+            name: member.name,
+            vekn: member.vekn,
+            player_uid: member.uid,
+            country: member.country,
+            city: member.city,
+        } as events.Register
+        await this.handle_tournament_event(tournament.uid, tev)
     }
     async display_form(tournament: d.Tournament | undefined) {
         base.remove_children(this.root)
@@ -662,7 +891,7 @@ export class TournamentDisplay {
             )
             cancel_button.innerText = "Cancel"
             if (tournament) {
-                cancel_button.addEventListener("click", (ev) => this.display(tournament, true))
+                cancel_button.addEventListener("click", (ev) => this.display(tournament))
             } else {
                 cancel_button.addEventListener("click", (ev) => history.back())
             }
@@ -793,7 +1022,7 @@ export class TournamentDisplay {
         console.log(response)
         if (tournament) {
             Object.assign(tournament, json_data)
-            await this.display(tournament, true)
+            await this.display(tournament)
         } else {
             window.location.href = response.url
         }

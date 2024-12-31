@@ -1002,7 +1002,7 @@ class TournamentConsole {
         this.tournament = await res.json()
         this.tabs = new Map()
         const display_tab = this.add_nav("Info")
-        this.info = new TournamentDisplay(display_tab)
+        this.info = new TournamentDisplay(display_tab, true)
         this.registration = new Registration(this)
         this.rounds = []
         for (var i = 0; i < this.tournament.rounds.length; i++) {
@@ -1030,7 +1030,7 @@ class TournamentConsole {
         while (this.nav.parentElement.firstElementChild != this.nav) {
             this.nav.parentElement.firstElementChild.remove()
         }
-        await this.info.display(this.tournament, true)
+        await this.info.display(this.tournament)
         if (this.tournament.state == d.TournamentState.FINISHED) {
             const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })
             var alert_text = "This tournament is Finished."
