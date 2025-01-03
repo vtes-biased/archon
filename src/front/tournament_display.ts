@@ -11,7 +11,7 @@ import * as tempusDominus from '@eonasdan/tempus-dominus'
 import { biOneIcons } from '@eonasdan/tempus-dominus/dist/plugins/bi-one'
 
 
-const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
+export const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
     hour12: false,
     year: "numeric",
     month: "long",

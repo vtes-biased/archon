@@ -34,13 +34,14 @@ class SanctionLevel(enum.StrEnum):
 
 
 class SanctionCategory(enum.StrEnum):
-    DECK_PROBLEM = "DECK_PROBLEM"
-    PROCEDURAL_ERRORS = "PROCEDURAL_ERRORS"
-    CARD_DRAWING = "CARD_DRAWING"
-    MARKED_CARDS = "MARKED_CARDS"
-    SLOW_PLAY = "SLOW_PLAY"
-    UNSPORTSMANLIKE_CONDUCT = "UNSPORTSMANLIKE_CONDUCT"
-    CHEATING = "CHEATING"
+    NONE = ""
+    DECK_PROBLEM = "Deck Problem"
+    PROCEDURAL_ERROR = "Procedural Error"
+    CARD_DRAWING = "Card drawing"
+    MARKED_CARDS = "Marked Cards"
+    SLOW_PLAY = "Slow Play"
+    UNSPORTSMANLIKE_CONDUCT = "Unsportsmanlike Conduct"
+    CHEATING = "Cheating"
 
 
 @dataclasses.dataclass(kw_only=True)

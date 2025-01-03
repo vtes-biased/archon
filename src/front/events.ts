@@ -23,6 +23,17 @@ export enum SanctionLevel {
     DISQUALIFICATION = "Disqualification",
 }
 
+export enum SanctionCategory {
+    NONE = "",
+    DECK_PROBLEM = "Deck Problem",
+    PROCEDURAL_ERROR = "Procedural Error",
+    CARD_DRAWING = "Card drawing",
+    MARKED_CARDS = "Marked Cards",
+    SLOW_PLAY = "Slow Play",
+    UNSPORTSMANLIKE_CONDUCT = "Unsportsmanlike Conduct",
+    CHEATING = "Cheating",
+}
+
 export interface Score {
     gw: number,
     vp: number,
@@ -86,6 +97,7 @@ export interface Drop extends Event {
 export interface Sanction extends Event {
     type: EventType.SANCTION,
     level: SanctionLevel,
+    category: SanctionCategory,
     player_uid: string,
     comment: string,
 }

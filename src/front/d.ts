@@ -1,3 +1,5 @@
+import * as events from "./events"
+
 export enum TournamentState {
     REGISTRATION = "Registration",
     WAITING = "Waiting",
@@ -97,16 +99,11 @@ export interface LimitedFormat {
     exclude: number[],
 }
 
-export enum SanctionLevel {
-    CAUTION = "Caution",
-    WARNING = "Warning",
-    DISQUALIFICATION = "Disqualification",
-}
-
 export interface Sanction {
     judge_uid: string,
     player_uid: string,
-    level: SanctionLevel
+    level: events.SanctionLevel
+    category: events.SanctionCategory
     comment: string
 }
 
@@ -144,11 +141,19 @@ export interface Tournament extends TournamentConfig {
     extra: {},
 }
 
+export interface RegisteredSanction extends Sanction {
+    tournament_uid: string,
+    tournament_name: string
+    tournament_start: string,
+    tournament_timezone: string,
+}
+
 export interface Member extends Person {
     nickname: string | undefined,  // player nickname
     email: string | undefined,  // the user's email
     verified: boolean | undefined,  // whether the email has been verified
     state: string | undefined,  // state/region name
+    sanctions: RegisteredSanction[] | undefined,  // previous sanctions delivered
     discord: {} | undefined,
 }
 

@@ -213,6 +213,14 @@ class DiscordUser:
     # avatar_decoration_data: dict | None  # data for the user's avatar decoration
 
 
+@dataclasses.dataclass(kw_only=True)
+class RegisteredSanction(Sanction):
+    tournament_uid: str
+    tournament_name: str
+    tournament_start: datetime.datetime
+    tournament_timezone: str
+
+
 @dataclasses.dataclass
 class Member(Person):
     nickname: str | None = None  # player nickname (on social, lackey, etc.)
@@ -220,6 +228,7 @@ class Member(Person):
     verified: bool | None = None  # whether the email has been verified
     state: str | None = None  # state/region name
     discord: DiscordUser | None = None  # Discord data
+    sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
 
 
 @dataclasses.dataclass

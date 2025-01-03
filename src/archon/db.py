@@ -287,12 +287,14 @@ class Operator:
                 raise RuntimeError("INSERT failed")
             return member
 
-    async def get_member(self, uid: str) -> models.Member:
+    async def get_member(self, uid: str, for_update=False) -> models.Member:
         """Get a member from their uid"""
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT data FROM members WHERE uid=%s", [uuid.UUID(uid)]
-            )
+            if for_update:
+                query = "SELECT data FROM members WHERE uid=%s FOR UPDATE"
+            else:
+                query = "SELECT data FROM members WHERE uid=%s"
+            res = await cursor.execute(query, [uuid.UUID(uid)])
             data = await res.fetchone()
             if data:
                 return models.Member(**data[0])
@@ -344,6 +346,16 @@ class Operator:
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError("INSERT failed")
+            return member
+
+    async def update_member(self, member: models.Member) -> models.Member:
+        async with self.conn.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE members SET data=%s WHERE uid = %s",
+                [jsonize(member), member.uid],
+            )
+            if cursor.rowcount < 1:
+                raise RuntimeError(f"Failed to update member {member.uid}")
             return member
 
     async def claim_vekn(self, uid: str, vekn: str) -> models.Member | None:

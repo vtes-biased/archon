@@ -221,6 +221,7 @@ class TournamentManager(models.Tournament):
                 player_uid=ev.player_uid,
                 judge_uid=member_uid,
                 level=ev.level,
+                category=ev.category,
                 comment=ev.comment,
             )
         )
