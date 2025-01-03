@@ -327,7 +327,7 @@ export function shuffle_array(array: any[]) {
 }
 
 function default_seating(players: string[]) {
-    const seat_in_fives = players.length - 4 * (5 - (players.length % 5 | 5))
+    const seat_in_fives = players.length - 4 * (5 - (players.length % 5 || 5))
     var seated = 0
     const res: string[][] = []
     while (seated < players.length) {
