@@ -18,6 +18,7 @@ class EventType(enum.StrEnum):
     ROUND_ALTER = "ROUND_ALTER"
     ROUND_FINISH = "ROUND_FINISH"
     SET_RESULT = "SET_RESULT"
+    SET_DECK = "SET_DECK"
     DROP = "DROP"
     SANCTION = "SANCTION"
     UNSANCTION = "UNSANCTION"
@@ -104,6 +105,14 @@ class SetResult(Event):
 
 
 @dataclasses.dataclass(kw_only=True)
+class SetDeck(Event):
+    type: typing.Literal[EventType.SET_DECK]
+    player_uid: str
+    round: int | None = None  # Can have a different deck each round if multideck
+    deck: str  # Deck builder URL or plain text decklist
+
+
+@dataclasses.dataclass(kw_only=True)
 class Drop(Event):
     type: typing.Literal[EventType.DROP]
     player_uid: str
@@ -161,6 +170,7 @@ TournamentEvent = typing.Union[
     RoundAlter,
     RoundFinish,
     SetResult,
+    SetDeck,
     Drop,
     Sanction,
     Unsanction,

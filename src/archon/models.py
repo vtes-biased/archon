@@ -46,6 +46,52 @@ class Person:
 
 
 @dataclasses.dataclass
+class KrcgCard:
+    id: int
+    name: str
+    count: int
+    comments: str = ""
+
+
+@dataclasses.dataclass
+class KrcgCardsGroup:
+    type: str
+    count: int
+    cards: list[KrcgCard] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass
+class KrcgCrypt:
+    count: int
+    cards: list[KrcgCard] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass
+class KrcgLibrary:
+    count: int
+    cards: list[KrcgCardsGroup] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass
+class KrcgDeck:
+    id: str
+    crypt: KrcgCrypt
+    library: KrcgLibrary
+    vdb_link: str = ""
+    event: str = ""
+    event_link: str = ""
+    place: str = ""
+    date: datetime.date | None = None
+    tournament_format: str = ""
+    players_count: int = 0
+    player: str = ""
+    score: str = ""
+    name: str = ""
+    author: str = ""
+    comments: str = ""
+
+
+@dataclasses.dataclass
 class Player(Person):
     state: PlayerState = PlayerState.REGISTERED
     barriers: list[Barrier] = pydantic.Field(default_factory=list)
@@ -55,6 +101,7 @@ class Player(Person):
     toss: int = 0  # non-zero when draws for seeding finals
     seed: int = 0  # Finals seed
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    deck: KrcgDeck | None = None  # card ID: card count, default deck (monodeck)
 
     def __hash__(self):
         return hash(self.vekn)
@@ -63,7 +110,9 @@ class Player(Person):
 @dataclasses.dataclass
 class TableSeat:
     player_uid: str
+    deck: KrcgDeck | None = None  # card ID: card count
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    judge_uid: str = ""  # Result set by a judge cannot be modified by a player
 
 
 @dataclasses.dataclass

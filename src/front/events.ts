@@ -8,6 +8,7 @@ export enum EventType {
     ROUND_ALTER = "ROUND_ALTER",
     ROUND_FINISH = "ROUND_FINISH",
     SET_RESULT = "SET_RESULT",
+    SET_DECK = "SET_DECK",
     DROP = "DROP",
     SANCTION = "SANCTION",
     UNSANCTION = "UNSANCTION",
@@ -89,6 +90,13 @@ export interface SetResult extends Event {
     vps: number
 }
 
+export interface SetDeck extends Event {
+    type: EventType.SET_DECK,
+    player_uid: string
+    round: number | null | undefined
+    deck: string  // URL or plain text
+}
+
 export interface Drop extends Event {
     type: EventType.DROP,
     player_uid: string
@@ -140,6 +148,7 @@ export type TournamentEvent = (
     RoundAlter |
     RoundFinish |
     SetResult |
+    SetDeck |
     Drop |
     Sanction |
     Unsanction |

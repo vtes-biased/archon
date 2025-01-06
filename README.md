@@ -275,6 +275,30 @@ Only VPs are provided, the GW and TP computations are done by the engine.
 }
 ```
 
+#### SetDeck
+
+Set a player's deck list. Players can set their own decklist, each round if it is a multideck tournament.
+Accepts plain text decklist (any usual format) or decklists URL (VDB, Amaranth, VTESDecks).
+
+```json
+{
+    "type": "SetDeck",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
+    "deck": "https://vdb.im/decks/11906"
+}
+```
+
+The `round` parameter is facultative and can only be used by a Judge for corrective action in multideck tournaments.
+
+```json
+{
+    "type": "SetDeck",
+    "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
+    "round": 1,
+    "deck": "https://vdb.im/decks/11906"
+}
+```
+
 #### Drop
 
 Drop a player from the tournament. A player can drop by themselves.

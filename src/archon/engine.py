@@ -1,6 +1,7 @@
 import collections
 import itertools
 import krcg.seating
+import krcg.deck
 import logging
 import random
 
@@ -36,6 +37,8 @@ class TournamentManager(models.Tournament):
                 self.round_finish(ev, member_uid)
             case events.EventType.SET_RESULT:
                 self.set_result(ev, member_uid)
+            case events.EventType.SET_DECK:
+                self.set_deck(ev, member_uid)
             case events.EventType.DROP:
                 self.drop(ev, member_uid)
             case events.EventType.SANCTION:
@@ -102,10 +105,10 @@ class TournamentManager(models.Tournament):
                     player.state = models.PlayerState.REGISTERED  # or CHECKED_IN?
 
     def round_alter(self, ev: events.RoundAlter, member_uid: str) -> None:
-        """Keep players results and table overrides."""
+        """Keep players results, decks and table overrides."""
         old_tables = self.rounds[ev.round - 1].tables
         results = {
-            seat.player_uid: seat.result
+            seat.player_uid: (seat.result, seat.deck)
             for table in old_tables
             for seat in table.seating
         }
@@ -118,7 +121,7 @@ class TournamentManager(models.Tournament):
         for i, table in enumerate(self.rounds[ev.round - 1].tables):
             table.override = overrides.pop(i, None)
             for seat in table.seating:
-                seat.result = results.pop(seat.player_uid, scoring.Score())
+                seat.result, seat.deck = results.pop(seat.player_uid, scoring.Score())
             finals = False
             if self.state in [
                 models.TournamentState.FINALS,
@@ -152,7 +155,13 @@ class TournamentManager(models.Tournament):
         return models.Round(
             tables=[
                 models.Table(
-                    seating=[models.TableSeat(player_uid=uid) for uid in table]
+                    seating=[
+                        models.TableSeat(
+                            player_uid=uid,
+                            deck=self.players[uid].deck if self.multideck else None,
+                        )
+                        for uid in table
+                    ]
                 )
                 for table in seating
             ]
@@ -175,6 +184,8 @@ class TournamentManager(models.Tournament):
             raise ValueError(f"player {ev.player_uid} not in round {ev.round}")
         player.result -= player_seat.result
         player_seat.result = scoring.Score(vp=ev.vps)
+        if member_uid in self.judges:
+            player_seat.judge_uid = member_uid
         player.result += player_seat.result
         finals = False
         if self.state in [
@@ -210,6 +221,50 @@ class TournamentManager(models.Tournament):
             table.state = models.TableState.INVALID
         else:
             table.state = models.TableState.FINISHED
+
+    def set_deck(self, ev: events.SetDeck, member_uid: str, check=False) -> None:
+        if ev.deck.startswith("https://"):
+            deck = krcg.deck.Deck.from_url(ev.deck)
+        else:
+            deck = krcg.deck.Deck.from_txt(ev.deck)
+        if check:
+            self._check_deck(ev, deck)
+        player = self.players[ev.player_uid]
+        if ev.round:
+            round_ = self.rounds[ev.round - 1]
+            for table in round_.tables:
+                for seat in table.seating:
+                    if ev.player_uid == seat.player_uid:
+                        seat.deck = models.KrcgDeck(
+                            **deck.to_json(), vdb_link=deck.to_vdb()
+                        )
+                        break
+                else:
+                    continue
+                break
+            else:
+                raise ValueError(f"player {ev.player_uid} not in round {ev.round}")
+        else:
+            player.deck = models.KrcgDeck(**deck.to_json(), vdb_link=deck.to_vdb())
+
+    def _check_deck(self, ev: events.SetResult, deck: krcg.deck.Deck) -> None:
+        """Check if the deck is legal, raise on issue"""
+        library_count = deck.cards_count(lambda c: c.library)
+        crypt_count = deck.cards_count(lambda c: c.crypt)
+        if library_count < 60:
+            raise ShortLibrary(ev, 60 - library_count)
+        if library_count > 90:
+            raise BigLibrary(ev, library_count - 90)
+        if crypt_count < 12:
+            raise ShortCrypt(ev, 12 - crypt_count)
+        groups = set(c.group for c, _ in deck.cards(lambda c: c.crypt))
+        groups.discard("ANY")
+        groups = list(groups)
+        if len(groups) > 2 or abs(int(groups[0]) - int(groups[-1])) > 1:
+            raise InvalidGrouping(ev, groups)
+        banned = [c.name for c, _ in deck.cards(lambda c: c.banned)]
+        if any(banned):
+            raise BannedCards(ev, banned)
 
     def drop(self, ev: events.Drop, member_uid: str) -> None:
         self.players[ev.player_uid].state = models.PlayerState.FINISHED
@@ -354,8 +409,8 @@ class InvalidTables(TournamentError):
 
 class NotJudge(TournamentError):
 
-    def __init__(self, ev: events.TournamentEvent, tables: list[int]):
-        super().__init__(ev, tables)
+    def __init__(self, ev: events.TournamentEvent):
+        super().__init__(ev)
 
     def __str__(self):
         return f"Only a judge can do this"
@@ -414,6 +469,52 @@ class CheckinClosed(TournamentError): ...
 
 
 class ResultRecorded(TournamentError): ...
+
+
+class SingleDeckEvent(TournamentError): ...
+
+
+class DeckIssue(TournamentError): ...
+
+
+class ShortLibrary(DeckIssue):
+    def __init__(self, ev: events.TournamentEvent, count: int):
+        super().__init__(ev, count)
+
+    def __str__(self):
+        return f"Missing {self.args[1]} card(s) in library."
+
+
+class BigLibrary(DeckIssue):
+    def __init__(self, ev: events.TournamentEvent, count: int):
+        super().__init__(ev, count)
+
+    def __str__(self):
+        return f"{self.args[1]} card(s) too many in library."
+
+
+class ShortCrypt(DeckIssue):
+    def __init__(self, ev: events.TournamentEvent, count: int):
+        super().__init__(ev, count)
+
+    def __str__(self):
+        return f"Missing {self.args[1]} card(s) in crypt."
+
+
+class InvalidGrouping(DeckIssue):
+    def __init__(self, ev: events.TournamentEvent, groups: list[str]):
+        super().__init__(ev, groups)
+
+    def __str__(self):
+        return f"Invalid grouping: groups {','.join(self.args[1])}."
+
+
+class BannedCards(DeckIssue):
+    def __init__(self, ev: events.TournamentEvent, banned: list[str]):
+        super().__init__(ev, banned)
+
+    def __str__(self):
+        return f"Banned cards: {','.join(self.args[1])}."
 
 
 class TournamentOrchestrator(TournamentManager):
@@ -553,7 +654,7 @@ class TournamentOrchestrator(TournamentManager):
                         ),
                     )
 
-    def _get_player_table(
+    def _get_player_table_seat(
         self, ev: events.SetResult, round_number: int, player_uid: str
     ):
         if round_number < 1 or round_number > len(self.rounds):
@@ -562,23 +663,33 @@ class TournamentOrchestrator(TournamentManager):
         for table in round_.tables:
             for seat in table.seating:
                 if seat.player_uid == player_uid:
-                    return table
+                    return table, seat
         raise PlayerAbsent(ev)
 
     def set_result(self, ev: events.SetResult, member_uid: str) -> None:
         if ev.player_uid not in self.players:
             raise UnregisteredPlayer(ev)
-        if ev.round < 1 or ev.round > len(self.rounds):
-            raise BadRoundNumber(ev)
-        table = self._get_player_table(ev, ev.round, ev.player_uid)
+        table, seat = self._get_player_table_seat(ev, ev.round, ev.player_uid)
         if ev.player_uid != member_uid:
-            if ev.round != len(self.rounds) or member_uid not in [
-                s.player_uid for s in table.seating
-            ]:
+            if (
+                ev.round != len(self.rounds)
+                or member_uid not in [s.player_uid for s in table.seating]
+                or seat.judge_uid
+            ):
                 # current round players are allowed to set their opponents results
-                # TODO: maybe? disallow it if the result was set by a judge
                 self._check_judge(ev, member_uid)
         super().set_result(ev, member_uid)
+
+    def set_deck(self, ev: events.SetResult, member_uid: str) -> None:
+        if ev.player_uid not in self.players:
+            raise UnregisteredPlayer(ev)
+        if ev.round:
+            self._get_player_table_seat(ev, ev.round, ev.player_uid)
+        if ev.round and not self.multideck:
+            raise SingleDeckEvent(ev)
+        if ev.round or ev.player_uid != member_uid:
+            self._check_judge(ev, member_uid)
+        super().set_deck(ev, member_uid, check=(ev.player_uid == member_uid))
 
     def drop(self, ev: events.Drop, member_uid: str) -> None:
         if ev.player_uid not in self.players:

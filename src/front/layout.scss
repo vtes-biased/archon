@@ -28,6 +28,28 @@ $bootstrap-icons-font-dir: "../../node_modules/bootstrap-icons/font/fonts";
     --bs-btn-disabled-border-color: #5A64EC;
 }
 
+.bg-vdb {
+    --bs-bg-opacity: 1;
+    background-color: rgba(#5A5AFF, var(--bs-bg-opacity)) !important;
+}
+
+.btn-vdb {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #5A5AFF;
+    --bs-btn-border-color: #5A5AFF;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #4249ae;
+    --bs-btn-hover-border-color: #4249ae;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #4249ae;
+    --bs-btn-active-border-color: #4249ae;
+    --bs-btn-active-shadow: inset 0 3px 5px #00000020;
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #5A5AFF;
+    --bs-btn-disabled-border-color: #5A5AFF;
+}
+
 tr[draggable] {
     cursor: grab;
 }

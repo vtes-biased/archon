@@ -47,6 +47,49 @@ export interface Person {
     city: string | undefined,  // city name
 }
 
+
+
+export interface KrcgCard {
+    id: number,
+    name: string,
+    count: number,
+    comments: string,
+}
+
+export interface KrcgCardsGroup {
+    type: string,
+    count: number,
+    cards: KrcgCard[],
+}
+
+export interface KrcgCrypt {
+    count: number,
+    cards: KrcgCard[],
+}
+
+export interface KrcgLibrary {
+    count: number,
+    cards: KrcgCardsGroup[],
+}
+
+export interface KrcgDeck {
+    id: string,
+    crypt: KrcgCrypt,
+    library: KrcgLibrary,
+    vdb_link: string,
+    event: string | undefined,
+    event_link: string | undefined,
+    place: string | undefined,
+    date: string | undefined,
+    tournament_format: string | undefined,
+    players_count: number | undefined,
+    player: string | undefined,
+    score: string | undefined,
+    name: string | undefined,
+    author: string | undefined,
+    comments: string | undefined,
+}
+
 export interface Player extends Person {
     state: PlayerState,
     barriers: Barrier[],
@@ -56,11 +99,13 @@ export interface Player extends Person {
     toss: number,  // non-zero when draws for seeding finals
     seed: number,  // Finals seed
     result: Score,
+    deck: KrcgDeck | undefined,
 }
 
 export interface TableSeat {
     player_uid: string,
     result: Score,
+    deck: KrcgDeck | undefined,
 }
 
 export interface ScoreOverride {
