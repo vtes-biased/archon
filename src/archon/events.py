@@ -311,6 +311,20 @@ OPENAPI_EXAMPLES = {
             "vps": 2.5,
         },
     },
+    "Set Deck": {
+        "summary": "Set a player's deck",
+        "description": (
+            "Players can set their deck for the tournament, "
+            "or the next round for multideck tournaments. "
+            "The `deck` field can contain a plaintext deck list, or a deckbuilder URL "
+            "(VDB, Amaranth, VTESDecks)"
+        ),
+        "value": {
+            "type": "SetDeck",
+            "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
+            "deck": "https://vdb.im/decks/11808",
+        },
+    },
     "Drop": {
         "summary": "Drop a player from the tournament.",
         "description": (
@@ -328,6 +342,7 @@ OPENAPI_EXAMPLES = {
             "Warnings are recorded (accessible to organizers, even in future events). "
             "Disqualifications are recorded and remove the player from the tournament. "
             "Sanction also have an optional category, one of: \n"
+            "- ``\n"
             "- `DECK_PROBLEM`\n"
             "- `PROCEDURAL_ERRORS`\n"
             "- `CARD_DRAWING`\n"
@@ -339,6 +354,7 @@ OPENAPI_EXAMPLES = {
         "value": {
             "type": "Sanction",
             "level": "WARNING",
+            "sanction_uid": "586616DC-3FEA-4DAF-A222-1E77A2CBD809",
             "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
             "comment": "Free comment",
             "category": "PROCEDURAL_ERRORS",
@@ -348,11 +364,12 @@ OPENAPI_EXAMPLES = {
         "summary": "Remove all sanctions of given level for a player. JUDGE ONLY",
         "description": (
             "Judges have permission to send all events, simple players are limited. "
-            "The UID must match a VEKN member UID."
+            "The player UID must match a VEKN member UID. "
+            "The sanction UID must match an existing sanction UID for that player. "
         ),
         "value": {
             "type": "Unsanction",
-            "level": "WARNING",
+            "sanction_uid": "586616DC-3FEA-4DAF-A222-1E77A2CBD809",
             "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
         },
     },
