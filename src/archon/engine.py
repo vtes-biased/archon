@@ -218,6 +218,7 @@ class TournamentManager(models.Tournament):
         self.sanctions.setdefault(ev.player_uid, [])
         self.sanctions[ev.player_uid].append(
             models.Sanction(
+                uid=ev.sanction_uid,
                 player_uid=ev.player_uid,
                 judge_uid=member_uid,
                 level=ev.level,
@@ -234,12 +235,15 @@ class TournamentManager(models.Tournament):
     def unsanction(self, ev: events.Unsanction, member_uid: str) -> None:
         sanctions = self.sanctions.get(ev.player_uid, [])
         to_delete = [
-            i for i, sanction in enumerate(sanctions) if sanction.level == ev.level
+            i for i, sanction in enumerate(sanctions) if sanction.uid == ev.sanction_uid
         ]
         for i in to_delete:
             sanctions.pop(i)
-        if ev.level == events.SanctionLevel.DISQUALIFICATION:
-            self.players[ev.player_uid].barriers.remove(models.Barrier.DISQUALIFIED)
+        if not any(s.level == events.SanctionLevel.DISQUALIFICATION for s in sanctions):
+            try:
+                self.players[ev.player_uid].barriers.remove(models.Barrier.DISQUALIFIED)
+            except ValueError:
+                pass
 
     def override(self, ev: events.Override, member_uid: str) -> None:
         table = self.rounds[ev.round - 1].tables[ev.table - 1]

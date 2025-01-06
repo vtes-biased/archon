@@ -113,6 +113,7 @@ class Drop(Event):
 class Sanction(Event):
     type: typing.Literal[EventType.SANCTION]
     level: SanctionLevel
+    sanction_uid: str
     player_uid: str
     comment: str = ""
     category: SanctionCategory | None = None
@@ -121,8 +122,8 @@ class Sanction(Event):
 @dataclasses.dataclass(kw_only=True)
 class Unsanction(Event):
     type: typing.Literal[EventType.UNSANCTION]
-    level: SanctionLevel
     player_uid: str
+    sanction_uid: str
 
 
 @dataclasses.dataclass(kw_only=True)

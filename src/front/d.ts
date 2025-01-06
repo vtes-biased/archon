@@ -100,6 +100,7 @@ export interface LimitedFormat {
 }
 
 export interface Sanction {
+    uid: string,
     judge_uid: string,
     player_uid: string,
     level: events.SanctionLevel

@@ -98,15 +98,15 @@ export interface Sanction extends Event {
     type: EventType.SANCTION,
     level: SanctionLevel,
     category: SanctionCategory,
+    sanction_uid: string,
     player_uid: string,
     comment: string,
 }
 
 export interface Unsanction extends Event {
     type: EventType.UNSANCTION,
-    level: SanctionLevel,
     player_uid: string,
-    comment: string,
+    sanction_uid: string,
 }
 
 export interface Override extends Event {

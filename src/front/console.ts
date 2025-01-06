@@ -202,11 +202,13 @@ class SanctionPlayerModal {
     header: HTMLHeadingElement
     body: HTMLDivElement
     sanctions_accordion: HTMLDivElement
+    sanction_idx: number
     form: HTMLFormElement
     comment: HTMLTextAreaElement
     level: HTMLSelectElement
     category: HTMLSelectElement
     submit_button: HTMLButtonElement
+    cancel_button: HTMLButtonElement
     modal: bootstrap.Modal
     console: TournamentConsole
     member: d.Member | null
@@ -242,7 +244,9 @@ class SanctionPlayerModal {
         }
         this.level.required = true
         const category_div = base.create_append(select_div, "div", ["form-floating"])
-        this.category = base.create_append(category_div, "select", ["form-select", "my-2"], { id: "sanctionFormCategory" })
+        this.category = base.create_append(category_div, "select", ["form-select", "my-2"],
+            { id: "sanctionFormCategory" }
+        )
         this.category.ariaLabel = "Category"
         base.create_append(category_div, "label", [], { for: "sanctionFormCategory" }).innerText = "Category"
         this.category.options.add(base.create_element("option", [], { value: "", label: "N/A" }))
@@ -250,9 +254,17 @@ class SanctionPlayerModal {
             this.category.options.add(base.create_element("option", [], { value: category, label: category }))
         }
         this.category.required = false
-        this.submit_button = base.create_append(this.form, "button", ["btn", "btn-primary", "my-2"], { type: "submit" })
+        const buttons_div = base.create_append(this.form, "div", ["d-flex", "my-2"])
+        this.submit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"],
+            { type: "submit" }
+        )
         this.submit_button.innerText = "Submit"
         this.form.addEventListener("submit", (ev) => this.submit(ev))
+        this.cancel_button = base.create_append(buttons_div, "button", ["btn", "btn-secondary", "me-2"],
+            { type: "button" }
+        )
+        this.cancel_button.innerText = "Cancel"
+        this.cancel_button.addEventListener("click", (ev) => { this.member = null; this.modal.hide() })
         this.modal = new bootstrap.Modal(this.modal_div)
     }
 
@@ -263,103 +275,15 @@ class SanctionPlayerModal {
         this.level.selectedIndex = 0
         this.category.selectedIndex = 0
         base.remove_children(this.sanctions_accordion)
-        for (const [idx, sanction] of this.member.sanctions.entries()) {
+        this.sanction_idx = 0
+        for (const sanction of this.member.sanctions ?? []) {
             if (sanction.tournament_uid == this.console.tournament.uid) {
                 continue
             }
-            const id = `prev-sanction-col-item-${idx}`
-            const head_id = `prev-sanction-col-head-${idx}`
-            const item = base.create_append(this.sanctions_accordion, "div", ["accordion-item"])
-            const header = base.create_append(item, "h2", ["accordion-header"], { id: head_id })
-            const button = base.create_append(header, "button", ["accordion-button", "collapsed"], {
-                type: "button",
-                "data-bs-toggle": "collapse",
-                "data-bs-target": `#${id}`,
-                "aria-expanded": "false",
-                "aria-controls": id,
-            })
-            button.innerText = "(Previous tournament)"
-            const level_badge = base.create_append(button, "div", ["badge", "mx-1"])
-            level_badge.innerText = sanction.level
-            switch (sanction.level) {
-                case events.SanctionLevel.CAUTION:
-                    level_badge.classList.add("text-bg-secondary")
-                    break;
-                case events.SanctionLevel.WARNING:
-                    level_badge.classList.add("text-bg-warning")
-                    break;
-                case events.SanctionLevel.DISQUALIFICATION:
-                    level_badge.classList.add("text-bg-danger")
-                    break;
-            }
-            if (sanction.category != events.SanctionCategory.NONE) {
-                const category_badge = base.create_append(button, "div", ["badge", "mx-1", "text-bg-secondary"])
-                category_badge.innerText = sanction.category
-            }
-            const collapse = base.create_append(item, "div", ["accordion-collapse", "collapse"], {
-                "aria-labelledby": head_id, "data-bs-parent": "#sanctionAccordion"
-            })
-            collapse.id = id
-            const body = base.create_append(collapse, "div", ["accordion-body"])
-            body.innerText = sanction.comment
-            const prefix = base.create_prepend(body, "div", ["my-1"])
-            const timestamp = DateTime.fromFormat(
-                `${sanction.tournament_start} ${sanction.tournament_timezone}`,
-                "yyyy-MM-dd'T'HH:mm:ss z",
-                { setZone: true }
-            )
-            const listed_judge = this.console.members_map.by_uid.get(sanction.judge_uid)
-            if (listed_judge) {
-                prefix.innerText = (
-                    `Issued by ${listed_judge.name} during ${sanction.tournament_name} ` +
-                    timestamp.toLocal().toLocaleString(DateTime.DATE_SHORT)
-                )
-            } else {
-                prefix.innerText = (
-                    `Issued at ${sanction.tournament_name} ` +
-                    timestamp.toLocal().toLocaleString(DateTime.DATE_SHORT)
-                )
-            }
+            this.add_sanction_display(sanction)
         }
-        for (const [idx, sanction] of this.console.tournament.sanctions[member_uid]?.entries() ?? []) {
-            const id = `sanction-col-item-${idx}`
-            const head_id = `sanction-col-head-${idx}`
-            const item = base.create_append(this.sanctions_accordion, "div", ["accordion-item"])
-            const header = base.create_append(item, "h2", ["accordion-header"], { id: head_id })
-            const button = base.create_append(header, "button", ["accordion-button", "collapsed"], {
-                type: "button",
-                "data-bs-toggle": "collapse",
-                "data-bs-target": `#${id}`,
-                "aria-expanded": "true",
-                "aria-controls": id,
-            })
-            const level_badge = base.create_append(button, "div", ["badge", "mx-1"])
-            level_badge.innerText = sanction.level
-            switch (sanction.level) {
-                case events.SanctionLevel.CAUTION:
-                    level_badge.classList.add("text-bg-secondary")
-                    break;
-                case events.SanctionLevel.WARNING:
-                    level_badge.classList.add("text-bg-warning")
-                    break;
-                case events.SanctionLevel.DISQUALIFICATION:
-                    level_badge.classList.add("text-bg-danger")
-                    break;
-            }
-            if (sanction.category != events.SanctionCategory.NONE) {
-                const category_badge = base.create_append(button, "div", ["badge", "mx-1", "text-bg-secondary"])
-                category_badge.innerText = sanction.category
-            }
-            const collapse = base.create_append(item, "div", ["accordion-collapse", "collapse"], {
-                "aria-labelledby": head_id, "data-bs-parent": "#sanctionAccordion", id: id
-            })
-            const body = base.create_append(collapse, "div", ["accordion-body"])
-            body.innerText = sanction.comment
-            const listed_judge = this.console.members_map.by_uid.get(sanction.judge_uid)
-            if (listed_judge) {
-                const prefix = base.create_prepend(body, "div", ["my-1"])
-                prefix.innerText = `Issued by ${listed_judge.name}`
-            }
+        for (const sanction of this.console.tournament.sanctions[member_uid] ?? []) {
+            this.add_sanction_display(sanction)
         }
         const collapsibles: HTMLDivElement[] = [].slice.call(this.sanctions_accordion.querySelectorAll(".collapse"))
         const bs_col = collapsibles.map(
@@ -371,19 +295,102 @@ class SanctionPlayerModal {
         this.modal.show()
     }
 
+    add_sanction_display(sanction: d.Sanction) {
+        this.sanction_idx += 1
+        const id = `prev-sanction-col-item-${this.sanction_idx}`
+        const head_id = `prev-sanction-col-head-${this.sanction_idx}`
+        const item = base.create_append(this.sanctions_accordion, "div", ["accordion-item"])
+        item.dataset.uid = sanction.uid
+        const header = base.create_append(item, "h2", ["accordion-header"], { id: head_id })
+        const button = base.create_append(header, "button", ["accordion-button", "collapsed"], {
+            type: "button",
+            "data-bs-toggle": "collapse",
+            "data-bs-target": `#${id}`,
+            "aria-expanded": "false",
+            "aria-controls": id,
+        })
+        // additional display for RegisteredSanction from previous tournaments
+        if (Object.hasOwn(sanction, "tournament_name")) {
+            const rsanction = sanction as d.RegisteredSanction
+            const timestamp = DateTime.fromFormat(
+                `${rsanction.tournament_start} ${rsanction.tournament_timezone}`,
+                "yyyy-MM-dd'T'HH:mm:ss z",
+                { setZone: true }
+            ).toLocal().toLocaleString(DateTime.DATE_SHORT)
+            button.innerText = `(${timestamp}: ${rsanction.tournament_name})`
+        }
+        const level_badge = base.create_append(button, "div", ["badge", "mx-1"])
+        level_badge.innerText = sanction.level
+        switch (sanction.level) {
+            case events.SanctionLevel.CAUTION:
+                level_badge.classList.add("text-bg-secondary")
+                break;
+            case events.SanctionLevel.WARNING:
+                level_badge.classList.add("text-bg-warning")
+                break;
+            case events.SanctionLevel.DISQUALIFICATION:
+                level_badge.classList.add("text-bg-danger")
+                break;
+        }
+        if (sanction.category != events.SanctionCategory.NONE) {
+            const category_badge = base.create_append(button, "div", ["badge", "mx-1", "text-bg-secondary"])
+            category_badge.innerText = sanction.category
+        }
+        const collapse = base.create_append(item, "div", ["accordion-collapse", "collapse"], {
+            "aria-labelledby": head_id, "data-bs-parent": "#sanctionAccordion"
+        })
+        collapse.id = id
+        const body = base.create_append(collapse, "div", ["accordion-body"])
+        body.innerText = sanction.comment
+        const prefix = base.create_prepend(body, "div",
+            ["border-top", "border-bottom", "border-info", "bg-info", "bg-opacity-10", "d-flex", "p-1", "mb-2"]
+        )
+        const listed_judge = this.console.members_map.by_uid.get(sanction.judge_uid)
+        if (listed_judge) {
+            const author = base.create_append(prefix, "div", ["me-2"])
+            author.innerText = `Issued by ${listed_judge.name}`
+        }
+        const remove_button = base.create_append(prefix, "div", ["btn", "badge", "btn-danger"])
+        remove_button.innerHTML = '<i class="bi bi-trash"></i>'
+        remove_button.addEventListener("click", (ev) => this.remove_sanction(sanction.uid))
+    }
+
     async submit(ev: SubmitEvent) {
         ev.preventDefault()
+        const sanction_uid: string = uuid.v4()
         var tev = {
             uid: uuid.v4(),
             type: events.EventType.SANCTION,
+            sanction_uid: sanction_uid,
             player_uid: this.member.uid,
             level: this.level.value,
             category: this.category.value,
             comment: this.comment.value,
         } as events.Sanction
-        await this.console.handle_tournament_event(tev)
-        this.member = null
-        this.modal.hide()
+        const tournament = await this.console.handle_tournament_event(tev, true)
+        if (!tournament) { return }
+        const sanctions = tournament.sanctions[this.member.uid]
+        for (const sanction of sanctions ?? []) {
+            if (sanction.uid == sanction_uid) {
+                this.add_sanction_display(sanction)
+            }
+        }
+    }
+
+    async remove_sanction(sanction_uid: string) {
+        var tev = {
+            uid: uuid.v4(),
+            type: events.EventType.UNSANCTION,
+            sanction_uid: sanction_uid,
+            player_uid: this.member.uid,
+        } as events.Unsanction
+        const tournament = await this.console.handle_tournament_event(tev, true)
+        if (!tournament) { return }
+        for (const item of this.sanctions_accordion.querySelectorAll(".accordion-item") as NodeListOf<HTMLDivElement>) {
+            if (item.dataset.uid == sanction_uid) {
+                item.remove()
+            }
+        }
     }
 }
 
@@ -1343,7 +1350,7 @@ class TournamentConsole {
         return [standings(this.tournament).splice(0, 5).map(p => p[1].uid), toss]
     }
 
-    async handle_tournament_event(tev: events.TournamentEvent) {
+    async handle_tournament_event(tev: events.TournamentEvent, no_refresh = false): Promise<d.Tournament | undefined> {
         console.log("handle event", tev)
         // TODO: implement offline mode
         const res = await base.do_fetch(
@@ -1358,10 +1365,14 @@ class TournamentConsole {
         }
         )
         if (!res) { return }
-        const response = await res.json()
+        const response: d.Tournament = await res.json()
         console.log(response)
         this.tournament = response
+        if (no_refresh) {
+            return response
+        }
         this.display()
+        return response
     }
 
     async add_member(member: d.Member) {

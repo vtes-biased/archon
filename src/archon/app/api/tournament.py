@@ -107,24 +107,19 @@ async def api_tournament_event_post(
                 tournament_name=orchestrator.name,
                 tournament_start=orchestrator.start,
                 tournament_timezone=orchestrator.timezone,
+                uid=event.sanction_uid,
                 judge_uid=member_uid,
-                level=event.level,
                 player_uid=event.player_uid,
-                comment=event.comment,
+                level=event.level,
                 category=event.category,
+                comment=event.comment,
             )
         )
         await op.update_member(member)
-    if (
-        event.type == events.EventType.UNSANCTION
-        and event.level != events.SanctionLevel.CAUTION
-    ):
+    if event.type == events.EventType.UNSANCTION:
         member = await op.get_member(event.player_uid, for_update=True)
         for idx, sanction in enumerate(member.sanctions):
-            if (
-                sanction.level == event.level
-                and sanction.tournament_uid == orchestrator.uid
-            ):
+            if sanction.uid == event.sanction_uid:
                 del member.sanctions[idx]
         await op.update_member(member)
     return orchestrator

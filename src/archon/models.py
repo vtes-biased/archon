@@ -110,9 +110,10 @@ class LimitedFormat:
 class Sanction:
     judge_uid: str
     player_uid: str
-    level: events.SanctionLevel
-    category: events.SanctionCategory
-    comment: str
+    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
+    level: events.SanctionLevel = events.SanctionLevel.CAUTION
+    category: events.SanctionCategory = events.SanctionCategory.NONE
+    comment: str = ""
 
 
 @dataclasses.dataclass
