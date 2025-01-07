@@ -301,11 +301,11 @@ export class TournamentDisplay {
             ).innerText = "Console"
         }
         // ------------------------------------------------------------------------------------------------------ Badges
-        const badges_div = base.create_append(this.root, "div", ["my-2", "d-flex"])
+        const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
         base.create_append(badges_div, "span",
             ["me-2"]
         ).innerText = `${Object.getOwnPropertyNames(tournament.players).length} contenders`
-        const status_badge = base.create_append(badges_div, "span", ["me-2", "badge"])
+        const status_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "badge"])
         switch (tournament.state) {
             case d.TournamentState.REGISTRATION:
                 status_badge.classList.add("bg-info", "text-dark")
@@ -320,7 +320,7 @@ export class TournamentDisplay {
                 status_badge.innerText = "In Progress"
                 break;
         }
-        const format_badge = base.create_append(badges_div, "span", ["me-2", "badge"])
+        const format_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "badge"])
         format_badge.innerText = tournament.format
         switch (tournament.format) {
             case d.TournamentFormat.Standard:
@@ -334,7 +334,7 @@ export class TournamentDisplay {
                 break;
         }
         if (tournament.rank != d.TournamentRank.BASIC) {
-            const rank_badge = base.create_append(badges_div, "span", ["me-2", "badge"])
+            const rank_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "badge"])
             rank_badge.innerText = tournament.rank
             switch (tournament.rank) {
                 case d.TournamentRank.NC:
@@ -349,22 +349,26 @@ export class TournamentDisplay {
             }
         }
         if (tournament.online) {
-            base.create_append(badges_div, "span", ["me-2", "badge", "bg-info", "text-dark"]).innerText = "Online"
+            base.create_append(badges_div, "span",
+                ["me-2", "mb-2", "badge", "bg-info", "text-dark"]
+            ).innerText = "Online"
         }
         if (tournament.proxies) {
             base.create_append(badges_div, "span",
                 ["me-2", "badge", "bg-info", "text-dark"]
             ).innerText = "Proxies Allowed"
         } else {
-            base.create_append(badges_div, "span", ["me-2", "badge", "bg-secondary"]).innerText = "No Proxy"
+            base.create_append(badges_div, "span", ["me-2", "mb-2", "badge", "bg-secondary"]).innerText = "No Proxy"
         }
         if (tournament.multideck) {
-            base.create_append(badges_div, "span", ["me-2", "badge", "bg-info", "text-dark"]).innerText = "Multideck"
+            base.create_append(badges_div, "span",
+                ["me-2", "mb-2", "badge", "bg-info", "text-dark"]
+            ).innerText = "Multideck"
         } else {
-            base.create_append(badges_div, "span", ["me-2", "badge", "bg-secondary"]).innerText = "Single Deck"
+            base.create_append(badges_div, "span", ["me-2", "mb-2", "badge", "bg-secondary"]).innerText = "Single Deck"
         }
         // ------------------------------------------------------------------------------------------------- Date & Time
-        const datetime_div = base.create_append(this.root, "div", ["mb-2", "d-flex"])
+        const datetime_div = base.create_append(this.root, "div", ["d-md-flex", "mb-2"])
         const start = DateTime.fromFormat(
             `${tournament.start} ${tournament.timezone}`,
             "yyyy-MM-dd'T'HH:mm:ss z",
@@ -465,7 +469,7 @@ export class TournamentDisplay {
             }
             const status_title = base.create_append(this.root, "h2", ["my-2"])
             status_title.innerText = status
-            const buttons_div = base.create_append(this.root, "div", ["d-flex", "my-2"])
+            const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "align-items-center", "my-2"])
             if (Object.hasOwn(tournament.players, this.user_id)) {
                 const player = tournament.players[this.user_id]
                 if (tournament.multideck || tournament.rounds.length < 1) {
@@ -539,7 +543,7 @@ export class TournamentDisplay {
                     const table = base.create_append(table_div, "table", ["table"])
                     const head = base.create_append(table, "thead")
                     const tr = base.create_append(head, "tr")
-                    var headers = ["Seat", "VEKN#", "Name", "Score"]
+                    var headers = ["Seat", "VEKN#", "Name", "Score", ""]
                     if (tournament.state == d.TournamentState.FINALS) {
                         headers = ["Seed", "VEKN#", "Name", "Score"]
                     }
@@ -562,14 +566,22 @@ export class TournamentDisplay {
                         if (tournament.state == d.TournamentState.FINALS) {
                             const seed_score = `${seat_player.seed.toString()} (${score_string(seat_player.result)})`
                             base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = seed_score
-                            base.create_append(row, "td", cell_cls, { scope: "row" }).innerText = seat_player.vekn
+                            base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
                         } else {
                             base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = (idx + 1).toString()
-                            base.create_append(row, "td", cell_cls, { scope: "row" }).innerText = seat_player.vekn
+                            base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
                         }
                         base.create_append(row, "td", name_cls).innerText = seat_player.name
                         if (seat) {
                             base.create_append(row, "td", cell_cls).innerText = score_string(seat.result)
+                            const actions = base.create_append(row, "td", cell_cls)
+                            const changeButton = base.create_append(actions, "button",
+                                ["me-2", "btn", "btn-sm", "btn-primary"]
+                            )
+                            changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
+                            changeButton.addEventListener("click", (ev) => {
+                                this.score_modal.show(tournament, seat_player, current_round, seat.result.vp)
+                            })
                         }
                     }
                     if (player_seat && tournament.state != d.TournamentState.FINALS) {
