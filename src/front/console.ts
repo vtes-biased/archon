@@ -366,9 +366,9 @@ class SanctionPlayerModal {
         }
         // Remove button only for current tournament sanctions
         if (!Object.hasOwn(sanction, "tournament_name")) {
-        const remove_button = base.create_append(prefix, "div", ["btn", "badge", "btn-danger"])
-        remove_button.innerHTML = '<i class="bi bi-trash"></i>'
-        remove_button.addEventListener("click", (ev) => this.remove_sanction(sanction.uid))
+            const remove_button = base.create_append(prefix, "div", ["btn", "badge", "btn-danger"])
+            remove_button.innerHTML = '<i class="bi bi-trash"></i>'
+            remove_button.addEventListener("click", (ev) => this.remove_sanction(sanction.uid))
         }
     }
 
@@ -384,8 +384,9 @@ class SanctionPlayerModal {
             category: this.category.value,
             comment: this.comment.value,
         } as events.Sanction
-        const tournament = await this.console.handle_tournament_event(tev, true)
+        const tournament = await this.console.handle_tournament_event(tev)
         if (!tournament) { return }
+        this.comment.value = ""
         const sanctions = tournament.sanctions[this.member.uid]
         for (const sanction of sanctions ?? []) {
             if (sanction.uid == sanction_uid) {
@@ -401,7 +402,7 @@ class SanctionPlayerModal {
             sanction_uid: sanction_uid,
             player_uid: this.member.uid,
         } as events.Unsanction
-        const tournament = await this.console.handle_tournament_event(tev, true)
+        const tournament = await this.console.handle_tournament_event(tev)
         if (!tournament) { return }
         for (const item of this.sanctions_accordion.querySelectorAll(".accordion-item") as NodeListOf<HTMLDivElement>) {
             if (item.dataset.uid == sanction_uid) {
@@ -560,13 +561,18 @@ class Registration {
             const state = base.create_append(row, "td", ["text-nowrap"])
             state.innerText = player.state
             const actions = base.create_append(row, "td", ["text-nowrap"])
-            const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-primary", "me-2"])
+            const button = base.create_append(actions, "button", ["btn", "btn-sm", "me-2"])
             button.innerHTML = '<i class="bi bi-exclamation-diamond-fill"></i>'
             const tip = base.add_tooltip(button, "Sanctions")
             button.addEventListener("click", (ev) => {
                 tip.hide()
                 this.console.sanction_player_modal.show(player.uid)
             })
+            if (this.console.warn_about_player(player.uid)) {
+                button.classList.add("btn-warning")
+            } else {
+                button.classList.add("btn-primary")
+            }
             if (this.console.tournament.state == d.TournamentState.WAITING) {
                 if (player.state == d.PlayerState.REGISTERED || player.state == d.PlayerState.FINISHED) {
                     const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-success", "me-2"])
@@ -868,11 +874,16 @@ class RoundTab {
             changeButton.addEventListener("click", (ev) => {
                 this.console.score_modal.show(player, this.index, seat.result.vp)
             })
-            const sanctionButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
+            const sanctionButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm"])
             sanctionButton.innerHTML = '<i class="bi bi-exclamation-diamond-fill"></i>'
             sanctionButton.addEventListener("click", (ev) => {
                 this.console.sanction_player_modal.show(player.uid)
             })
+            if (this.console.warn_about_player(player.uid)) {
+                sanctionButton.classList.add("btn-warning")
+            } else {
+                sanctionButton.classList.add("btn-primary")
+            }
         }
         return body
     }
@@ -1373,7 +1384,27 @@ class TournamentConsole {
         return [standings(this.tournament).splice(0, 5).map(p => p[1].uid), toss]
     }
 
-    async handle_tournament_event(tev: events.TournamentEvent, no_refresh = false): Promise<d.Tournament | undefined> {
+    warn_about_player(player_uid: string): boolean {
+        const previous_sanctions = this.members_map.by_uid.get(player_uid)?.sanctions
+        if (previous_sanctions) {
+            for (const sanction of previous_sanctions) {
+                if (sanction.tournament_uid != this.tournament.uid) {
+                    return true
+                }
+            }
+        }
+        const local_sanctions = this.tournament.sanctions[player_uid]
+        if (local_sanctions) {
+            for (const sanction of local_sanctions) {
+                if (sanction.level != events.SanctionLevel.CAUTION) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    async handle_tournament_event(tev: events.TournamentEvent): Promise<d.Tournament | undefined> {
         console.log("handle event", tev)
         // TODO: implement offline mode
         const res = await base.do_fetch(
@@ -1391,9 +1422,6 @@ class TournamentConsole {
         const response: d.Tournament = await res.json()
         console.log(response)
         this.tournament = response
-        if (no_refresh) {
-            return response
-        }
         this.display()
         return response
     }
