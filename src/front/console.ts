@@ -364,9 +364,12 @@ class SanctionPlayerModal {
             const author = base.create_append(prefix, "div", ["me-2"])
             author.innerText = `Issued by ${listed_judge.name}`
         }
+        // Remove button only for current tournament sanctions
+        if (!Object.hasOwn(sanction, "tournament_name")) {
         const remove_button = base.create_append(prefix, "div", ["btn", "badge", "btn-danger"])
         remove_button.innerHTML = '<i class="bi bi-trash"></i>'
         remove_button.addEventListener("click", (ev) => this.remove_sanction(sanction.uid))
+        }
     }
 
     async submit(ev: SubmitEvent) {
