@@ -92,9 +92,7 @@ async def html_auth_discord(
     summary="Get a bearer token to use the API.",
     response_class=fastapi.responses.ORJSONResponse,
 )
-async def html_auth_token(
-    member_uid: dependencies.MemberUidFromSession,
-) -> dependencies.Token:
+async def html_auth_token(request: fastapi.Request) -> dependencies.Token:
     """Provide an OAuth 2.0 access token for web clients.
 
     Requires an authenticated session (session cookie).
@@ -102,7 +100,11 @@ async def html_auth_token(
     "OAuth 2.0 for Browser-Based Applications"
     https://datatracker.ietf.org/doc/html/draft-ietf-oauth-browser-based-apps
     """
-    access_token = dependencies.create_access_token(member_uid)
+    # Not we do not use `dependencies.MemberUidFromSession` as it raise LoginRequired,
+    # which ultimately results in an unexpected HTML response here (JSON endpoint)
+    if not request.session.get("user_id", None):
+        raise fastapi.HTTPException(fastapi.status.HTTP_401_UNAUTHORIZED)
+    access_token = dependencies.create_access_token(request.session["user_id"])
     return dependencies.Token(access_token=access_token, token_type="Bearer")
 
 

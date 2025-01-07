@@ -7,6 +7,7 @@ import * as uuid from 'uuid'
 import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
 import { DateTime, DateTimeFormatOptions } from 'luxon'
+import { stringify } from 'yaml'
 import * as tempusDominus from '@eonasdan/tempus-dominus'
 import { biOneIcons } from '@eonasdan/tempus-dominus/dist/plugins/bi-one'
 
@@ -98,6 +99,7 @@ export function score_string(score: d.Score, rank: number = undefined): string {
     return res
 }
 
+
 class ScoreModal {
     display: TournamentDisplay
     tournament: d.Tournament
@@ -118,40 +120,40 @@ class ScoreModal {
         base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         const body = base.create_append(content, "div", ["modal-body", "d-flex", "flex-column", "align-items-center"])
         const row_1 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
-        const button_00 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_10 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_20 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_30 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_40 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_50 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_00 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_10 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_20 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_30 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_40 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_50 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const row_2 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
-        const button_05 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_15 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_25 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_35 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const button_45 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        button_00.innerText = "0"
-        button_05.innerText = "0.5"
-        button_10.innerText = "1"
-        button_15.innerText = "1.5"
-        button_20.innerText = "2"
-        button_25.innerText = "2.5"
-        button_30.innerText = "3"
-        button_35.innerText = "3.5"
-        button_40.innerText = "4"
-        button_45.innerText = "4.5"
-        button_50.innerText = "5"
-        button_00.addEventListener("click", (ev) => this.set_score(0))
-        button_05.addEventListener("click", (ev) => this.set_score(0.5))
-        button_10.addEventListener("click", (ev) => this.set_score(1))
-        button_15.addEventListener("click", (ev) => this.set_score(1.5))
-        button_20.addEventListener("click", (ev) => this.set_score(2))
-        button_25.addEventListener("click", (ev) => this.set_score(2.5))
-        button_30.addEventListener("click", (ev) => this.set_score(3))
-        button_35.addEventListener("click", (ev) => this.set_score(3.5))
-        button_40.addEventListener("click", (ev) => this.set_score(4))
-        button_45.addEventListener("click", (ev) => this.set_score(4.5))
-        button_50.addEventListener("click", (ev) => this.set_score(5))
+        const btn_05 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_15 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_25 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_35 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        const btn_45 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        btn_00.innerText = "0"
+        btn_05.innerText = "0.5"
+        btn_10.innerText = "1"
+        btn_15.innerText = "1.5"
+        btn_20.innerText = "2"
+        btn_25.innerText = "2.5"
+        btn_30.innerText = "3"
+        btn_35.innerText = "3.5"
+        btn_40.innerText = "4"
+        btn_45.innerText = "4.5"
+        btn_50.innerText = "5"
+        btn_00.addEventListener("click", (ev) => this.set_score(0))
+        btn_05.addEventListener("click", (ev) => this.set_score(0.5))
+        btn_10.addEventListener("click", (ev) => this.set_score(1))
+        btn_15.addEventListener("click", (ev) => this.set_score(1.5))
+        btn_20.addEventListener("click", (ev) => this.set_score(2))
+        btn_25.addEventListener("click", (ev) => this.set_score(2.5))
+        btn_30.addEventListener("click", (ev) => this.set_score(3))
+        btn_35.addEventListener("click", (ev) => this.set_score(3.5))
+        btn_40.addEventListener("click", (ev) => this.set_score(4))
+        btn_45.addEventListener("click", (ev) => this.set_score(4.5))
+        btn_50.addEventListener("click", (ev) => this.set_score(5))
         this.modal = new bootstrap.Modal(this.modal_div)
     }
 
@@ -255,13 +257,15 @@ export class TournamentDisplay {
         }
     }
     async init(
-        token: base.Token,
+        token: base.Token | undefined = undefined,
         members_map: member.MemberMap | undefined = undefined,
         countries: d.Country[] | undefined = undefined,
     ) {
         this.token = token
-        this.user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
-        this.judges = new Set([this.user_id])
+        if (this.token) {
+            this.user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
+            this.judges = new Set([this.user_id])
+        }
         if (countries) {
             this.countries = countries
         } else {
@@ -270,7 +274,7 @@ export class TournamentDisplay {
         }
         if (members_map) {
             this.members_map = members_map
-        } else {
+        } else if (this.user_id) {
             this.members_map = new member.MemberMap()
             await this.members_map.init(token)
         }
@@ -279,7 +283,7 @@ export class TournamentDisplay {
         base.remove_children(this.root)
         this.judges = new Set(tournament.judges)
         // ----------------------------------------------------------------------------------------------------- User ID
-        if (Object.hasOwn(tournament.players, this.user_id)) {
+        if (this.user_id && Object.hasOwn(tournament.players, this.user_id)) {
             const player = tournament.players[this.user_id]
             if (player.state != d.PlayerState.FINISHED) {
                 const alert = base.create_append(this.root, "div", ["alert", "alert-success"], { role: "alert" })
@@ -291,14 +295,23 @@ export class TournamentDisplay {
             base.create_append(this.root, "h1", ["mb-2"]).innerText = tournament.name
         }
         // ----------------------------------------------------------------------------------------------------- Buttons
-        if (this.included) {
-            const edit_button = base.create_append(this.root, "button", ["btn", "btn-primary", "my-4"])
-            edit_button.innerText = "Edit"
-            edit_button.addEventListener("click", (ev) => this.display_form(tournament))
-        } else if (tournament.judges.includes(this.user_id)) {
-            base.create_append(this.root, "a", ["btn", "btn-primary", "my-3"],
-                { href: `/tournament/${tournament.uid}/console.html` }
-            ).innerText = "Console"
+        if (this.included || (this.user_id && tournament.judges.includes(this.user_id))) {
+            const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
+            if (this.included) {
+                const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
+                edit_button.innerText = "Edit"
+                edit_button.addEventListener("click", (ev) => this.display_form(tournament))
+            } else if (this.user_id && tournament.judges.includes(this.user_id)) {
+                base.create_append(buttons_div, "a", ["btn", "btn-primary", "me-2", "mb-2"],
+                    { href: `/tournament/${tournament.uid}/console.html` }
+                ).innerText = "Console"
+            }
+            const download_button = base.create_append(buttons_div, "a", ["btn", "btn-primary", "mb-2"],
+                { role: "button" }
+            )
+            download_button.innerHTML = '<i class="bi bi-download"></i> Download'
+            download_button.href = "data:application/yaml;charset=utf-8," + stringify(tournament)
+            download_button.download = `${tournament.name}.txt`
         }
         // ------------------------------------------------------------------------------------------------------ Badges
         const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
@@ -417,19 +430,20 @@ export class TournamentDisplay {
             }
         }
         // ------------------------------------------------------------------------------------------------------ Judges
-        const table = base.create_append(this.root, "table", ["table", "table-striped", "my-2"])
-        base.create_append(table, "caption", []).innerText = "Judges"
-        const head = base.create_append(table, "thead")
-        const row = base.create_append(head, "tr")
-        for (const label of ["VEKN #", "Name", ""]) {
-            const cel = base.create_append(row, "th", [], { scope: "col" })
-            cel.innerText = label
-        }
+        if (this.user_id) {
+            const table = base.create_append(this.root, "table", ["table", "table-striped", "my-2"])
+            const head = base.create_append(table, "thead")
+            const row = base.create_append(head, "tr")
+            for (const label of ["Judges", "", ""]) {
+                const cel = base.create_append(row, "th", [], { scope: "col" })
+                cel.innerText = label
+            }
 
-        const body = base.create_append(table, "tbody")
-        for (const judge_uid of this.judges.values()) {
-            const member = this.members_map.by_uid.get(judge_uid)
-            body.append(this.create_judge_row(member, false))
+            const body = base.create_append(table, "tbody")
+            for (const judge_uid of this.judges.values()) {
+                const member = this.members_map.by_uid.get(judge_uid)
+                body.append(this.create_judge_row(member, false))
+            }
         }
         // ------------------------------------------------------------------------------------------------- Description
         if (tournament.description) {
@@ -446,7 +460,7 @@ export class TournamentDisplay {
             )
         }
         // ----------------------------------------------------------------------------------------------- User Commands
-        if (!this.included && tournament.state != d.TournamentState.FINISHED) {
+        if (!this.included && this.user_id && tournament.state != d.TournamentState.FINISHED) {
             const current_round = tournament.rounds.length
             var status: string
             switch (tournament.state) {
@@ -610,7 +624,9 @@ export class TournamentDisplay {
             }
         }
         // --------------------------------------------------------------------------------------------------- Standings
-        if (tournament.state == d.TournamentState.FINALS || tournament.state == d.TournamentState.FINISHED) {
+        if (this.user_id &&
+            (tournament.state == d.TournamentState.FINALS || tournament.state == d.TournamentState.FINISHED)
+        ) {
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
             const thead = base.create_append(table, "thead")
             const tr = base.create_append(thead, "tr")
@@ -914,7 +930,12 @@ export class TournamentDisplay {
             if (tournament?.start && tournament.start.length > 0) {
                 this.start.value = tournament.start
             }
-            new tempusDominus.TempusDominus(group, { display: { icons: biOneIcons }, localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" }, stepping: 15, promptTimeOnDateChange: true })
+            new tempusDominus.TempusDominus(group, {
+                display: { icons: biOneIcons },
+                localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" },
+                stepping: 15,
+                promptTimeOnDateChange: true
+            })
         }
         { // finish
             const div = base.create_append(form, "div", ["col-md-4"])
@@ -939,7 +960,12 @@ export class TournamentDisplay {
             if (tournament?.finish && tournament.finish.length > 0) {
                 this.finish.value = tournament.finish
             }
-            new tempusDominus.TempusDominus(group, { display: { icons: biOneIcons }, localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" }, stepping: 15, promptTimeOnDateChange: true })
+            new tempusDominus.TempusDominus(group, {
+                display: { icons: biOneIcons },
+                localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" },
+                stepping: 15,
+                promptTimeOnDateChange: true
+            })
         }
         { // timezone
             const div = base.create_append(form, "div", ["col-md-4"])
@@ -985,10 +1011,9 @@ export class TournamentDisplay {
         // ------------------------------------------------------------------------------------------------------ Judges
         {
             const table = base.create_append(form, "table", ["table", "table-striped", "my-2"])
-            base.create_append(table, "caption", []).innerText = "Judges"
             const head = base.create_append(table, "thead")
             const row = base.create_append(head, "tr")
-            for (const label of ["VEKN #", "Name", ""]) {
+            for (const label of ["Judges", "", ""]) {
                 const cel = base.create_append(row, "th", [], { scope: "col" })
                 cel.innerText = label
             }
@@ -1012,7 +1037,7 @@ export class TournamentDisplay {
         }
         // ------------------------------------------------------------------------------------------------------ submit
         {
-            const div = base.create_append(form, "div", ["col-auto"])
+            const div = base.create_append(form, "div", ["col-auto", "mb-2"])
             base.create_append(div, "button", ["btn", "btn-primary", "me-2"], { type: "submit" }).innerText = "Submit"
             const cancel_button = base.create_append(div, "button", ["btn", "btn-secondary", "me-2"],
                 { type: "button" }
