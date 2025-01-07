@@ -27,6 +27,8 @@ class TournamentManager(models.Tournament):
                 self.open_checkin(ev, member_uid)
             case events.EventType.CHECK_IN:
                 self.check_in(ev, member_uid)
+            case events.EventType.CHECK_EVERYONE_IN:
+                self.check_everyone_in(ev, member_uid)
             case events.EventType.CHECK_OUT:
                 self.check_out(ev, member_uid)
             case events.EventType.ROUND_START:
@@ -35,6 +37,8 @@ class TournamentManager(models.Tournament):
                 self.round_alter(ev, member_uid)
             case events.EventType.ROUND_FINISH:
                 self.round_finish(ev, member_uid)
+            case events.EventType.ROUND_CANCEL:
+                self.round_cancel(ev, member_uid)
             case events.EventType.SET_RESULT:
                 self.set_result(ev, member_uid)
             case events.EventType.SET_DECK:
@@ -78,6 +82,14 @@ class TournamentManager(models.Tournament):
 
     def check_in(self, ev: events.CheckIn, member_uid: str) -> None:
         self.players[ev.player_uid].state = models.PlayerState.CHECKED_IN
+
+    def check_everyone_in(self, ev: events.CheckEveryoneIn, member_uid: str) -> None:
+        for player in self.players.values():
+            if player.state != models.PlayerState.REGISTERED:
+                continue
+            if player.barriers:
+                continue
+            player.state = models.PlayerState.CHECKED_IN
 
     def check_out(self, ev: events.CheckIn, member_uid: str) -> None:
         self.players[ev.player_uid].state = models.PlayerState.REGISTERED
@@ -150,6 +162,18 @@ class TournamentManager(models.Tournament):
                 player.rounds_played += 1
                 if self.max_rounds and player.rounds_played >= self.max_rounds:
                     player.barriers.append(models.Barrier.MAX_ROUNDS)
+
+    def round_cancel(self, ev: events.RoundCancel, member_uid: str) -> None:
+        for table in self.rounds[-1].tables:
+            for seat in table.seating:
+                self.players[seat.player_uid].result -= seat.result
+        del self.rounds[-1]
+        self.state = models.TournamentState.WAITING
+        for player in self.players.values():
+            player.table = 0
+            player.seat = 0
+            if player.state == models.PlayerState.PLAYING:
+                player.state = models.PlayerState.CHECKED_IN
 
     def _event_seating_to_round(self, seating: list[list[str]]) -> models.Round:
         return models.Round(
@@ -564,6 +588,13 @@ class TournamentOrchestrator(TournamentManager):
             raise CheckinBarrier(ev, player.barriers)
         super().check_in(ev, member_uid)
 
+    def check_everyone_in(self, ev: events.CheckEveryoneIn, member_uid: str) -> None:
+        self._check_not_playing(ev)
+        self._check_judge(ev, member_uid)
+        if self.state != models.TournamentState.WAITING:
+            raise CheckinClosed(ev)
+        super().check_everyone_in(ev, member_uid)
+
     def check_out(self, ev: events.CheckIn, member_uid: str) -> None:
         self._check_not_playing(ev)
         if self.state != models.TournamentState.WAITING:
@@ -604,6 +635,23 @@ class TournamentOrchestrator(TournamentManager):
         if invalid_tables:
             raise InvalidTables(ev, invalid_tables)
         super().round_finish(ev, member_uid)
+
+    def round_cancel(self, ev: events.RoundFinish, member_uid: str) -> None:
+        self._check_judge(ev, member_uid)
+        if self.state == models.TournamentState.FINISHED:
+            raise TournamentFinished(ev)
+        if self.state in [
+            models.TournamentState.REGISTRATION,
+            models.TournamentState.WAITING,
+        ]:
+            raise NoRoundInProgress(ev)
+        if any(
+            seat.result.vp != 0
+            for table in self.rounds[-1].tables
+            for seat in table.seating
+        ):
+            raise RoundInProgress(ev)
+        super().round_cancel(ev, member_uid)
 
     def _check_seating(self, ev, seating: list[list[str]]) -> None:
         """Check all are registered, no duplicates, and tables have 5 players max

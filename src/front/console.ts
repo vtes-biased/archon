@@ -451,7 +451,7 @@ class Registration {
         )
         this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
         this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
-        const registration_controls = base.create_append(this.panel, "div", ["d-flex", "my-2"])
+        const registration_controls = base.create_append(this.panel, "div", ["d-md-flex", "my-2"])
         this.register_element = new member.PersonLookup<d.Member>(
             this.console.members_map, registration_controls, "Register", true
         )
@@ -575,15 +575,24 @@ class Registration {
             }
             if (this.console.tournament.state == d.TournamentState.WAITING) {
                 if (player.state == d.PlayerState.REGISTERED || player.state == d.PlayerState.FINISHED) {
-                    const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-success", "me-2"])
-                    button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
-                    const tip = base.add_tooltip(button, "Check in")
-                    button.addEventListener("click", (ev) => { tip.dispose(); this.check_in(player) })
+                    if (player.barriers.length > 0) {
+                        const span = base.create_append(actions, "span", [], { tabindex: "0" })
+                        const button = base.create_append(span, "button", ["btn", "btn-sm", "btn-success", "me-2"])
+                        button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
+                        button.disabled = true
+                        base.add_tooltip(span, player.barriers[0])
+                        // state.innerText += ` (${player.barriers[0]})`
+                    } else {
+                        const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-success", "me-2"])
+                        button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
+                        const tip = base.add_tooltip(button, "Check in")
+                        button.addEventListener("click", (ev) => { tip.hide(); this.check_in(player) })
+                    }
                 } else if (player.state == d.PlayerState.CHECKED_IN) {
                     const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-warning", "me-2"])
                     button.innerHTML = '<i class="bi bi-box-arrow-left"></i>'
                     const tip = base.add_tooltip(button, "Check out")
-                    button.addEventListener("click", (ev) => { tip.dispose(); this.check_out(player) })
+                    button.addEventListener("click", (ev) => { tip.hide(); this.check_out(player) })
                 }
             }
             if (this.console.tournament.state == d.TournamentState.REGISTRATION
@@ -594,7 +603,7 @@ class Registration {
                     const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-danger", "me-2"])
                     button.innerHTML = '<i class="bi bi-x-circle-fill"></i>'
                     const tip = base.add_tooltip(button, "Drop")
-                    button.addEventListener("click", (ev) => { tip.dispose(); this.drop(player) })
+                    button.addEventListener("click", (ev) => { tip.hide(); this.drop(player) })
                 }
             }
         }
@@ -605,9 +614,13 @@ class Registration {
             button.addEventListener("click", (ev) => { this.console.open_checkin() })
         }
         else if (this.console.tournament.state == d.TournamentState.WAITING) {
+            const checkin_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-primary"])
+            checkin_button.innerText = "Check everyone in"
+            checkin_button.addEventListener("click", (ev) => { this.console.check_everyone_in() })
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
             button.addEventListener("click", (ev) => { this.console.start_round() })
+
         }
         if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
             this.console.tournament.state == d.TournamentState.WAITING) {
@@ -796,6 +809,14 @@ class RoundTab {
         this.next_table_index = 1
         for (const table of round.tables) {
             this.display_table(table)
+        }
+        if (this.console.tournament.state == d.TournamentState.PLAYING
+            && this.index == this.console.tournament.rounds.length
+            && round.tables.every(t => t.seating.every(s => s.result.vp == 0))
+        ) {
+            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-danger"])
+            button.innerText = "Cancel round"
+            button.addEventListener("click", (ev) => { this.console.cancel_round() })
         }
         if (this.console.tournament.state == d.TournamentState.PLAYING
             && this.index == this.console.tournament.rounds.length
@@ -1464,6 +1485,13 @@ class TournamentConsole {
         }
         await this.handle_tournament_event(event)
     }
+    async check_everyone_in() {
+        const event: events.CheckEveryoneIn = {
+            type: events.EventType.CHECK_EVERYONE_IN,
+            uid: uuid.v4(),
+        }
+        await this.handle_tournament_event(event)
+    }
     async check_out(player_uid: string) {
         const event: events.CheckOut = {
             type: events.EventType.CHECK_OUT,
@@ -1530,6 +1558,14 @@ class TournamentConsole {
     async finish_round() {
         const event: events.RoundFinish = {
             type: events.EventType.ROUND_FINISH,
+            uid: uuid.v4(),
+        }
+        await this.handle_tournament_event(event)
+        this.tabs.get("Registration").show()
+    }
+    async cancel_round() {
+        const event: events.RoundCancel = {
+            type: events.EventType.ROUND_CANCEL,
             uid: uuid.v4(),
         }
         await this.handle_tournament_event(event)

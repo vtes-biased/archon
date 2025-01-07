@@ -108,7 +108,7 @@ export class PersonLookup<Type extends d.Person> {
         const form_uid = uuid.v4()
         // create an empty form on top of the body, so it can be used inside a "real" form
         this.form = base.create_prepend(document.body, "form", [], { id: form_uid })
-        const top_div = base.create_append(root, "div", ["d-flex"])
+        const top_div = base.create_append(root, "div", ["d-sm-flex"])
         if (inline) {
             top_div.classList.add("flex-row", "align-items-center")
         } else {
@@ -122,9 +122,6 @@ export class PersonLookup<Type extends d.Person> {
         this.input_vekn_id.spellcheck = false
 
         const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2", "dropdown"])
-        if (inline) {
-            dropdown_div.classList.add("col-xl-4")
-        }
         this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"],
             { type: "text", placeholder: "Name", autocomplete: "off", form: form_uid }
         )

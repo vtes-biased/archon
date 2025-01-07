@@ -13,10 +13,12 @@ class EventType(enum.StrEnum):
     REGISTER = "REGISTER"
     OPEN_CHECKIN = "OPEN_CHECKIN"
     CHECK_IN = "CHECK_IN"
+    CHECK_EVERYONE_IN = "CHECK_EVERYONE_IN"
     CHECK_OUT = "CHECK_OUT"
     ROUND_START = "ROUND_START"
     ROUND_ALTER = "ROUND_ALTER"
     ROUND_FINISH = "ROUND_FINISH"
+    ROUND_CANCEL = "ROUND_CANCEL"
     SET_RESULT = "SET_RESULT"
     SET_DECK = "SET_DECK"
     DROP = "DROP"
@@ -73,6 +75,11 @@ class CheckIn(Event):
 
 
 @dataclasses.dataclass(kw_only=True)
+class CheckEveryoneIn(Event):
+    type: typing.Literal[EventType.CHECK_EVERYONE_IN]
+
+
+@dataclasses.dataclass(kw_only=True)
 class CheckOut(Event):
     type: typing.Literal[EventType.CHECK_OUT]
     player_uid: str
@@ -94,6 +101,11 @@ class RoundAlter(Event):
 @dataclasses.dataclass(kw_only=True)
 class RoundFinish(Event):
     type: typing.Literal[EventType.ROUND_FINISH]
+
+
+@dataclasses.dataclass(kw_only=True)
+class RoundCancel(Event):
+    type: typing.Literal[EventType.ROUND_CANCEL]
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -165,10 +177,12 @@ TournamentEvent = typing.Union[
     Register,
     OpenCheckin,
     CheckIn,
+    CheckEveryoneIn,
     CheckOut,
     RoundStart,
     RoundAlter,
     RoundFinish,
+    RoundCancel,
     SetResult,
     SetDeck,
     Drop,
@@ -237,6 +251,17 @@ OPENAPI_EXAMPLES = {
             "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
         },
     },
+    "Check Everyone In": {
+        "summary": "Check everyone in. JUDGE ONLY",
+        "description": (
+            "When running registrations in situ, or after first round. "
+            "It will not check-in players who have dropped (FINISHED state) "
+            "or have an active barrier (missing deck, having been disqualified, etc.)"
+        ),
+        "value": {
+            "type": "CheckEveryoneIn",
+        },
+    },
     "Round Start": {
         "summary": "Starts the next round. JUDGE ONLY",
         "description": (
@@ -297,6 +322,15 @@ OPENAPI_EXAMPLES = {
             "it with RoundAlter, SetResult and Override events"
         ),
         "value": {"type": "RoundFinish"},
+    },
+    "Round Cancel": {
+        "summary": "Cancel the current round. JUDGE ONLY",
+        "description": (
+            "A round can be canceled, if no result has been set yet. "
+            "Beware this removes the current seating and cannot be undone."
+            "Can be used to cancel a final's seeding, but will not reset the toss data."
+        ),
+        "value": {"type": "RoundCancel"},
     },
     "Set Result": {
         "summary": "Set a player's result",

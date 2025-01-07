@@ -3,10 +3,12 @@ export enum EventType {
     REGISTER = "REGISTER",
     OPEN_CHECKIN = "OPEN_CHECKIN",
     CHECK_IN = "CHECK_IN",
+    CHECK_EVERYONE_IN = "CHECK_EVERYONE_IN",
     CHECK_OUT = "CHECK_OUT",
     ROUND_START = "ROUND_START",
     ROUND_ALTER = "ROUND_ALTER",
     ROUND_FINISH = "ROUND_FINISH",
+    ROUND_CANCEL = "ROUND_CANCEL",
     SET_RESULT = "SET_RESULT",
     SET_DECK = "SET_DECK",
     DROP = "DROP",
@@ -63,6 +65,10 @@ export interface CheckIn extends Event {
     player_uid: string
 }
 
+export interface CheckEveryoneIn extends Event {
+    type: EventType.CHECK_EVERYONE_IN,
+}
+
 export interface CheckOut extends Event {
     type: EventType.CHECK_OUT,
     player_uid: string
@@ -81,6 +87,10 @@ export interface RoundAlter extends Event {
 
 export interface RoundFinish extends Event {
     type: EventType.ROUND_FINISH
+}
+
+export interface RoundCancel extends Event {
+    type: EventType.ROUND_CANCEL
 }
 
 export interface SetResult extends Event {
@@ -143,10 +153,12 @@ export type TournamentEvent = (
     Register |
     OpenCheckin |
     CheckIn |
+    CheckEveryoneIn |
     CheckOut |
     RoundStart |
     RoundAlter |
     RoundFinish |
+    RoundCancel |
     SetResult |
     SetDeck |
     Drop |
