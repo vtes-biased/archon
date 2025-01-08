@@ -32,9 +32,9 @@ class Score:
 
     def __sub__(self, rhs):
         return self.__class__(
-            gw=max(0, self.gw + rhs.gw),
-            vp=max(0, self.vp + rhs.vp),
-            tp=max(0, self.tp + rhs.tp),
+            gw=max(0, self.gw - rhs.gw),
+            vp=max(0, self.vp - rhs.vp),
+            tp=max(0, self.tp - rhs.tp),
         )
 
     def __isub__(self, rhs):

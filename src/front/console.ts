@@ -3,7 +3,7 @@ import * as base from "./base"
 import * as events from "./events"
 import * as member from "./member"
 import * as seating from "./seating"
-import { score_string, standings, TournamentDisplay } from "./tournament_display"
+import { score_string, full_score_string, standings, TournamentDisplay } from "./tournament_display"
 import { DateTime } from 'luxon'
 import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
@@ -20,12 +20,12 @@ class PlayerSelectModal {
     players: Map<string, d.Player>
     constructor(el: HTMLElement, title: string = "Add player") {
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "LookupModalLabel" }
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "PlayerSelectModalLabel" }
         )
         const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
         const content = base.create_append(dialog, "div", ["modal-content"])
         const header_div = base.create_append(content, "div", ["modal-header"])
-        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"])
+        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"], { id: "PlayerSelectModalLabel" })
         this.header.innerText = title
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.body = base.create_append(content, "div", ["modal-body"])
@@ -87,12 +87,12 @@ class AddMemberModal {
     constructor(el: HTMLElement, console: TournamentConsole, title: string = "Add member") {
         this.console = console
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "LookupModalLabel" }
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "AddMemberModalLabel" }
         )
         const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
         const content = base.create_append(dialog, "div", ["modal-content"])
         const header_div = base.create_append(content, "div", ["modal-header"])
-        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"])
+        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"], { id: "AddMemberModalLabel" })
         this.header.innerText = title
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.body = base.create_append(content, "div", ["modal-body"])
@@ -217,12 +217,12 @@ class SanctionPlayerModal {
         this.console = console
         this.member = null
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "LookupModalLabel" }
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "SanctionPlayerModalLabel" }
         )
         const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
         const content = base.create_append(dialog, "div", ["modal-content"])
         const header_div = base.create_append(content, "div", ["modal-header"])
-        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"])
+        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"], { id: "SanctionPlayerModalLabel" })
         this.header.innerText = "Sanction Member"  // Update to player name in display()
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.body = base.create_append(content, "div", ["modal-body"])
@@ -412,6 +412,168 @@ class SanctionPlayerModal {
     }
 }
 
+
+class SeedFinalsModal {
+    modal_div: HTMLDivElement
+    header: HTMLHeadingElement
+    body: HTMLDivElement
+    alert: HTMLDivElement
+    form: HTMLFormElement
+    players_table: HTMLTableElement
+    players_table_body: HTMLTableSectionElement
+    players: d.Player[]
+    to_toss: d.Player[][]
+    submit_button: HTMLButtonElement
+    toss_button: HTMLButtonElement
+    modal: bootstrap.Modal
+    console: TournamentConsole
+    constructor(el: HTMLElement, console: TournamentConsole) {
+        this.console = console
+        this.modal_div = base.create_append(el, "div", ["modal"],
+            { tabindex: "-1", "aria-labelledby": "SeedFinalsModalLabel" }
+        )
+        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
+        const content = base.create_append(dialog, "div", ["modal-content"])
+        const header_div = base.create_append(content, "div", ["modal-header"])
+        this.header = base.create_append(header_div, "h5", ["modal-title"], { id: "SeedFinalsModalLabel" })
+        this.header.innerText = "Finals seeding"
+        base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
+        this.body = base.create_append(content, "div", ["modal-body"])
+        const alert = base.create_append(this.body, "div", ["alert", "alert-info"], { role: "alert" })
+        alert.innerHTML = (
+            "Make sure those players are available for the finals.<br>" +
+            "Close and drop or check-in players to adjust."
+        )
+        this.form = base.create_append(this.body, "form")
+        this.players_table = base.create_append(this.form, "table", ["table", "table-sm"])
+        const head = base.create_append(this.players_table, "thead")
+        const row = base.create_append(head, "tr")
+        for (const label of ["Score", "Toss", "Player"]) {
+            const cel = base.create_append(row, "th", [], { scope: "col" })
+            cel.innerText = label
+        }
+        this.players_table_body = base.create_append(this.players_table, "tbody")
+        const buttons_div = base.create_append(this.form, "div", ["d-flex", "my-2"])
+        this.submit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"],
+            { type: "submit" }
+        )
+        this.submit_button.innerText = "Submit"
+        this.form.addEventListener("submit", async (ev) => await this.submit())
+        this.toss_button = base.create_append(buttons_div, "button", ["btn", "btn-warning", "me-2"],
+            { type: "button" }
+        )
+        this.toss_button.innerHTML = `<i class="bi bi-coin"></i> Toss`
+        this.toss_button.addEventListener("click", (ev) => { ev.preventDefault(); this.do_toss() })
+        this.to_toss = []
+        this.modal = new bootstrap.Modal(this.modal_div)
+    }
+
+    show() {
+        this.players = []
+        for (const [rank, player] of standings(this.console.tournament, undefined, true)) {
+            if (rank > 5) {
+                break
+            }
+            this.players.push(player)
+        }
+        this.modal.show()
+        this.display()
+    }
+
+    display() {
+        base.remove_children(this.players_table_body)
+        var last_rank: number = 0
+        var last_row: HTMLTableRowElement
+        var last_player: d.Player
+        var toss_basket: d.Player[]
+        for (const [rank, player] of standings(this.console.tournament, this.players)) {
+            const row = base.create_append(this.players_table_body, "tr")
+            base.create_append(row, "td", ["text-nowrap"]).innerText = full_score_string(player, rank)
+            const toss_cel = base.create_append(row, "td", ["w-25"])
+            const toss = base.create_append(toss_cel, "input", ["form-control", "form-control-sm"],
+                { type: "number", min: "0", max: "5" }
+            )
+            toss.placeholder = "-"
+            toss.value = player.toss.toString()
+            toss.addEventListener("change", (ev) => this.change_toss(parseInt(toss.value), player))
+            const name = base.create_append(row, "td", ["w-100"])
+            base.create_append(name, "span", ["badge", "text-bg-secondary"]).innerText = `#${player.vekn} ${player.name}`
+            if (rank == last_rank) {
+                if (toss_basket) {
+                    toss_basket.push(player)
+                }
+                else {
+                    toss_basket = [last_player, player]
+                    for (const cel of last_row.children) {
+                        cel.classList.add("bg-warning-subtle")
+                    }
+                }
+                for (const cel of row.children) {
+                    cel.classList.add("bg-warning-subtle")
+                }
+            } else {
+                if (toss_basket) {
+                    this.to_toss.push(toss_basket)
+                    toss_basket = undefined
+                }
+            }
+            last_rank = rank
+            last_row = row
+            last_player = player
+        }
+        if (toss_basket) {
+            this.to_toss.push(toss_basket)
+            toss_basket = undefined
+        }
+        if (this.to_toss.length > 0) {
+            this.submit_button.disabled = true
+            this.toss_button.disabled = false
+            this.toss_button.classList.remove("invisible")
+            this.toss_button.classList.add("visible")
+        } else {
+            this.submit_button.disabled = false
+            this.toss_button.disabled = true
+            this.toss_button.classList.remove("visible")
+            this.toss_button.classList.add("invisible")
+        }
+    }
+
+    async submit() {
+        const toss = {}
+        const seeds = []
+        for (const player of this.players) {
+            toss[player.uid] = player.toss
+        }
+        for (const [rank, player] of standings(this.console.tournament, this.players)) {
+            if (rank > 5) { break }
+            seeds.push(player.uid)
+        }
+        await this.console.seed_finals(seeds, toss)
+        this.modal.hide()
+    }
+
+    do_toss() {
+        for (const player of this.players) {
+            player.toss = 0
+        }
+        for (const basket of this.to_toss) {
+            seating.shuffle_array(basket)
+            var idx: number = 1
+            for (const player of basket) {
+                player.toss = idx++
+            }
+        }
+        this.to_toss = []
+        this.display()
+    }
+
+    change_toss(value: number, player: d.Player) {
+        player.toss = value
+        this.display()
+    }
+}
+
+
 enum PlayerFilter {
     ALL = "All",
     UNCHECKED = "Unchecked",
@@ -552,7 +714,7 @@ class Registration {
             const name = base.create_append(row, "td", ["w-100"])
             name.innerText = player.name
             const score = base.create_append(row, "td", ["text-nowrap"])
-            score.innerText = score_string(player.result, rank)
+            score.innerText = full_score_string(player, rank)
             const state = base.create_append(row, "td", ["text-nowrap"])
             state.innerText = player.state
             const actions = base.create_append(row, "td", ["text-nowrap"])
@@ -628,9 +790,7 @@ class Registration {
                     ["me-2", "btn", "btn-success"]
                 )
                 finals_button.innerText = "Seed Finals"
-                finals_button.addEventListener("click", (ev) => {
-                    this.console.seed_finals(...this.console.toss_for_finals())
-                })
+                finals_button.addEventListener("click", (ev) => { this.console.seed_finals_modal.show() })
             }
         }
     }
@@ -809,7 +969,12 @@ class RoundTab {
     display() {
         base.remove_children(this.panel)
         this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
-        this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-warning"])
+        this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn"])
+        if (this.finals) {
+            this.reseat_button.classList.add("btn-primary")
+        } else {
+            this.reseat_button.classList.add("btn-warning")
+        }
         this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
         this.reseat_button.addEventListener("click", (ev) => { this.start_reseat() })
         const round = this.console.tournament.rounds[this.index - 1]
@@ -817,12 +982,20 @@ class RoundTab {
         for (const table of round.tables) {
             this.display_table(table)
         }
-        if (this.console.tournament.state == d.TournamentState.PLAYING
+        if (
+            (
+                this.console.tournament.state == d.TournamentState.PLAYING ||
+                this.console.tournament.state == d.TournamentState.FINALS
+            )
             && this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.seating.every(s => s.result.vp == 0))
         ) {
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-danger"])
-            button.innerText = "Cancel round"
+            if (this.console.tournament.state == d.TournamentState.FINALS) {
+                button.innerText = "Cancel Seeding"
+            } else {
+                button.innerText = "Cancel round"
+            }
             button.addEventListener("click", (ev) => { this.console.cancel_round() })
         }
         if (this.console.tournament.state == d.TournamentState.PLAYING
@@ -923,7 +1096,7 @@ class RoundTab {
     ): HTMLTableCellElement {
         row.dataset.player_uid = player.uid
         if (this.finals) {
-            const seed_score = `${player.seed.toString()} (${score_string(player.result)})`
+            const seed_score = full_score_string(player)
             base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = seed_score
             base.create_append(row, "td", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         } else {
@@ -1242,6 +1415,7 @@ class TournamentConsole {
     player_select: PlayerSelectModal
     add_member_modal: AddMemberModal
     sanction_player_modal: SanctionPlayerModal
+    seed_finals_modal: SeedFinalsModal
     info: TournamentDisplay
     registration: Registration
     rounds: RoundTab[]
@@ -1254,6 +1428,7 @@ class TournamentConsole {
         this.player_select = new PlayerSelectModal(el)
         this.add_member_modal = new AddMemberModal(el, this)
         this.sanction_player_modal = new SanctionPlayerModal(el, this)
+        this.seed_finals_modal = new SeedFinalsModal(el, this)
         this.nav = base.create_append(el, "nav", ["nav", "nav-tabs"], { role: "tablist" })
         this.tabs_div = base.create_append(el, "div", ["tab-content"])
     }
@@ -1301,9 +1476,6 @@ class TournamentConsole {
     }
 
     async display() {
-        while (this.nav.parentElement.firstElementChild != this.nav) {
-            this.nav.parentElement.firstElementChild.remove()
-        }
         await this.info.display(this.tournament)
         if (this.tournament.state == d.TournamentState.FINISHED) {
             const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })
@@ -1388,29 +1560,6 @@ class TournamentConsole {
         return seating.compute_issues(rounds)
     }
 
-    toss_for_finals(): [string[], Record<string, number>] {
-        var last_rank = 0
-        var to_toss: d.Player[] = []
-        const toss = {}
-        for (const [rank, player] of standings(this.tournament)) {
-            if (rank > 5) {
-                break
-            }
-            if (rank > last_rank) {
-                last_rank = rank
-                seating.shuffle_array(to_toss)
-                var idx = 0
-                for (const player of to_toss) {
-                    idx++
-                    player.toss = idx
-                    toss[player.uid] = idx
-                }
-                to_toss = []
-            }
-            to_toss.push(player)
-        }
-        return [standings(this.tournament).splice(0, 5).map(p => p[1].uid), toss]
-    }
 
     warn_about_player(player_uid: string): boolean {
         const previous_sanctions = this.members_map.by_uid.get(player_uid)?.sanctions

@@ -177,8 +177,10 @@ class TournamentManager(models.Tournament):
         for player in self.players.values():
             player.table = 0
             player.seat = 0
+            player.seed = 0
             if player.state == models.PlayerState.PLAYING:
                 player.state = models.PlayerState.CHECKED_IN
+        self.finals_seeds = []
 
     def _event_seating_to_round(self, seating: list[list[str]]) -> models.Round:
         return models.Round(
@@ -348,11 +350,13 @@ class TournamentManager(models.Tournament):
             if player.uid not in seeds:
                 player.state = models.PlayerState.FINISHED
                 player.table = 0
+                player.toss = 0
                 player.seed = 0
+        for uid, toss in ev.toss.items():
+            self.players[uid].toss = toss
         for i, uid in enumerate(self.finals_seeds, 1):
             self.players[uid].table = 1
             self.players[uid].seed = i
-            self.players[uid].toss = ev.toss.get(uid, 0)
             self.players[uid].state = models.PlayerState.PLAYING
 
     def seat_finals(self, ev: events.SeatFinals, member_uid: str) -> None:

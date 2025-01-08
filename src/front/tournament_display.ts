@@ -4,6 +4,7 @@ import * as events from "./events"
 import * as member from "./member"
 import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
+import { Base64 } from 'js-base64'
 import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
 import { DateTime, DateTimeFormatOptions } from 'luxon'
@@ -38,7 +39,11 @@ function compare_players_standings(lhs: [number[], d.Player], rhs: [number[], d.
     return lhs[1].name.localeCompare(rhs[1].name)
 }
 
-export function standings(tournament: d.Tournament) {
+export function standings(
+    tournament: d.Tournament,
+    players: d.Player[] | undefined = undefined,
+    ignore_toss: boolean = false
+): [number, d.Player][] {
     function standings_array(p: d.Player): number[] {
         return [
             +(p.state == d.PlayerState.FINISHED),
@@ -46,17 +51,19 @@ export function standings(tournament: d.Tournament) {
             -p.result.gw,
             -p.result.vp,
             -p.result.tp,
-            p.toss,
+            ignore_toss ? 0 : p.toss,
         ]
     }
-    const sorted_players: [number[], d.Player][] = Object.values(tournament.players).map(p => [standings_array(p), p])
+    const sorted_players: [number[], d.Player][] = Object.values(players ?? tournament.players).map(
+        p => [standings_array(p), p]
+    )
     sorted_players.sort(compare_players_standings)
     if (sorted_players.length < 1) {
-        return sorted_players
+        return []
     }
     var rank = 1
     var next_rank = 0
-    const res = []
+    const res: [number, d.Player][] = []
     var finalists = 5
     if (tournament.state == d.TournamentState.FINISHED) {
         finalists = 0
@@ -83,21 +90,24 @@ export function standings(tournament: d.Tournament) {
     return res
 }
 
-export function score_string(score: d.Score, rank: number = undefined): string {
-    var res: string
+export function score_string(score: d.Score): string {
     if (score.gw) {
-        res = `${score.gw}GW${score.vp}`
+        return `${score.gw}GW${score.vp}`
     }
-    else if (score.vp > 1) {
-        res = `${score.vp}VPs`
+    if (score.vp > 1) {
+        return `${score.vp}VPs`
     }
-    else {
-        res = `${score.vp}VP`
+    return `${score.vp}VP`
+}
+
+
+export function full_score_string(player: d.Player, rank: number | undefined = undefined): string {
+    const score = score_string(player.result)
+    if (player.toss && player.toss > 0) {
+        return `${rank ?? player.seed}. ${score} (${player.result.tp}TPs, T: ${player.toss})`
+    } else {
+        return `${rank ?? player.seed}. ${score} (${player.result.tp}TPs)`
     }
-    if (rank) {
-        res = `${rank}. ${res} (${score.tp}TPs)`
-    }
-    return res
 }
 
 
@@ -382,7 +392,7 @@ export class TournamentDisplay {
                 { role: "button" }
             )
             download_button.innerHTML = '<i class="bi bi-download"></i> Download'
-            download_button.href = "data:application/yaml;charset=utf-8;base64," + window.btoa(stringify(tournament))
+            download_button.href = "data:application/yaml;charset=utf-8;base64," + Base64.encode(stringify(tournament))
             download_button.download = `${tournament.name}.txt`
         } else if (this.user_id && tournament.judges.includes(this.user_id)) {
             base.create_append(buttons_div, "a", ["btn", "btn-primary", "me-2", "mb-2"],
@@ -668,7 +678,7 @@ export class TournamentDisplay {
                             name_cls.push("bg-primary-subtle")
                         }
                         if (tournament.state == d.TournamentState.FINALS) {
-                            const seed_score = `${seat_player.seed.toString()} (${score_string(seat_player.result)})`
+                            const seed_score = full_score_string(seat_player)
                             base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = seed_score
                             base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
                         } else {
@@ -732,12 +742,12 @@ export class TournamentDisplay {
                 } else if (player.uid == this.user_id) {
                     classes.push("bg-primary-subtle")
                 }
-                base.create_append(tr, "th", classes, { scope: "row" }).innerText = rank
+                base.create_append(tr, "th", classes, { scope: "row" }).innerText = rank.toString()
                 base.create_append(tr, "td", classes).innerText = player.vekn
                 base.create_append(tr, "td", classes).innerText = player.name
                 base.create_append(tr, "td", classes).innerText = player.city
                 base.create_append(tr, "td", classes).innerText = player.country
-                base.create_append(tr, "td", classes).innerText = score_string(player.result, rank)
+                base.create_append(tr, "td", classes).innerText = full_score_string(player, rank)
             }
         }
     }
