@@ -7,6 +7,7 @@ import * as uuid from 'uuid'
 import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
 import { DateTime, DateTimeFormatOptions } from 'luxon'
+import QrScanner from 'qr-scanner'
 import { stringify } from 'yaml'
 import * as tempusDominus from '@eonasdan/tempus-dominus'
 import { biOneIcons } from '@eonasdan/tempus-dominus/dist/plugins/bi-one'
@@ -219,16 +220,67 @@ class DeckModal {
     }
 }
 
+class CheckInModal {
+    display: TournamentDisplay
+    tournament: d.Tournament
+    player_uid: string
+    round_number: number
+    modal_div: HTMLDivElement
+    video: HTMLVideoElement
+    modal: bootstrap.Modal
+    title: HTMLHeadingElement
+    qr_scanner: QrScanner
+    constructor(el: HTMLDivElement, display: TournamentDisplay) {
+        this.display = display
+        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "scoreModalLabel" }
+        )
+        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
+        const content = base.create_append(dialog, "div", ["modal-content"])
+        const header = base.create_append(content, "div", ["modal-header"])
+        this.title = base.create_append(header, "h1", ["modal-title", "fs-5"])
+        this.title.innerText = "Check-in"
+        base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
+        const body = base.create_append(content, "div", ["modal-body"])
+        const help_text = base.create_append(body, "p")
+        help_text.innerText = "Scan the Check-in QR Code"
+        this.video = base.create_append(body, "video", ["w-100"])
+        this.modal = new bootstrap.Modal(this.modal_div)
+        this.modal_div.addEventListener("shown.bs.modal", (ev) => {
+            this.qr_scanner = new QrScanner(
+                this.video,
+                async (result) => { console.log('decoded qr code:', result); await this.checkin(result.data) },
+                { highlightScanRegion: true },
+            )
+            this.qr_scanner.start()
+        })
+    }
+
+    async checkin(code: string) {
+        await this.display.checkin(this.tournament, this.player_uid, code)
+        this.qr_scanner.stop();
+        this.qr_scanner.destroy()
+        this.modal.hide()
+    }
+
+    show(tournament: d.Tournament, player: d.Player) {
+        this.tournament = tournament
+        this.player_uid = player.uid
+        this.modal.show()
+    }
+}
 
 export class TournamentDisplay {
     root: HTMLDivElement
     included: boolean
     score_modal: ScoreModal | undefined
     deck_modal: DeckModal | undefined
+    checkin_modal: CheckInModal | undefined
     countries: d.Country[]
     token: base.Token
     user_id: string
     members_map: member.MemberMap
+    alert: HTMLDivElement
     // form inputs
     name: HTMLInputElement
     format: HTMLSelectElement
@@ -237,6 +289,8 @@ export class TournamentDisplay {
     proxies_label: HTMLLabelElement
     multideck: HTMLInputElement
     multideck_label: HTMLLabelElement
+    decklist_required: HTMLInputElement
+    decklist_required_label: HTMLLabelElement
     online: HTMLInputElement
     venue: HTMLInputElement
     country: HTMLSelectElement
@@ -249,11 +303,12 @@ export class TournamentDisplay {
     description: HTMLTextAreaElement
     judges: Set<string>
     constructor(root: HTMLDivElement, included: boolean = false) {
-        this.root = root
+        this.root = base.create_append(root, "div")
         this.included = included
         if (!included) {
             this.score_modal = new ScoreModal(root, this)
             this.deck_modal = new DeckModal(root, this)
+            this.checkin_modal = new CheckInModal(root, this)
         }
     }
     async init(
@@ -279,15 +334,38 @@ export class TournamentDisplay {
             await this.members_map.init(token)
         }
     }
+    set_alert(message: string, level: d.AlertLevel) {
+        if (!this.alert) { return }
+        this.alert.innerText = message
+        this.alert.classList.remove("alert-info", "alert-success", "alert-warning", "alert-danger")
+        switch (level) {
+            case d.AlertLevel.INFO:
+                this.alert.classList.add("alert-info")
+                break;
+            case d.AlertLevel.SUCCESS:
+                this.alert.classList.add("alert-success")
+                break;
+            case d.AlertLevel.WARNING:
+                this.alert.classList.add("alert-warning")
+                break;
+            case d.AlertLevel.DANGER:
+                this.alert.classList.add("alert-sanger")
+                break;
+            default:
+                break;
+        }
+    }
     async display(tournament: d.Tournament) {
         base.remove_children(this.root)
+        if (!this.included) {
+            this.alert = base.create_append(this.root, "div", ["alert"], { role: "alert" })
+        }
         this.judges = new Set(tournament.judges)
         // ----------------------------------------------------------------------------------------------------- User ID
         if (this.user_id && Object.hasOwn(tournament.players, this.user_id)) {
             const player = tournament.players[this.user_id]
             if (player.state != d.PlayerState.FINISHED) {
-                const alert = base.create_append(this.root, "div", ["alert", "alert-success"], { role: "alert" })
-                alert.innerText = "You are registered for this tournament"
+                this.set_alert("You are registered for this tournament", d.AlertLevel.SUCCESS)
             }
         }
         // ------------------------------------------------------------------------------------------------------- Title
@@ -379,6 +457,11 @@ export class TournamentDisplay {
             ).innerText = "Multideck"
         } else {
             base.create_append(badges_div, "span", ["me-2", "mb-2", "badge", "bg-secondary"]).innerText = "Single Deck"
+        }
+        if (tournament.decklist_required) {
+            base.create_append(badges_div, "span",
+                ["me-2", "mb-2", "badge", "bg-info", "text-dark"]
+            ).innerText = "Decklist required"
         }
         // ------------------------------------------------------------------------------------------------- Date & Time
         const datetime_div = base.create_append(this.root, "div", ["d-md-flex", "mb-2"])
@@ -517,41 +600,50 @@ export class TournamentDisplay {
                     deck_link.href = player.deck.vdb_link
                 }
                 if (tournament.state == d.TournamentState.WAITING && player.state == d.PlayerState.REGISTERED) {
-                    const message = base.create_append(this.root, "p")
-                    message.innerText = (
-                        "You need to check in to play the next round. If you do not check in, you won't be seated."
+                    this.set_alert(
+                        "You need to check in to play the next round. If you do not check in, you won't be seated.",
+                        d.AlertLevel.WARNING
                     )
-                    const checkin_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"])
+                    const tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
+                    const checkin_button = base.create_append(tooltip_span, "button", ["btn", "btn-primary", "me-2"])
                     checkin_button.innerText = "Check In"
-                    checkin_button.addEventListener("click", (ev) => this.checkin(tournament, this.user_id))
+                    checkin_button.addEventListener("click", (ev) => this.checkin_modal.show(tournament, player))
                     if (player.barriers.length > 0) {
                         checkin_button.disabled = true
                         var tooltip: string
                         switch (player.barriers[0]) {
                             case d.Barrier.BANNED:
                                 tooltip = "You have been banned from tournament play"
+                                this.set_alert(tooltip, d.AlertLevel.DANGER)
                                 break;
                             case d.Barrier.DISQUALIFIED:
-                                tooltip = "You have been banned disqualified"
+                                tooltip = "You have been disqualified"
+                                this.set_alert(tooltip, d.AlertLevel.DANGER)
                                 break;
                             case d.Barrier.MAX_ROUNDS:
                                 tooltip = "You have played the maximum number of rounds"
+                                this.set_alert(tooltip, d.AlertLevel.INFO)
                                 break;
                             case d.Barrier.MISSING_DECK:
-                                tooltip = "You must record your deck list first"
+                                tooltip = "You must record your deck list"
+                                this.set_alert(tooltip, d.AlertLevel.WARNING)
                                 break;
                         }
-                        base.add_tooltip(checkin_button, tooltip)
+                        base.add_tooltip(tooltip_span, tooltip)
                     } else {
                         checkin_button.disabled = false
                     }
+                }
+                else if (player.state == d.PlayerState.CHECKED_IN) {
+                    this.set_alert(`You are ready to play round ${current_round + 1}`, d.AlertLevel.SUCCESS)
                 }
                 else if (player.state == d.PlayerState.PLAYING) {
                     const player_table = tournament.rounds[current_round - 1].tables[player.table - 1]
                     const table_div = base.create_append(this.root, "div")
                     if (tournament.state == d.TournamentState.FINALS) {
-                        status_title.innerText += ` — You play the finals`
+                        this.set_alert("You play the finals", d.AlertLevel.SUCCESS)
                     } else {
+                        this.set_alert(`You play on table ${player.table}, seat ${player.seat}`, d.AlertLevel.SUCCESS)
                         status_title.innerText += ` — Your table: Table ${player.table}`
                     }
                     const table = base.create_append(table_div, "table", ["table"])
@@ -669,13 +761,17 @@ export class TournamentDisplay {
         const response = await res.json()
         console.log(response)
         await this.display(response)
+        return response
     }
-    async checkin(tournament: d.Tournament, user_id: string) {
+    async checkin(tournament: d.Tournament, user_id: string, code: string | undefined = undefined) {
         const tev = {
             uid: uuid.v4(),
             type: events.EventType.CHECK_IN,
             player_uid: user_id,
         } as events.CheckIn
+        if (code) {
+            tev.code = code
+        }
         await this.handle_tournament_event(tournament.uid, tev)
     }
     async set_score(tournament: d.Tournament, player_uid: string, round_number: number, score: number) {
@@ -695,7 +791,16 @@ export class TournamentDisplay {
             player_uid: player_uid,
             deck: deck,
         } as events.SetDeck
-        await this.handle_tournament_event(tournament.uid, tev)
+        const ret = await this.handle_tournament_event(tournament.uid, tev)
+        if (ret) {
+            const alert = base.create_prepend(this.root, "div",
+                ["alert", "alert-warning", "alert-dismissible", "fade", "show"],
+                { role: "alert" }
+            )
+            base.create_prepend(alert, "i", ["bi", "bi-exclamation-triangle-fill"])
+            alert.innerText = "A snapshot of your deck has been saved. If you change it, you need to upload it anew."
+            base.create_append(alert, "button", ["btn-close"], { "data-bs-dismiss": "alert", "aria-label": "Close" })
+        }
     }
     async register(tournament: d.Tournament, member: d.Member) {
         const tev = {
@@ -809,6 +914,29 @@ export class TournamentDisplay {
                 this.multideck.disabled = true
             }
             this.multideck.addEventListener("change", (ev) => this.switch_multideck())
+        }
+        { // decklist
+            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
+            this.decklist_required = base.create_append(field_div, "input", ["form-check-input"],
+                { type: "checkbox", name: "decklist_required", id: "switchDecklistRequired" }
+            )
+            this.decklist_required_label = base.create_append(field_div, "label", ["form-check-label"],
+                { for: "switchDecklistRequired" }
+            )
+            if (!tournament || tournament.decklist_required) {
+                this.decklist_required.checked = true
+                this.decklist_required_label.innerText = "Decklist required"
+            } else {
+                this.decklist_required.checked = false
+                this.decklist_required_label.innerText = "Decklist optional"
+            }
+            if (this.multideck.checked) {
+                this.decklist_required.checked = false
+                this.decklist_required.disabled = true
+                this.decklist_required_label.innerText = "Decklist optional"
+            }
+            this.decklist_required.addEventListener("change", (ev) => this.switch_decklist_required())
         }
         // filler
         base.create_append(form, "div", ["w-100"])
@@ -1112,12 +1240,22 @@ export class TournamentDisplay {
         // Label change between "Multideck" / "Single deck"
         if (this.multideck.checked) {
             this.multideck_label.innerText = "Multideck"
+            this.decklist_required.checked = false
+            this.decklist_required.disabled = true
+            this.decklist_required.dispatchEvent(new Event('change', { bubbles: true }))
         }
         else {
             this.multideck_label.innerText = "Single deck"
+            this.decklist_required.disabled = false
         }
     }
-
+    switch_decklist_required() {
+        if (this.decklist_required.checked) {
+            this.decklist_required_label.innerText = "Decklist required"
+        } else {
+            this.decklist_required_label.innerText = "Decklist optional"
+        }
+    }
     switch_online() {
         // No physical venue for online tournaments, pre-fill venue name and URL with official discord
         if (this.online.checked) {
@@ -1152,8 +1290,15 @@ export class TournamentDisplay {
         const tournamentForm = ev.currentTarget as HTMLFormElement
         const data = new FormData(tournamentForm)
         var json_data = Object.fromEntries(data.entries()) as unknown as d.TournamentConfig
+        // fix fields that need some fixing
         if (json_data.finish.length < 1) { json_data.finish = undefined }
         json_data.judges = [...this.judges.values()]
+        // checkboxes are "on" if checked, non-listed otherwise - do it by hand
+        json_data.multideck = this.multideck.checked
+        json_data.proxies = this.proxies.checked
+        json_data.online = this.online.checked
+        json_data.decklist_required = this.decklist_required.checked
+        console.log("submitting data", json_data)
         var url = "/api/tournaments/"
         var method = "post"
         if (tournament) {

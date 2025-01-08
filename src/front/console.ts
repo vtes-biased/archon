@@ -429,6 +429,7 @@ class Registration {
     panel: HTMLDivElement
     toast_container: HTMLDivElement
     action_row: HTMLDivElement
+    self_checkin: HTMLInputElement
     register_element: member.PersonLookup<d.Member>
     filter_switch: HTMLInputElement
     filter_label: HTMLLabelElement
@@ -485,15 +486,9 @@ class Registration {
         this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label"],
             { for: "filterSwitch" }
         )
-        if (this.console.tournament.state == d.TournamentState.WAITING) {
-            this.filter = PlayerFilter.UNCHECKED
-            this.filter_switch.checked = true
-            this.filter_label.innerText = "Filter checked-in players out"
-        } else {
-            this.filter = PlayerFilter.ALL
-            this.filter_switch.checked = false
-            this.filter_label.innerText = "All players"
-        }
+        this.filter = PlayerFilter.ALL
+        this.filter_switch.checked = false
+        this.filter_label.innerText = "All players"
         this.filter_switch.addEventListener("change", (ev) => this.toggle_filter())
         this.players_table = base.create_append(table_div, "table", ["table"])
         const head = base.create_append(this.players_table, "thead")
@@ -614,6 +609,10 @@ class Registration {
             button.addEventListener("click", (ev) => { this.console.open_checkin() })
         }
         else if (this.console.tournament.state == d.TournamentState.WAITING) {
+            const checkin_code = base.create_append(this.action_row, "a", ["me-2", "btn", "btn-primary"])
+            checkin_code.innerText = "Display Check-in code"
+            checkin_code.href = `/tournament/${this.console.tournament.uid}/checkin.html`
+            checkin_code.target = "_blank"
             const checkin_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-primary"])
             checkin_button.innerText = "Check everyone in"
             checkin_button.addEventListener("click", (ev) => { this.console.check_everyone_in() })
@@ -663,11 +662,19 @@ class Registration {
         var icon: string
         switch (level) {
             case d.AlertLevel.INFO:
-                background = "bg-primary-subtle"
+                background = "bg-info-subtle"
+                icon = '<i class="bi bi-info-circle-fill"></i>'
+                break;
+            case d.AlertLevel.SUCCESS:
+                background = "bg-success-subtle"
                 icon = '<i class="bi bi-info-circle-fill"></i>'
                 break;
             case d.AlertLevel.WARNING:
                 background = "bg-warning-subtle"
+                icon = '<i class="bi bi-exclamation-circle-fill"></i>'
+                break;
+            case d.AlertLevel.DANGER:
+                background = "bg-danger-subtle"
                 icon = '<i class="bi bi-exclamation-circle-fill"></i>'
                 break;
         }
@@ -1279,7 +1286,7 @@ class TournamentConsole {
         }
         if (this.tournament.state == d.TournamentState.PLAYING) {
             this.tabs.get(`Round ${this.rounds.length}`).show()
-        } else if (this.rounds.length) {
+        } else if (this.rounds.length || this.tournament.state == d.TournamentState.WAITING) {
             this.tabs.get("Registration").show()
         } else {
             this.tabs.get("Info").show()
@@ -1482,6 +1489,7 @@ class TournamentConsole {
             type: events.EventType.CHECK_IN,
             uid: uuid.v4(),
             player_uid: player_uid,
+            code: undefined,
         }
         await this.handle_tournament_event(event)
     }

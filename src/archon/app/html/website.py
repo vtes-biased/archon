@@ -263,3 +263,21 @@ async def tournament_console(
         name="tournament/console.html.j2",
         context=context,
     )
+
+
+@router.get("/tournament/{uid}/checkin.html")
+async def tournament_display(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    tournament: dependencies.Tournament,
+    member_uid: dependencies.MemberUidFromSession,
+):
+    if member_uid not in tournament.judges:
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    context["name"] = tournament.name
+    context["code"] = tournament.checkin_code
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="tournament/checkin.html.j2",
+        context=context,
+    )

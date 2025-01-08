@@ -62,7 +62,8 @@ export interface OpenCheckin extends Event {
 
 export interface CheckIn extends Event {
     type: EventType.CHECK_IN,
-    player_uid: string
+    player_uid: string,
+    code: string | undefined,
 }
 
 export interface CheckEveryoneIn extends Event {

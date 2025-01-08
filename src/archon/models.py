@@ -2,6 +2,7 @@ import datetime
 import enum
 import uuid
 import pydantic
+import secrets
 from pydantic import dataclasses
 
 from . import events
@@ -182,6 +183,7 @@ class TournamentConfig:
     online: bool = False
     proxies: bool = False
     multideck: bool = False
+    decklist_required: bool = True
     finish: datetime.datetime | None = None
     description: str = ""
     max_rounds: int = 0
@@ -191,12 +193,17 @@ class TournamentConfig:
 class Tournament(TournamentConfig):
     # active tournament console
     # # For now, rounds[-1] is always current.
-    # # This might come back to bite us for staggered tournament, but let's try to avoid it.
+    # # This might come back to bite us for staggered tournament,
+    # # but let's try to avoid it.
     # current_round: int = 0
     limited: LimitedFormat | None = None
+    checkin_code: str = pydantic.Field(
+        default_factory=lambda: secrets.token_urlsafe(16)
+    )
     state: TournamentState = TournamentState.REGISTRATION
     # note the doc is not great for this kind of dict, keys show as "additionalProp".
-    # Might be improved in a future version of redoc https://github.com/swagger-api/swagger-ui/pull/9739
+    # Might be improved in a future version of redoc
+    # https://github.com/swagger-api/swagger-ui/pull/9739
     players: dict[str, Player] = pydantic.Field(default_factory=dict)
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[Round] = pydantic.Field(default_factory=list)

@@ -30,7 +30,9 @@ export enum Barrier {
 
 export enum AlertLevel {
     INFO = "Info",
+    SUCCESS = "Success",
     WARNING = "Warning",
+    DANGER = "Danger",
 }
 
 export interface Score {
@@ -169,6 +171,7 @@ export interface TournamentConfig {
     online?: boolean,
     proxies?: boolean,
     multideck?: boolean,
+    decklist_required?: boolean,
     finish?: string,
     description?: string,
     judges?: string[],
@@ -178,6 +181,7 @@ export interface Tournament extends TournamentConfig {
     // active tournament console
     // current_round: number,
     limited: LimitedFormat | undefined,
+    checkin_code: boolean,
     state: TournamentState,
     players: Record<string, Player>,
     finals_seeds: string[],

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    {% block head %}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="VTES Archon tournament check-in">
+    <link rel="shortcut icon" href="{{ url_for('img', path='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='layout.css') }}">
+    <script async src="{{ url_for('static', path='checkin.js') }}" type="module"></script>
+    <title>Tournament Check-in</title>
+    {% endblock %}
+</head>
+
+<body>
+    <div class="container" id="contentContainer" data-code="{{ code }}">
+        <h1 id="title">Check-in for: {{ name }}</h1>
+    </div>
+</body>
+
+</html>

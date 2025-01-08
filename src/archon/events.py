@@ -72,6 +72,7 @@ class OpenCheckin(Event):
 class CheckIn(Event):
     type: typing.Literal[EventType.CHECK_IN]
     player_uid: str
+    code: str = ""
 
 
 @dataclasses.dataclass(kw_only=True)
