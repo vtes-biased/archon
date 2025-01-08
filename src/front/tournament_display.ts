@@ -373,23 +373,21 @@ export class TournamentDisplay {
             base.create_append(this.root, "h1", ["mb-2"]).innerText = tournament.name
         }
         // ----------------------------------------------------------------------------------------------------- Buttons
-        if (this.included || (this.user_id && tournament.judges.includes(this.user_id))) {
-            const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
-            if (this.included) {
-                const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
-                edit_button.innerText = "Edit"
-                edit_button.addEventListener("click", (ev) => this.display_form(tournament))
-            } else if (this.user_id && tournament.judges.includes(this.user_id)) {
-                base.create_append(buttons_div, "a", ["btn", "btn-primary", "me-2", "mb-2"],
-                    { href: `/tournament/${tournament.uid}/console.html` }
-                ).innerText = "Console"
-            }
+        const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
+        if (this.included) {
+            const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
+            edit_button.innerText = "Edit"
+            edit_button.addEventListener("click", (ev) => this.display_form(tournament))
             const download_button = base.create_append(buttons_div, "a", ["btn", "btn-primary", "mb-2"],
                 { role: "button" }
             )
             download_button.innerHTML = '<i class="bi bi-download"></i> Download'
-            download_button.href = "data:application/yaml;charset=utf-8," + stringify(tournament)
+            download_button.href = "data:application/yaml;charset=utf-8;base64," + window.btoa(stringify(tournament))
             download_button.download = `${tournament.name}.txt`
+        } else if (this.user_id && tournament.judges.includes(this.user_id)) {
+            base.create_append(buttons_div, "a", ["btn", "btn-primary", "me-2", "mb-2"],
+                { href: `/tournament/${tournament.uid}/console.html` }
+            ).innerText = "Console"
         }
         // ------------------------------------------------------------------------------------------------------ Badges
         const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
