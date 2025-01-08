@@ -85,9 +85,9 @@ async def get_members() -> None:
                             models.Member(
                                 vekn=data["veknid"],
                                 name=data["firstname"] + " " + data["lastname"],
-                                country=data["countryname"] or None,
-                                state=data["statename"] or None,
-                                city=data["city"] or None,
+                                country=data["countryname"] or "",
+                                state=data["statename"] or "",
+                                city=data["city"] or "",
                             )
                             for data in players
                         ]

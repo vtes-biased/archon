@@ -59,8 +59,8 @@ class Register(Event):
     name: str
     vekn: str = ""
     player_uid: str = pydantic.Field(default_factory=uuid_str)
-    country: str = ""
-    city: str = ""
+    country: str | None = ""
+    city: str | None = ""
 
 
 @dataclasses.dataclass(kw_only=True)

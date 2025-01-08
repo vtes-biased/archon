@@ -1479,8 +1479,8 @@ class TournamentConsole {
             name: member.name,
             vekn: member.vekn,
             player_uid: member.uid,
-            country: member.country,
-            city: member.city,
+            country: member.country ?? "",
+            city: member.city ?? "",
         }
         await this.handle_tournament_event(event)
     }

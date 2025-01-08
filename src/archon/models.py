@@ -42,8 +42,8 @@ class Person:
     name: str
     vekn: str = ""
     uid: str = pydantic.Field(default_factory=uuid.uuid4)
-    country: str | None = None  # country name
-    city: str | None = None  # city name
+    country: str | None = ""  # country name
+    city: str | None = ""  # city name
 
 
 @dataclasses.dataclass
