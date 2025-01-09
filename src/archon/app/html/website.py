@@ -19,6 +19,10 @@ def jsonable(obj: typing.Any) -> typing.Any:
     return fastapi.encoders.jsonable_encoder(obj)
 
 
+def country_with_flag(country_name: str) -> str:
+    return dependencies.STATIC_DATA.get_county_flag(country_name) + " " + country_name
+
+
 def __init_templates() -> fastapi.templating.Jinja2Templates:
     """Initialize Jinja2 templates engine"""
     with importlib.resources.path("archon", "templates") as templates:
@@ -26,6 +30,7 @@ def __init_templates() -> fastapi.templating.Jinja2Templates:
             directory=templates, extensions=["jinja2.ext.i18n"]
         )
         templates.env.filters["jsonable"] = jsonable
+        templates.env.filters["country_with_flag"] = country_with_flag
         return templates
 
 
@@ -149,9 +154,25 @@ async def html_vekn_abandon(
     return fastapi.responses.RedirectResponse(request.url_for("profile"))
 
 
+@router.get("/")
+async def root(request: fastapi.Request):
+    return fastapi.responses.RedirectResponse(request.url_for("index"))
+
+
 @router.get("/index.html")
-async def index(request: fastapi.Request, context: dependencies.SessionContext):
+async def index(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    op: dependencies.DbOperator,
+):
     request.session["next"] = str(request.url_for("index"))
+    members: list[models.Member] = await op.get_members()
+    members.sort(key=lambda x: -x.ranking.constructed_onsite)
+    members = [m for m in members[:1000] if m.ranking.constructed_onsite > 0]
+    if "member" not in context:
+        for member in members:
+            member.name = ""
+    context["members"] = members
     return TEMPLATES.TemplateResponse(
         request=request, name="index.html.j2", context=context
     )

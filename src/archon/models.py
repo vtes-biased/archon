@@ -278,6 +278,14 @@ class RegisteredSanction(Sanction):
     tournament_timezone: str
 
 
+@dataclasses.dataclass(kw_only=True)
+class Ranking:
+    constructed_onsite: int = 0
+    constructed_online: int = 0
+    limited_onsite: int = 0
+    limited_online: int = 0
+
+
 @dataclasses.dataclass
 class Member(Person):
     nickname: str | None = None  # player nickname (on social, lackey, etc.)
@@ -286,6 +294,7 @@ class Member(Person):
     state: str | None = None  # state/region name
     discord: DiscordUser | None = None  # Discord data
     sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
+    ranking: Ranking = pydantic.Field(default_factory=Ranking)
 
 
 @dataclasses.dataclass

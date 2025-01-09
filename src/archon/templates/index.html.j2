@@ -1,5 +1,33 @@
 {% extends "layout.html.j2" %}
 
 {% block content %}
-<div>Welcome!</div>
+<h2>World ranking</h2>
+{%if not member%}
+<div class="alert alert-info">
+    Only members can see other members names.
+    Please <a href="{{ url_for('login') }}">login</a>.
+</div>
+{%endif%}
+<table class="table table-striped">
+    <thead>
+        <tr class="align-middle">
+            <th scope="col">Rank</th>
+            <th scope="col">VEKN</th>
+            <th scope="col">Name</th>
+            <th scope="col">Country</th>
+            <th scope="col">Points</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in members %}
+        <tr>
+            <th scope="row">{{ loop.index }}</th>
+            <td>{{ m.vekn }}</td>
+            <td>{{ m.name }}</td>
+            <td>{{ m.country | country_with_flag }}</td>
+            <td>{{ m.ranking.constructed_onsite }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endblock %}
