@@ -116,14 +116,14 @@ export class PersonLookup<Type extends d.Person> {
         }
         const vekn_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
         this.input_vekn_id = base.create_append(vekn_div, "input", ["form-control"],
-            { type: "text", placeholder: "VEKN ID number", autocomplete: "off", form: form_uid }
+            { type: "text", placeholder: "VEKN ID number", autocomplete: "off", form: form_uid, name: "new-vekn-id" }
         )
         this.input_vekn_id.ariaAutoComplete = "none"
         this.input_vekn_id.spellcheck = false
 
         const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2", "dropdown"])
         this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"],
-            { type: "text", placeholder: "Name", autocomplete: "off", form: form_uid }
+            { type: "text", placeholder: "Name", autocomplete: "off", form: form_uid, name: "new-name" }
         )
         this.input_name.ariaAutoComplete = "none"
         this.input_name.spellcheck = false

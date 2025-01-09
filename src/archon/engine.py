@@ -136,7 +136,9 @@ class TournamentManager(models.Tournament):
         for i, table in enumerate(self.rounds[ev.round - 1].tables):
             table.override = overrides.pop(i, None)
             for seat in table.seating:
-                seat.result, seat.deck = results.pop(seat.player_uid, scoring.Score())
+                seat.result, seat.deck = results.pop(
+                    seat.player_uid, (scoring.Score(), None)
+                )
             finals = False
             if self.state in [
                 models.TournamentState.FINALS,

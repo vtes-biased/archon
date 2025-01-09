@@ -30,7 +30,7 @@ class PlayerSelectModal {
         this.header.innerText = title
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.body = base.create_append(content, "div", ["modal-body"])
-        this.select = base.create_append(this.body, "select", ["form-select"], { size: "10" })
+        this.select = base.create_append(this.body, "select", ["form-select"], { size: "10", name: "select-player" })
         this.players = new Map()
         this.modal = new bootstrap.Modal(this.modal_div)
     }
@@ -99,15 +99,17 @@ class AddMemberModal {
         this.body = base.create_append(content, "div", ["modal-body"])
         this.form = base.create_append(this.body, "form")
         this.name = base.create_append(this.form, "input", ["form-control", "my-2"],
-            { type: "text", autocomplete: "new-name" }
+            { type: "text", autocomplete: "new-name", name: "new-name" }
         )
         this.name.ariaAutoComplete = "none"
         this.name.spellcheck = false
         this.name.placeholder = "Name"
-        this.country = base.create_append(this.form, "select", ["form-select", "my-2"])
-        this.city = base.create_append(this.form, "select", ["form-select", "my-2"])
+        this.country = base.create_append(this.form, "select", ["form-select", "my-2"],
+            { name: "country", autocomplete: "none" }
+        )
+        this.city = base.create_append(this.form, "select", ["form-select", "my-2"], { name: "city" })
         this.email = base.create_append(this.form, "input", ["form-control", "my-2"],
-            { type: "text", autocomplete: "new-email" }
+            { type: "text", autocomplete: "new-email", name: "new-email" }
         )
         this.email.placeholder = "E-mail"
         this.email.ariaAutoComplete = "none"
@@ -254,7 +256,7 @@ class SanctionPlayerModal {
         // Add existing sanctions in display()
         this.form = base.create_append(this.body, "form")
         this.comment = base.create_append(this.form, "textarea", ["form-control", "my-2"],
-            { type: "text", autocomplete: "new-comment", rows: 3, maxlength: 500 }
+            { type: "text", autocomplete: "new-comment", rows: 3, maxlength: 500, name: "new-comment" }
         )
         this.comment.ariaAutoComplete = "none"
         this.comment.spellcheck = false
@@ -528,7 +530,8 @@ class SeedFinalsModal {
         var toss_basket: d.Player[]
         for (const [rank, player] of standings(this.console.tournament, this.players)) {
             const row = base.create_append(this.players_table_body, "tr")
-            base.create_append(row, "td", ["text-nowrap"]).innerHTML = full_score_string(player, rank)
+            const score_cell = base.create_append(row, "td", ["text-nowrap", "d-flex", "align-items-center"])
+            score_cell.innerHTML = full_score_string(player, rank)
             const toss_cel = base.create_append(row, "td", ["text-nowrap"])
             const toss = base.create_append(toss_cel, "input", ["border", "form-control-sm"],
                 { type: "number", min: "0", max: "5", placeholder: "0" }
@@ -635,12 +638,12 @@ class Registration {
     register_element: member.PersonLookup<d.Member>
     filter_switch: HTMLInputElement
     filter_label: HTMLLabelElement
+    players_count: HTMLDivElement
     players_table: HTMLTableElement
     players_table_body: HTMLTableSectionElement
     filter: PlayerFilter
     order: PlayerOrder
     constructor(console_: TournamentConsole) {
-        console.log("build registration")
         this.console = console_
         this.filter = PlayerFilter.ALL
         if (this.console.tournament.rounds.length > 0) {
@@ -659,7 +662,6 @@ class Registration {
             this.console.members_map, registration_controls, "Register", true
         )
         this.register_element.form.addEventListener("submit", (ev) => { this.add_player(ev) })
-        console.log("adding member button")
         const add_member_button = base.create_append(
             registration_controls, "button", ["btn", "btn-primary", "me-2", "mb-2"], { type: "button" }
         )
@@ -682,7 +684,7 @@ class Registration {
             button.addEventListener("click", (ev) => { this.order = sort_type; this.display() })
         }
         bootstrap.Dropdown.getOrCreateInstance(order_dropdown)
-        const filter_switch_div = base.create_append(table_controls, "div", ["form-check", "form-switch"])
+        const filter_switch_div = base.create_append(table_controls, "div", ["form-check", "form-switch", "me-4"])
         this.filter_switch = base.create_append(filter_switch_div, "input", ["form-check-input"],
             { type: "checkbox", role: "switch", id: "filterSwitch" }
         )
@@ -694,6 +696,7 @@ class Registration {
         this.filter_switch.checked = false
         this.filter_label.innerText = "All players"
         this.filter_switch.addEventListener("change", (ev) => this.toggle_filter())
+        this.players_count = base.create_append(table_controls, "div")
         this.players_table = base.create_append(table_div, "table", ["table"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
@@ -749,13 +752,14 @@ class Registration {
     display() {
         base.remove_children(this.players_table_body)
         const players = this.sorted_players()
+        this.players_count.innerText = `${players.length} players`
         for (const [rank, player] of players) {
             const row = base.create_append(this.players_table_body, "tr")
             const head = base.create_append(row, "th", ["text-nowrap"], { scope: "row" })
             head.innerText = player.vekn
             const name = base.create_append(row, "td", ["w-100"])
             name.innerText = player.name
-            const score = base.create_append(row, "td", ["text-nowrap"])
+            const score = base.create_append(row, "td", ["text-nowrap", "d-flex", "align-items-center"])
             score.innerHTML = full_score_string(player, rank)
             const state = base.create_append(row, "td", ["text-nowrap"])
             state.innerText = player.state
@@ -1019,18 +1023,17 @@ class RoundTab {
         this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
         {
             this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn"])
-            var tooltip: bootstrap.Tooltip
             if (this.finals) {
                 this.reseat_button.classList.add("btn-primary")
-                tooltip = base.add_tooltip(this.reseat_button,
+                const tooltip = base.add_tooltip(this.reseat_button,
                     "Use after seating procedure to record the finals seating"
                 )
+                this.reseat_button.addEventListener("click", (ev) => tooltip.dispose())
             } else {
                 this.reseat_button.classList.add("btn-warning")
             }
             this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
             this.reseat_button.addEventListener("click", (ev) => {
-                if (tooltip) { tooltip.hide() }
                 this.start_reseat()
             })
         }
@@ -1174,7 +1177,8 @@ class RoundTab {
     ): HTMLTableCellElement {
         row.dataset.player_uid = player.uid
         if (this.finals) {
-            base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerHTML = full_score_string(player)
+            const score_cell = base.create_append(row, "td", ["text-nowrap", "d-flex", "align-items-center"])
+            score_cell.innerHTML = full_score_string(player)
             base.create_append(row, "td", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         } else {
             base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
@@ -1497,7 +1501,6 @@ class TournamentConsole {
     registration: Registration
     rounds: RoundTab[]
     constructor(el: HTMLDivElement, token: base.Token) {
-        console.log("build conole")
         this.root = el
         this.token = token
         this.members_map = new member.MemberMap()
@@ -1536,19 +1539,20 @@ class TournamentConsole {
             const round_tab = new RoundTab(this, i + 1, finals)
             this.rounds.push(round_tab)
         }
-        if (this.tournament.state == d.TournamentState.PLAYING) {
-            this.tabs.get(`Round ${this.rounds.length}`).show()
-        } else if (this.rounds.length || this.tournament.state == d.TournamentState.WAITING) {
-            this.tabs.get("Registration").show()
-        } else {
-            this.tabs.get("Info").show()
-        }
         await this.members_map.init(this.token)
         { // init countries in components using them
             const res = await base.do_fetch("/api/vekn/country", {})
             const countries = await res.json() as d.Country[]
             await this.add_member_modal.init(countries)
             await this.info.init(this.token, this.members_map, countries)
+        }
+        await this.display()
+        if (this.tournament.state == d.TournamentState.PLAYING) {
+            this.tabs.get(`Round ${this.rounds.length}`).show()
+        } else if (this.rounds.length || this.tournament.state == d.TournamentState.WAITING) {
+            this.tabs.get("Registration").show()
+        } else {
+            this.tabs.get("Info").show()
         }
     }
 
@@ -1858,7 +1862,6 @@ async function load() {
     const token = await base.fetchToken()
     const tournament = new TournamentConsole(consoleDiv, token)
     await tournament.init(consoleDiv.dataset.tournamentUid)
-    await tournament.display()
 }
 
 window.addEventListener("load", (ev) => { load() })

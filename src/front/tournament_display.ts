@@ -104,9 +104,9 @@ export function score_string(score: d.Score): string {
 export function full_score_string(player: d.Player, rank: number | undefined = undefined): string {
     const score = score_string(player.result)
     if (player.toss && player.toss > 0) {
-        return `<strong>${rank ?? player.seed}.</strong> ${score} <span class="badge text-bg-secondary">${player.result.tp}TPs, T: ${player.toss}</span>`
+        return `<strong>${rank ?? player.seed}.</strong> <div class="flex-fill mx-2">${score}</div> <span class="badge text-bg-secondary">${player.result.tp}TPs, T: ${player.toss}</span>`
     } else {
-        return `<strong>${rank ?? player.seed}.</strong> ${score} <span class="badge text-bg-secondary">${player.result.tp}TPs</span>`
+        return `<strong>${rank ?? player.seed}.</strong> <div class="flex-fill mx-2">${score}</div> <span class="badge text-bg-secondary">${player.result.tp}TPs</span>`
     }
 }
 
@@ -698,8 +698,9 @@ export class TournamentDisplay {
                             name_cls.push("bg-primary-subtle")
                         }
                         if (tournament.state == d.TournamentState.FINALS) {
-                            const seed_score = full_score_string(seat_player)
-                            base.create_append(row, "th", cell_cls, { scope: "row" }).innerHTML = seed_score
+                            base.create_append(row, "th", cell_cls.concat(["d-flex", "align-items-center"]),
+                                { scope: "row" }
+                            ).innerHTML = full_score_string(seat_player)
                             base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
                         } else {
                             base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = (idx + 1).toString()
@@ -756,7 +757,7 @@ export class TournamentDisplay {
             const tbody = base.create_append(table, "tbody")
             for (const [rank, player] of standings(tournament)) {
                 const tr = base.create_append(tbody, "tr")
-                const classes = []
+                const classes = ["text-nowrap"]
                 if (rank == 1 && tournament.state == d.TournamentState.FINISHED) {
                     classes.push("bg-warning-subtle")
                 } else if (player.uid == this.user_id) {
@@ -767,7 +768,7 @@ export class TournamentDisplay {
                 base.create_append(tr, "td", classes).innerText = player.name
                 base.create_append(tr, "td", classes).innerText = player.city
                 base.create_append(tr, "td", classes).innerText = player.country
-                base.create_append(tr, "td", classes).innerHTML = full_score_string(player, rank)
+                base.create_append(tr, "td", classes).innerHTML = score_string(player.result)
             }
         }
     }
