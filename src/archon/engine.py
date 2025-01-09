@@ -148,7 +148,7 @@ class TournamentManager(models.Tournament):
             self._compute_table_score(table, finals=finals)
             self._compute_table_state(table)
         # remove previous result for players who are removed from the new seating
-        for uid, result in results.items():
+        for uid, (result, _) in results.items():
             self.players[uid].result -= result
 
     def round_finish(self, ev: events.RoundFinish, member_uid: str) -> None:
