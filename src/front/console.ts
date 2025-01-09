@@ -292,7 +292,9 @@ class SanctionPlayerModal {
         this.cancel_button.addEventListener("click", (ev) => { this.member = null; this.modal.hide() })
         this.modal = new bootstrap.Modal(this.modal_div)
         this.modal_div.addEventListener("hide.bs.modal", (ev) => {
-            this.qr_scanner.stop()
+            if (this.qr_scanner) {
+                this.qr_scanner.stop()
+            }
             this.video.hidden = true
             this.qr_button.disabled = false
         })
@@ -500,7 +502,8 @@ class SeedFinalsModal {
             { type: "button" }
         )
         this.toss_button.innerHTML = `<i class="bi bi-coin"></i> Toss`
-        this.toss_button.addEventListener("click", (ev) => { ev.preventDefault(); this.do_toss() })
+        const tooltip = base.add_tooltip(this.toss_button, "Toss to break ties")
+        this.toss_button.addEventListener("click", (ev) => { ev.preventDefault(); tooltip.hide(); this.do_toss() })
         this.to_toss = []
         this.modal = new bootstrap.Modal(this.modal_div)
     }
@@ -661,7 +664,8 @@ class Registration {
             registration_controls, "button", ["btn", "btn-primary", "me-2", "mb-2"], { type: "button" }
         )
         add_member_button.innerText = "New member"
-        add_member_button.addEventListener("click", (ev) => this.console.add_member_modal.show())
+        const tooltip = base.add_tooltip(add_member_button, "Add a new VEKN member: check they do not exist first")
+        add_member_button.addEventListener("click", (ev) => { tooltip.hide(); this.console.add_member_modal.show() })
         const table_div = base.create_append(this.panel, "div", ["my-4"])
         const table_controls = base.create_append(table_div, "div", ["d-flex", "align-items-center"])
         const order_dropdown = base.create_append(table_controls, "div", ["dropdown", "me-4"])
@@ -682,6 +686,7 @@ class Registration {
         this.filter_switch = base.create_append(filter_switch_div, "input", ["form-check-input"],
             { type: "checkbox", role: "switch", id: "filterSwitch" }
         )
+        base.add_tooltip(this.filter_switch, "Filter")
         this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label"],
             { for: "filterSwitch" }
         )
@@ -805,20 +810,23 @@ class Registration {
         if (this.console.tournament.state == d.TournamentState.REGISTRATION) {
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = "Open Check-In"
-            button.addEventListener("click", (ev) => { this.console.open_checkin() })
+            const tooltip = base.add_tooltip(button, "Start listing present players")
+            button.addEventListener("click", (ev) => { tooltip.hide(); this.console.open_checkin() })
         }
         else if (this.console.tournament.state == d.TournamentState.WAITING) {
             const checkin_code = base.create_append(this.action_row, "a", ["me-2", "btn", "btn-primary"])
             checkin_code.innerText = "Display Check-in code"
             checkin_code.href = `/tournament/${this.console.tournament.uid}/checkin.html`
             checkin_code.target = "_blank"
+            base.add_tooltip(checkin_code, "Display the QR code players can scan to check in")
             const checkin_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-primary"])
             checkin_button.innerText = "Check everyone in"
-            checkin_button.addEventListener("click", (ev) => { this.console.check_everyone_in() })
+            const tooltip = base.add_tooltip(checkin_button, "Check all Registered players in. Drop absentees first.")
+            checkin_button.addEventListener("click", (ev) => { tooltip.hide(); this.console.check_everyone_in() })
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
-            button.addEventListener("click", (ev) => { this.console.start_round() })
-
+            const tooltip2 = base.add_tooltip(button, "Start next round")
+            button.addEventListener("click", (ev) => { tooltip2.hide(); this.console.start_round() })
         }
         if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
             this.console.tournament.state == d.TournamentState.WAITING) {
@@ -827,7 +835,11 @@ class Registration {
                     ["me-2", "btn", "btn-success"]
                 )
                 finals_button.innerText = "Seed Finals"
-                finals_button.addEventListener("click", (ev) => { this.console.seed_finals_modal.show() })
+                const tooltip = base.add_tooltip(finals_button, "Start the finals when you are done with the rounds")
+                finals_button.addEventListener("click", (ev) => {
+                    tooltip.hide()
+                    this.console.seed_finals_modal.show()
+                })
             }
         }
     }
@@ -841,7 +853,6 @@ class Registration {
 
     async check_in(player: d.Player) {
         await this.console.check_in(player.uid)
-        // this.alert(`Checked ${player.name} in`)
     }
 
     async check_out(player: d.Player) {
@@ -1006,14 +1017,23 @@ class RoundTab {
     display() {
         base.remove_children(this.panel)
         this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
-        this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn"])
-        if (this.finals) {
-            this.reseat_button.classList.add("btn-primary")
-        } else {
-            this.reseat_button.classList.add("btn-warning")
+        {
+            this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn"])
+            var tooltip: bootstrap.Tooltip
+            if (this.finals) {
+                this.reseat_button.classList.add("btn-primary")
+                tooltip = base.add_tooltip(this.reseat_button,
+                    "Use after seating procedure to record the finals seating"
+                )
+            } else {
+                this.reseat_button.classList.add("btn-warning")
+            }
+            this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
+            this.reseat_button.addEventListener("click", (ev) => {
+                if (tooltip) { tooltip.hide() }
+                this.start_reseat()
+            })
         }
-        this.reseat_button.innerHTML = '<i class="bi bi-pentagon-fill"></i> Alter seating'
-        this.reseat_button.addEventListener("click", (ev) => { this.start_reseat() })
         const round = this.console.tournament.rounds[this.index - 1]
         this.next_table_index = 1
         for (const table of round.tables) {
@@ -1028,12 +1048,15 @@ class RoundTab {
             && round.tables.every(t => t.seating.every(s => s.result.vp == 0))
         ) {
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-danger"])
+            var tooltip: bootstrap.Tooltip
             if (this.console.tournament.state == d.TournamentState.FINALS) {
                 button.innerText = "Cancel Seeding"
+                tooltip = base.add_tooltip(button, "This will not reset the toss (tie-breakers)")
             } else {
                 button.innerText = "Cancel round"
+                tooltip = base.add_tooltip(button, "Do not use if players have started to play")
             }
-            button.addEventListener("click", (ev) => { this.console.cancel_round() })
+            button.addEventListener("click", (ev) => { tooltip.hide(); this.console.cancel_round() })
         }
         if (this.console.tournament.state == d.TournamentState.PLAYING
             && this.index == this.console.tournament.rounds.length
@@ -1050,6 +1073,14 @@ class RoundTab {
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = "Finish tournament"
             button.addEventListener("click", (ev) => { this.console.finish_tournament() })
+        }
+        if (!round.tables.every(t => t.state == d.TableState.FINISHED)) {
+            const help_message = base.create_prepend(this.panel, "div", ["alert", "alert-info", "mt-2"],
+                { role: "alert" }
+            )
+            help_message.innerHTML = (
+                'All tables need to be <span class="badge text-bg-success">Finished</span> before you can end the round'
+            )
         }
     }
 
@@ -1096,12 +1127,18 @@ class RoundTab {
         if (data.state != d.TableState.FINISHED) {
             const overrideButton = base.create_append(title_div, "button", ["me-2", "btn", "btn-warning"])
             overrideButton.innerText = "Override"
-            overrideButton.addEventListener("click", ev => this.console.override_table(this.index, table_index))
+            const tooltip = base.add_tooltip(overrideButton, "Validate an odd score")
+            overrideButton.addEventListener("click", ev => {
+                tooltip.hide()
+                this.console.override_table(this.index, table_index)
+            })
         }
         if (data.override) {
             const override_badge = base.create_append(title_div, "span", ["badge", "me-2", "text-bg-info"])
             override_badge.innerText = "Overriden"
-            // TODO: add comment as tooltip?
+            if (data.override.comment && data.override.comment.length > 0) {
+                base.add_tooltip(override_badge, data.override.comment.slice(0, 100))
+            }
         }
         for (const seat of data.seating) {
             const player = this.console.tournament.players[seat.player_uid]
@@ -1109,12 +1146,16 @@ class RoundTab {
             const actions = this.display_player(row, player, seat)
             const changeButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
             changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
+            const tooltip = base.add_tooltip(changeButton, "Set score")
             changeButton.addEventListener("click", (ev) => {
+                tooltip.hide()
                 this.console.score_modal.show(player, this.index, seat.result.vp)
             })
             const sanctionButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm"])
-            sanctionButton.innerHTML = '<i class="bi bi-exclamation-diamond-fill"></i>'
+            sanctionButton.innerHTML = '<i class="bi bi-info-circle-fill"></i>'
+            const tooltip2 = base.add_tooltip(changeButton, "Decklist & sanctions")
             sanctionButton.addEventListener("click", (ev) => {
+                tooltip2.hide()
                 this.console.sanction_player_modal.show(player.uid)
             })
             if (this.console.warn_about_player(player.uid)) {
@@ -1513,6 +1554,11 @@ class TournamentConsole {
 
     async display() {
         await this.info.display(this.tournament)
+        for (const el of this.root.children) {
+            if (el.classList.contains("alert")) {
+                el.remove()
+            }
+        }
         if (this.tournament.state == d.TournamentState.FINISHED) {
             const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })
             var alert_text = "This tournament is Finished."
@@ -1589,13 +1635,12 @@ class TournamentConsole {
                     tables.push(seating)
                 }
             }
-            if (tables) {
+            if (tables && !tab.finals) {
                 rounds.push(tables)
             }
         }
         return seating.compute_issues(rounds)
     }
-
 
     warn_about_player(player_uid: string): boolean {
         const previous_sanctions = this.members_map.by_uid.get(player_uid)?.sanctions
