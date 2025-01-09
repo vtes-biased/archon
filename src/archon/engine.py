@@ -862,7 +862,10 @@ class TournamentOrchestrator(TournamentManager):
 
     def seat_finals(self, ev: events.SeatFinals, member_uid: str) -> None:
         self._check_judge(ev, member_uid)
-        if self.state != models.TournamentState.FINALS:
+        if self.state not in [
+            models.TournamentState.FINALS,
+            models.TournamentState.FINISHED,
+        ]:
             raise FinalsNotSeeded(ev)
         for uid in ev.seating:
             if uid not in self.players:
