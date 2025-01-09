@@ -104,9 +104,9 @@ export function score_string(score: d.Score): string {
 export function full_score_string(player: d.Player, rank: number | undefined = undefined): string {
     const score = score_string(player.result)
     if (player.toss && player.toss > 0) {
-        return `${rank ?? player.seed}. ${score} (${player.result.tp}TPs, T: ${player.toss})`
+        return `<strong>${rank ?? player.seed}.</strong> ${score} <span class="badge text-bg-secondary">${player.result.tp}TPs, T: ${player.toss}</span>`
     } else {
-        return `${rank ?? player.seed}. ${score} (${player.result.tp}TPs)`
+        return `<strong>${rank ?? player.seed}.</strong> ${score} <span class="badge text-bg-secondary">${player.result.tp}TPs</span>`
     }
 }
 
@@ -187,6 +187,8 @@ class DeckModal {
     tournament: d.Tournament
     player_uid: string
     modal_div: HTMLDivElement
+    qr_scanner: QrScanner
+    form: HTMLFormElement
     deck: HTMLTextAreaElement
     modal: bootstrap.Modal
     title: HTMLHeadingElement
@@ -201,18 +203,36 @@ class DeckModal {
         this.title = base.create_append(header, "h1", ["modal-title", "fs-5"])
         base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         const body = base.create_append(content, "div", ["modal-body"])
-        const form = base.create_append(body, "form")
-        const deck_div = base.create_append(form, "div", ["input-group", "form-floating"])
+        const qr_code_button = base.create_append(body, "button", ["btn", "btn-primary", "my-2"], { type: "button" })
+        qr_code_button.innerHTML = '<i class="bi bi-qr-code-scan"> Scan VDB</i>'
+        const video = base.create_append(body, "video", ["w-100"])
+        this.qr_scanner = new QrScanner(video, async (result) => this.scanned(result), { highlightScanRegion: true })
+        qr_code_button.addEventListener("click", (ev) => {
+            qr_code_button.disabled = true
+            this.qr_scanner.start()
+        })
+        this.form = base.create_append(body, "form")
+        const deck_div = base.create_append(this.form, "div", ["input-group", "form-floating"])
         this.deck = base.create_append(deck_div, "textarea", ["form-control", "mb-2", "h-100"],
             { id: "deckModalTextInput", type: "text", autocomplete: "new-deck", rows: "10", maxlength: 10000 }
         )
         this.deck.ariaLabel = "Deck list (plain text or URL)"
         const label = base.create_append(deck_div, "label", ["form-label"], { for: "deckModalTextInput" })
         label.innerText = "Deck list (plain text or URL: accepts VDB, Amaranth or VTESDecks)"
-        const btn_div = base.create_append(form, "div", ["col-auto"])
+        const btn_div = base.create_append(this.form, "div", ["col-auto"])
         base.create_append(btn_div, "button", ["btn", "btn-primary", "me-2"], { type: "submit" }).innerText = "Submit"
-        form.addEventListener("submit", (ev) => this.submit(ev))
+        this.form.addEventListener("submit", (ev) => this.submit(ev))
         this.modal = new bootstrap.Modal(this.modal_div)
+        this.modal_div.addEventListener("hide.bs.modal", (ev) => {
+            this.qr_scanner.stop()
+            qr_code_button.disabled = false
+        })
+    }
+
+    scanned(result: QrScanner.ScanResult) {
+        this.qr_scanner.stop()
+        this.deck.value = result.data
+        this.form.dispatchEvent(new SubmitEvent("submit", { submitter: this.qr_scanner.$video }))
     }
 
     async submit(ev: SubmitEvent) {
@@ -253,7 +273,7 @@ class CheckInModal {
         base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         const body = base.create_append(content, "div", ["modal-body"])
         const help_text = base.create_append(body, "p")
-        help_text.innerText = "Scan the Check-in QR Code"
+        help_text.innerHTML = 'Scan the Check-in QR Code <i class="bi bi-qr-code"></i>'
         this.video = base.create_append(body, "video", ["w-100"])
         this.modal = new bootstrap.Modal(this.modal_div)
         this.modal_div.addEventListener("shown.bs.modal", (ev) => {
@@ -614,7 +634,7 @@ export class TournamentDisplay {
                     )
                     const tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
                     const checkin_button = base.create_append(tooltip_span, "button", ["btn", "btn-primary", "me-2"])
-                    checkin_button.innerText = "Check In"
+                    checkin_button.innerHTML = '<i class="bi bi-qr-code-scan"> Check In</i>'
                     checkin_button.addEventListener("click", (ev) => this.checkin_modal.show(tournament, player))
                     if (player.barriers.length > 0) {
                         checkin_button.disabled = true
@@ -679,7 +699,7 @@ export class TournamentDisplay {
                         }
                         if (tournament.state == d.TournamentState.FINALS) {
                             const seed_score = full_score_string(seat_player)
-                            base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = seed_score
+                            base.create_append(row, "th", cell_cls, { scope: "row" }).innerHTML = seed_score
                             base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
                         } else {
                             base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = (idx + 1).toString()
@@ -747,7 +767,7 @@ export class TournamentDisplay {
                 base.create_append(tr, "td", classes).innerText = player.name
                 base.create_append(tr, "td", classes).innerText = player.city
                 base.create_append(tr, "td", classes).innerText = player.country
-                base.create_append(tr, "td", classes).innerText = full_score_string(player, rank)
+                base.create_append(tr, "td", classes).innerHTML = full_score_string(player, rank)
             }
         }
     }

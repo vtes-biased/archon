@@ -7,6 +7,7 @@ import { score_string, full_score_string, standings, TournamentDisplay } from ".
 import { DateTime } from 'luxon'
 import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
+import QrScanner from "qr-scanner"
 
 
 class PlayerSelectModal {
@@ -202,6 +203,9 @@ class SanctionPlayerModal {
     header: HTMLHeadingElement
     body: HTMLDivElement
     deck_link: HTMLAnchorElement
+    qr_button: HTMLButtonElement
+    video: HTMLVideoElement
+    qr_scanner: QrScanner
     sanctions_accordion: HTMLDivElement
     sanction_idx: number
     form: HTMLFormElement
@@ -216,7 +220,7 @@ class SanctionPlayerModal {
     constructor(el: HTMLElement, console: TournamentConsole) {
         this.console = console
         this.member = null
-        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
+        this.modal_div = base.create_append(el, "div", ["modal", "modal-lg", "fade"],
             { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "SanctionPlayerModalLabel" }
         )
         const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
@@ -226,7 +230,26 @@ class SanctionPlayerModal {
         this.header.innerText = "Sanction Member"  // Update to player name in display()
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.body = base.create_append(content, "div", ["modal-body"])
-        this.deck_link = base.create_append(this.body, "a", ["btn", "btn-vdb", "bg-vdb", "my-2"], { target: "_blank" })
+        const deck_buttons_div = base.create_append(this.body, "div", ["d-flex-md"])
+        this.deck_link = base.create_append(deck_buttons_div, "a", ["btn", "btn-vdb", "bg-vdb", "my-2", "me-2"],
+            { target: "_blank" }
+        )
+        this.qr_button = base.create_append(deck_buttons_div, "button", ["btn", "btn-vdb", "bg-vdb", "my-2", "me-2"],
+            { type: "button" }
+        )
+        this.qr_button.innerHTML = '<i class="bi bi-qr-code-scan"> Scan VDB</i>'
+        this.video = base.create_append(this.body, "video", ["w-100"])
+        this.video.hidden = true
+        this.qr_button.addEventListener("click", (ev) => {
+            this.qr_button.disabled = true
+            this.video.hidden = false
+            // QrScanner must be instanciated when the video element is not hidden
+            if (this.qr_scanner) {
+                this.qr_scanner.destroy()
+            }
+            this.qr_scanner = new QrScanner(this.video, async (result) => this.scanned(result), {})
+            this.qr_scanner.start()
+        })
         this.sanctions_accordion = base.create_append(this.body, "div", ["accordion"], { id: "sanctionAccordion" })
         // Add existing sanctions in display()
         this.form = base.create_append(this.body, "form")
@@ -268,6 +291,11 @@ class SanctionPlayerModal {
         this.cancel_button.innerText = "Cancel"
         this.cancel_button.addEventListener("click", (ev) => { this.member = null; this.modal.hide() })
         this.modal = new bootstrap.Modal(this.modal_div)
+        this.modal_div.addEventListener("hide.bs.modal", (ev) => {
+            this.qr_scanner.stop()
+            this.video.hidden = true
+            this.qr_button.disabled = false
+        })
     }
 
     show(member_uid: string) {
@@ -294,7 +322,11 @@ class SanctionPlayerModal {
         if (bs_col.length > 0) {
             bs_col[bs_col.length - 1].show()
         }
-        const deck_link = this.console.tournament.players[member_uid]?.deck?.vdb_link
+        this.display()
+        this.modal.show()
+    }
+    display() {
+        const deck_link = this.console.tournament.players[this.member.uid]?.deck?.vdb_link
         if (deck_link) {
             this.deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
             this.deck_link.innerHTML += "Decklist"
@@ -306,9 +338,14 @@ class SanctionPlayerModal {
             this.deck_link.href = "javascript:void(0)"
             this.deck_link.classList.add("disabled")
         }
-        this.modal.show()
     }
-
+    async scanned(result: QrScanner.ScanResult) {
+        this.qr_scanner.stop()
+        this.qr_button.disabled = false
+        this.video.hidden = true
+        await this.console.set_deck(this.member.uid, result.data)
+        this.display()
+    }
     add_sanction_display(sanction: d.Sanction) {
         this.sanction_idx += 1
         const id = `prev-sanction-col-item-${this.sanction_idx}`
@@ -429,7 +466,7 @@ class SeedFinalsModal {
     console: TournamentConsole
     constructor(el: HTMLElement, console: TournamentConsole) {
         this.console = console
-        this.modal_div = base.create_append(el, "div", ["modal"],
+        this.modal_div = base.create_append(el, "div", ["modal", "modal-lg"],
             { tabindex: "-1", "aria-labelledby": "SeedFinalsModalLabel" }
         )
         const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
@@ -440,15 +477,15 @@ class SeedFinalsModal {
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.body = base.create_append(content, "div", ["modal-body"])
         const alert = base.create_append(this.body, "div", ["alert", "alert-info"], { role: "alert" })
-        alert.innerHTML = (
-            "Make sure those players are available for the finals.<br>" +
+        alert.innerText = (
+            "Make sure those players are available for the finals. " +
             "Close and drop or check-in players to adjust."
         )
         this.form = base.create_append(this.body, "form")
         this.players_table = base.create_append(this.form, "table", ["table", "table-sm"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
-        for (const label of ["Score", "Toss", "Player"]) {
+        for (const label of ["Rank", "Toss", "Player"]) {
             const cel = base.create_append(row, "th", [], { scope: "col" })
             cel.innerText = label
         }
@@ -488,16 +525,16 @@ class SeedFinalsModal {
         var toss_basket: d.Player[]
         for (const [rank, player] of standings(this.console.tournament, this.players)) {
             const row = base.create_append(this.players_table_body, "tr")
-            base.create_append(row, "td", ["text-nowrap"]).innerText = full_score_string(player, rank)
-            const toss_cel = base.create_append(row, "td", ["w-25"])
-            const toss = base.create_append(toss_cel, "input", ["form-control", "form-control-sm"],
-                { type: "number", min: "0", max: "5" }
+            base.create_append(row, "td", ["text-nowrap"]).innerHTML = full_score_string(player, rank)
+            const toss_cel = base.create_append(row, "td", ["text-nowrap"])
+            const toss = base.create_append(toss_cel, "input", ["border", "form-control-sm"],
+                { type: "number", min: "0", max: "5", placeholder: "0" }
             )
-            toss.placeholder = "-"
             toss.value = player.toss.toString()
             toss.addEventListener("change", (ev) => this.change_toss(parseInt(toss.value), player))
             const name = base.create_append(row, "td", ["w-100"])
-            base.create_append(name, "span", ["badge", "text-bg-secondary"]).innerText = `#${player.vekn} ${player.name}`
+            // base.create_append(name, "span", ["badge", "text-bg-secondary"]).innerText = `#${player.vekn} ${player.name}`
+            name.innerText = `#${player.vekn} ${player.name}`
             if (rank == last_rank) {
                 if (toss_basket) {
                     toss_basket.push(player)
@@ -655,7 +692,7 @@ class Registration {
         this.players_table = base.create_append(table_div, "table", ["table"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
-        for (const label of ["VEKN #", "Name", "Score", "Status", ""]) {
+        for (const label of ["VEKN #", "Name", "Rank", "Status", ""]) {
             const cel = base.create_append(row, "th", [], { scope: "col" })
             cel.innerText = label
         }
@@ -714,13 +751,13 @@ class Registration {
             const name = base.create_append(row, "td", ["w-100"])
             name.innerText = player.name
             const score = base.create_append(row, "td", ["text-nowrap"])
-            score.innerText = full_score_string(player, rank)
+            score.innerHTML = full_score_string(player, rank)
             const state = base.create_append(row, "td", ["text-nowrap"])
             state.innerText = player.state
             const actions = base.create_append(row, "td", ["text-nowrap"])
             const button = base.create_append(actions, "button", ["btn", "btn-sm", "me-2"])
-            button.innerHTML = '<i class="bi bi-exclamation-diamond-fill"></i>'
-            const tip = base.add_tooltip(button, "Sanctions")
+            button.innerHTML = '<i class="bi bi-info-circle-fill"></i>'
+            const tip = base.add_tooltip(button, "Decklist & sanctions")
             button.addEventListener("click", (ev) => {
                 tip.hide()
                 this.console.sanction_player_modal.show(player.uid)
@@ -1096,8 +1133,7 @@ class RoundTab {
     ): HTMLTableCellElement {
         row.dataset.player_uid = player.uid
         if (this.finals) {
-            const seed_score = full_score_string(player)
-            base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = seed_score
+            base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerHTML = full_score_string(player)
             base.create_append(row, "td", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         } else {
             base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
@@ -1711,6 +1747,15 @@ class TournamentConsole {
             vps: vps,
         }
         await this.handle_tournament_event(event)
+    }
+    async set_deck(player_uid: string, deck: string) {
+        const tev = {
+            uid: uuid.v4(),
+            type: events.EventType.SET_DECK,
+            player_uid: player_uid,
+            deck: deck,
+        } as events.SetDeck
+        await this.handle_tournament_event(tev)
     }
     async finish_round() {
         const event: events.RoundFinish = {

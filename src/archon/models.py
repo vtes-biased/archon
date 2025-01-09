@@ -75,9 +75,9 @@ class KrcgLibrary:
 
 @dataclasses.dataclass
 class KrcgDeck:
-    id: str
     crypt: KrcgCrypt
     library: KrcgLibrary
+    id: str = pydantic.Field(default_factory=uuid.uuid4)
     vdb_link: str = ""
     event: str = ""
     event_link: str = ""
