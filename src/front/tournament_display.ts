@@ -13,7 +13,6 @@ import { stringify } from 'yaml'
 import * as tempusDominus from '@eonasdan/tempus-dominus'
 import { biOneIcons } from '@eonasdan/tempus-dominus/dist/plugins/bi-one'
 
-
 export const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
     hour12: false,
     year: "numeric",
@@ -100,16 +99,22 @@ export function score_string(score: d.Score): string {
     return `${score.vp}VP`
 }
 
-
 export function full_score_string(player: d.Player, rank: number | undefined = undefined): string {
     const score = score_string(player.result)
     if (player.toss && player.toss > 0) {
-        return `<strong>${rank ?? player.seed}.</strong> <div class="flex-fill mx-2">${score}</div> <span class="badge text-bg-secondary">${player.result.tp}TPs, T: ${player.toss}</span>`
+        return (
+            `<strong>${rank ?? player.seed}.</strong> `
+            + `${score} `
+            + `<span class="badge text-bg-secondary align-text-top">${player.result.tp}TPs, T: ${player.toss}</span>`
+        )
     } else {
-        return `<strong>${rank ?? player.seed}.</strong> <div class="flex-fill mx-2">${score}</div> <span class="badge text-bg-secondary">${player.result.tp}TPs</span>`
+        return (
+            `<strong>${rank ?? player.seed}.</strong> `
+            + `${score} `
+            + `<span class="badge text-bg-secondary align-text-top">${player.result.tp}TPs</span>`
+        )
     }
 }
-
 
 class ScoreModal {
     display: TournamentDisplay
@@ -663,7 +668,7 @@ export class TournamentDisplay {
                     }
                 }
                 else if (player.state == d.PlayerState.CHECKED_IN) {
-                    this.set_alert(`You are ready to play round ${current_round + 1}`, d.AlertLevel.SUCCESS)
+                    this.set_alert(`You are ready to play`, d.AlertLevel.SUCCESS)
                 }
                 else if (player.state == d.PlayerState.PLAYING) {
                     const player_table = tournament.rounds[current_round - 1].tables[player.table - 1]
@@ -689,7 +694,7 @@ export class TournamentDisplay {
                     var player_seat: d.TableSeat
                     for (const [idx, seat] of player_table.seating.entries()) {
                         const seat_player = tournament.players[seat.player_uid]
-                        const row = base.create_append(body, "tr")
+                        const row = base.create_append(body, "tr", ["align-middle"])
                         var cell_cls = ["text-nowrap"]
                         var name_cls = ["w-100"]
                         if (player.uid == seat_player.uid) {
@@ -698,9 +703,7 @@ export class TournamentDisplay {
                             name_cls.push("bg-primary-subtle")
                         }
                         if (tournament.state == d.TournamentState.FINALS) {
-                            base.create_append(row, "th", cell_cls.concat(["d-flex", "align-items-center"]),
-                                { scope: "row" }
-                            ).innerHTML = full_score_string(seat_player)
+                            base.create_append(row, "td", cell_cls).innerHTML = full_score_string(seat_player)
                             base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
                         } else {
                             base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = (idx + 1).toString()
@@ -1289,7 +1292,9 @@ export class TournamentDisplay {
         // No physical venue for online tournaments, pre-fill venue name and URL with official discord
         if (this.online.checked) {
             this.venue.value = "VTES Discord"
-            this.venue_url.value = "https://discord.com/servers/vampire-the-eternal-struggle-official-887471681277399091"
+            this.venue_url.value = (
+                "https://discord.com/servers/vampire-the-eternal-struggle-official-887471681277399091"
+            )
             this.country.options.selectedIndex = 0
             this.country.disabled = true
             this.country.required = false

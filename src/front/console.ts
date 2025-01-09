@@ -529,8 +529,8 @@ class SeedFinalsModal {
         var last_player: d.Player
         var toss_basket: d.Player[]
         for (const [rank, player] of standings(this.console.tournament, this.players)) {
-            const row = base.create_append(this.players_table_body, "tr")
-            const score_cell = base.create_append(row, "td", ["text-nowrap", "d-flex", "align-items-center"])
+            const row = base.create_append(this.players_table_body, "tr", ["align-middle"])
+            const score_cell = base.create_append(row, "td", ["text-nowrap"])
             score_cell.innerHTML = full_score_string(player, rank)
             const toss_cel = base.create_append(row, "td", ["text-nowrap"])
             const toss = base.create_append(toss_cel, "input", ["border", "form-control-sm"],
@@ -697,7 +697,7 @@ class Registration {
         this.filter_label.innerText = "All players"
         this.filter_switch.addEventListener("change", (ev) => this.toggle_filter())
         this.players_count = base.create_append(table_controls, "div")
-        this.players_table = base.create_append(table_div, "table", ["table"])
+        this.players_table = base.create_append(table_div, "table", ["table", "table-striped"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
         for (const label of ["VEKN #", "Name", "Rank", "Status", ""]) {
@@ -754,12 +754,12 @@ class Registration {
         const players = this.sorted_players()
         this.players_count.innerText = `${players.length} players`
         for (const [rank, player] of players) {
-            const row = base.create_append(this.players_table_body, "tr")
+            const row = base.create_append(this.players_table_body, "tr", ["align-middle"])
             const head = base.create_append(row, "th", ["text-nowrap"], { scope: "row" })
             head.innerText = player.vekn
             const name = base.create_append(row, "td", ["w-100"])
             name.innerText = player.name
-            const score = base.create_append(row, "td", ["text-nowrap", "d-flex", "align-items-center"])
+            const score = base.create_append(row, "td", ["text-nowrap"])
             score.innerHTML = full_score_string(player, rank)
             const state = base.create_append(row, "td", ["text-nowrap"])
             state.innerText = player.state
@@ -1145,7 +1145,7 @@ class RoundTab {
         }
         for (const seat of data.seating) {
             const player = this.console.tournament.players[seat.player_uid]
-            const row = base.create_append(body, "tr")
+            const row = base.create_append(body, "tr", ["align-middle"])
             const actions = this.display_player(row, player, seat)
             const changeButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
             changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
@@ -1156,7 +1156,7 @@ class RoundTab {
             })
             const sanctionButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm"])
             sanctionButton.innerHTML = '<i class="bi bi-info-circle-fill"></i>'
-            const tooltip2 = base.add_tooltip(changeButton, "Decklist & sanctions")
+            const tooltip2 = base.add_tooltip(sanctionButton, "Decklist & sanctions")
             sanctionButton.addEventListener("click", (ev) => {
                 tooltip2.hide()
                 this.console.sanction_player_modal.show(player.uid)
@@ -1177,7 +1177,7 @@ class RoundTab {
     ): HTMLTableCellElement {
         row.dataset.player_uid = player.uid
         if (this.finals) {
-            const score_cell = base.create_append(row, "td", ["text-nowrap", "d-flex", "align-items-center"])
+            const score_cell = base.create_append(row, "td", ["text-nowrap"])
             score_cell.innerHTML = full_score_string(player)
             base.create_append(row, "td", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         } else {
