@@ -5,7 +5,12 @@
 
 {% block content %}
 <div>
-    <h1>Upcoming tournaments</h1>
+    <h1>Tournaments</h1>
+    <p>
+        Tournaments are subject to the <a href="{{ url_for('document_tournament_rules') }}">VEKN Tournament rules</a>.
+        Appointed judges follow the <a href="{{ url_for('document_judges_guide') }}">Judges' Guide</a>
+        and enforce the <a href="{{ url_for('document_code_of_ethics') }}">VEKN Code of Ethics</a>.
+    </p>
     <table class="table table-striped table-hover">
         <thead>
             <tr>

@@ -1,0 +1,1211 @@
+{% extends "layout.html.j2" %}
+
+{% block content %}
+<div class="row">
+    <nav id="contentNav" class="navbar d-block col-xl-4">
+        <div class="sticky-top">
+            <h3>Contents</h3>
+            <ul class="navbar-nav navbar-nav-scroll">
+                <li class="fw-bold"><a class="nav-link" href="#H10-format-of-infractions">
+                        10 Format of Infractions</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H20-definition-of-penalties">20 Definition of
+                        Penalties</a>
+                </li>
+                <li class="fw-bold"><a class="nav-link" href="#H30-applying-penalties">30 Applying Penalties</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H40-repeat-offenses">40 Repeat Offenses</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H100-deck-problems">100 Deck Problems</a></li>
+                <li><a class="nav-link" href="#H101-deck-problem-illegal-decklist">
+                        101 Deck Problem - Illegal Decklist</a></li>
+                <li><a class="nav-link" href="#H102-deck-problem-illegal-main-deck-legal-decklist">
+                        102 Deck Problem - Illegal Main Deck (Legal Decklist)</a></li>
+                <li><a class="nav-link" href="#H103-deck-problem-illegal-main-deck-no-decklist-used">
+                        103 Deck Problem - Illegal Main Deck (No Decklist Used)</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H110-procedural-error">110 Procedural Error</a></li>
+                <li><a class="nav-link" href="#H111-procedural-error-minor">111 Procedural Error - Minor</a></li>
+                <li><a class="nav-link" href="#H112-procedural-error-major">112 Procedural Error - Major</a></li>
+                <li><a class="nav-link" href="#H113-procedural-error-severe">113 Procedural Error - Severe</a></li>
+                <li><a class="nav-link" href="#H114-procedural-error-misrepresentation">
+                        114 Procedural Error - Misrepresentation</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H120-card-drawing">120 Card Drawing</a></li>
+                <li><a class="nav-link" href="#H121-card-drawing-drawing-extra-cards">
+                        121 Card Drawing - Drawing Extra Cards</a></li>
+                <li><a class="nav-link" href="#H122-card-drawing-looking-at-extra-cards">
+                        122 Card Drawing - Looking at Extra Cards</a></li>
+                <li><a class="nav-link" href="#H123-card-drawing-improper-drawing-at-start-of-game">
+                        123 Card Drawing - Improper Drawing at Start of Game</a></li>
+                <li><a class="nav-link" href="#H124-card-drawing-failure-to-draw">124 Card Drawing - Failure to Draw</a>
+                </li>
+                <li class="fw-bold"><a class="nav-link" href="#H130-marked-cards">130 Marked Cards</a></li>
+                <li><a class="nav-link" href="#H131-marked-cards-no-pattern">131 Marked Cards - No Pattern</a></li>
+                <li><a class="nav-link" href="#H132-marked-cards-observable-pattern">
+                        132 Marked Cards - Observable Pattern</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H140-slow-play">140 Slow Play</a></li>
+                <li><a class="nav-link" href="#H141-slow-play-playing-slowly">141 Slow Play - Playing Slowly</a></li>
+                <li><a class="nav-link" href="#H142-slow-play-exceeding-the-pre-game-time-limit">
+                        142 Slow Play - Exceeding the Pre-Game Time Limit</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H150-unsportsmanlike-conduct">
+                        150 Unsportsmanlike Conduct</a></li>
+                <li><a class="nav-link" href="#H151-unsportsmanlike-conduct-minor">
+                        151 Unsportsmanlike Conduct - Minor</a></li>
+                <li><a class="nav-link" href="#H152-unsportsmanlike-conduct-major">
+                        152 Unsportsmanlike Conduct - Major</a></li>
+                <li><a class="nav-link" href="#H153-unsportsmanlike-conduct-severe">
+                        153 Unsportsmanlike Conduct - Severe</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H160-cheating">160 Cheating</a></li>
+                <li><a class="nav-link" href="#H161-cheating-bribery">161 Cheating - Bribery</a></li>
+                <li><a class="nav-link" href="#H162-cheating-stalling">162 Cheating - Stalling</a></li>
+                <li><a class="nav-link" href="#H163-cheating-fraud">163 Cheating - Fraud</a></li>
+                <li><a class="nav-link" href="#H164-cheating-collusion">164 Cheating - Collusion</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H200-correction-of-game-state">
+                        200 Correction of Game State</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#H210-event-organization">210 Event Organization</a></li>
+                <li><a class="nav-link" href="#H211-event-organization-unexpected-drop">
+                        211 Event Organization - Unexpected Drop</a></li>
+                <li><a class="nav-link" href="#H212-event-organization-venue-interference">
+                        212 Event Organization - Venue Interference</a></li>
+            </ul>
+        </div>
+    </nav>
+    <article class="col" data-bs-spy="scroll" data-bs-target="#contentNav">
+        <h1 id="Hjudges-guide">Judges' Guide
+            <a class="link-secondary" rel="bookmark" href="#Hjudges-guide"><i class="bi bi-link-45deg"></i></a>
+        </h1>
+        <p>
+            <em>Effective January 1, 2004</em>
+        </p>
+        <h2 id="Hintroduction">Introduction
+            <a class="link-secondary" rel="bookmark" href="#Hintroduction"><i class="bi bi-link-45deg"></i></a>
+        </h2>
+        <p>
+            The V:EKN Judges' Guidelines (formerly called 'Penalty Guidelines') provide a structure to help judges
+            resolve play errors and determine the appropriate penalty for infractions that occur during the course of a
+            tournament. Penalties exist to protect players from potential misconduct. All penalties in this document
+            (with the exception of <a class="link-secondary" rel="bookmark" href="#H160-cheating">160 Cheating</a>)
+            assume that the infraction is unintentional. If a judge believes that an infraction was intentional,
+            the penalty should be upgraded as appropriate
+            (see <a class="link-secondary" rel="bookmark" href="#H160-cheating">160 Cheating</a>).
+            Please remember that these are only guidelines. If the judge believes that the situation has significant,
+            extenuating circumstances, he or she is free to modify the penalty as appropriate.
+        </p>
+        <p>
+            <strong>Note:</strong> See appendix B of the
+            <a href="{{ url_for('document_tournament_rules') }}">V:EKN Tournament Rules</a>
+            for definitions of terms in this document.
+        </p>
+        <h3 id="H10-format-of-infractions">10. Format of Infractions
+            <a class="link-secondary" rel="bookmark" href="#H10-format-of-infractions">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            Infractions are listed in the following manner:
+        </p>
+        <ul>
+            <li>Infraction Type, Infraction Name - The category and designation of the infraction.</li>
+            <li>Definition - The description of what qualifies as an infraction.</li>
+            <li>Example - Sample incidents of the infraction.</li>
+            <li>Philosophy - The reasoning behind the penalty.</li>
+            <li>Penalty - Recommended penalty.</li>
+        </ul>
+        <h3 id="H20-definition-of-penalties">20. Definition of Penalties
+            <a class="link-secondary" rel="bookmark" href="#H20-definition-of-penalties">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Caution:</strong> This is the smallest penalty that can be given. A caution is a verbal warning to a
+            player. The caution must explain the infraction and the consequences if the infraction is repeated. A
+            caution should be reported to the head judge, but does not need to be tracked on paper.
+        </p>
+        <p>
+            <strong>Warning:</strong> A warning is an officially tracked penalty. The purpose of a warning is to alert
+            judges and the players involved that a problem has occurred and to keep a permanent record of the infraction
+            in the V:EKN Penalty Database. Warnings must be communicated to the head judge and the tournament official
+            responsible for the permanent tracking of the warning. Warnings must also be communicated to the player,
+            explaining the infraction as well as possible consequences if the infraction is repeated.
+        </p>
+        <p>
+            <strong>Game Loss:</strong> A warning is always given with this penalty. If the player is between games, the
+            loss should be applied to the player's next game. A Game Loss is recorded as a loss to all active players
+            and tied with any other players who have a Game Loss. If the penaly occurs in the middle of a game, the
+            judge should award pool and/or Victory Points to the player's Predator, or making other arrangements to
+            preserve game balance for the remaining players, as warranted (possibly awarding partial VPs). Game losses
+            must be communicated to the head judge and the tournament official responsible for the permanent tracking of
+            the warning. Judges must communicate game losses to the player and explain the infraction and possible
+            consequences if the infraction is repeated.
+        </p>
+        <p>
+            <strong>Disqualification:</strong> A warning is always given with this penalty. When this penalty is
+            applied, the player loses his or her current match and is dropped from the tournament. Players will still
+            receive whatever prizes they have earned before the disqualification. In certain situations, a
+            disqualification without prize is appropriate. A disqualification without prize is defined as a
+            disqualification with the player receiving no prizes and receiving no additional awards (such as
+            professional points, event invitations, and so on). Disqualification without prize is recommended for severe
+            Unsportsmanlike conduct and cheating. Disqualifications must be communicated to the head judge and the
+            tournament official responsible for the permanent tracking of the warning.
+        </p>
+        <h3 id="H30-applying-penalties">30. Applying Penalties
+            <a class="link-secondary" rel="bookmark" href="#H30-applying-penalties"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            The Penalty Guidelines apply to every sanctioned event, but certain infractions may not apply to certain
+            events. For example, events that do not use decklists will not use decklist-related penalties. If a decklist
+            error is discovered during play, the penalty should be applied immediately. For example, if a player notices
+            his or her opponent playing with a banned card, a penalty should be applied immediately. If players bring an
+            infraction to the attention of the judge, a penalty should be applied for that infraction in the round in
+            which it occurred, whenever possible.
+        </p>
+        <h3 id="H40-repeat-offenses">40. Repeat Offenses
+            <a class="link-secondary" rel="bookmark" href="#H40-repeat-offenses"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            The recommended penalty for the first offense is listed in the "Penalty" portion of each infraction. For the
+            second offense of the same infraction, the next highest penalty is recommended. Note that this increase of
+            penalty follows the order of:
+        </p>
+        <blockquote class="blockquote">
+            <strong>Caution → Warning → Game Loss → Disqualification</strong>
+        </blockquote>
+        <p>
+            If a baseline penalty is a warning, the second offense should receive a game loss, and the third offense
+            should receive a Disqualification. For example, a player's penalty for the first offense of Card
+            Drawing—Looking at Extra Cards would be a caution. The player's penalty for a second offense would be the
+            next highest, which is a warning. His or her third offense would result in a game loss, and fourth offense
+            would result in the player's disqualification. Disqualifications that are the result of accumulated
+            infractions are not disqualifications without prize. At the judge's discretion, a level of penalty may be
+            repeated before before escalating to the next level. For example, an inexperienced player has a habit of
+            holding his cards below the table. After receiving a caution from the judge, the player later repeats the
+            infraction. The judge may choose to issue an additional caution rather than escalating to a warning.
+        </p>
+        <h3 id="H100-deck-problems">100. Deck Problems
+            <a class="link-secondary" rel="bookmark" href="#H100-deck-problems"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            This section generally deals with deck problems and related issues for Constructed and Limited tournaments.
+
+        </p>
+        <h3 id="H101-deck-problem-illegal-decklist">101. Deck Problem - Illegal Decklist
+            <a class="link-secondary" rel="bookmark" href="#H101-deck-problem-illegal-decklist">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            This penalty applies to tournaments in which decklists are being used.
+        </p>
+        <p>
+            Players are considered to have an illegal decklist when one of the following conditions is true:
+        </p>
+        <ul>
+            <li>The decklist contains an illegal number of cards.</li>
+            <li>The decklist contains cards that are illegal for the format.</li>
+        </ul>
+        <p>
+            <strong>Examples:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player in a Contructed tournament has 58 cards listed on his decklist when the
+            minimum
+            is 60.
+        </p>
+        <p>
+            <strong>(B)</strong> A player in any tournament lists Madness of the Bard (a banned card) on his decklist.
+
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            The decklist is the ultimate guide to a player's deck. If the decklist lists an illegal deck, the player is
+            playing with an illegal deck, regardless of the actual contents of his or her deck. However, it is not in
+            the best interest of the event to disqualify players for illegal decklists.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Warning</strong>. The general philosophy is to correct a player's decklist so it is legal, and let
+            the player continue playing. The head judge should correct the decklist to reflect the actual contents of
+            the deck (if the main deck itself is legal). If the main deck is illegal both with the decklist and the
+            physical main deck, the penalty is <strong>Game loss</strong>, and the head judge should allow the player
+            five minutes to make the decklist legal and ensure the main deck matches the corrected decklist.
+        </p>
+        <h3 id="H102-deck-problem-illegal-main-deck-legal-decklist">
+            102. Deck Problem - Illegal Main Deck (Legal Decklist)
+            <a class="link-secondary" rel="bookmark" href="#H102-deck-problem-illegal-main-deck-legal-decklist">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            This penalty applies to tournaments in which decklists are being used. This penalty applies to players who
+            have misplaced cards from their deck or have cards from a previous game in their deck.
+        </p>
+        <p>
+            Players are considered to have an illegal deck when one of the following conditions is true (while the
+            decklist still indicates a legal deck):
+        </p>
+        <ul>
+            <li>The main deck contains an illegal number of cards.</li>
+            <li>The main deck contains cards that are illegal for the format.</li>
+            <li>The contents of the main deck do not match the decklist.</li>
+        </ul>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            The decklist is the ultimate guide to a player's deck. If the decklist indicates a legal deck, but the
+            actual
+            contents of the deck do not match the decklist, the player should restore the deck to reflect the decklist.
+            If the judge can determine with complete confidence that the deck/decklist discrepancy is due to an error on
+            the decklist (a player is using an all Gangrel deck and has Campground Hunting Ground listed on the decklist
+            instead of Zoo Hunting Ground), he or she may decide to fix the decklist instead. A warning should be issued
+            in this case.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Game loss</strong>, and then be instructed to make any changes necessary to make the contents of the
+            deck match what is recorded on the decklist. The changes must be complete before the next round begins for
+            the player to continue in the tournament.
+        </p>
+        <h3 id="H103-deck-problem-illegal-main-deck-no-decklist-used">
+            103. Deck Problem - Illegal Main Deck (No Decklist Used)
+            <a class="link-secondary" rel="bookmark" href="#H103-deck-problem-illegal-main-deck-no-decklist-used">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            This penalty applies to tournaments in which decklists are not being used.
+        </p>
+        <p>
+            Players are considered to have an illegal main deck when one of the following conditions is true:
+        </p>
+        <ul>
+            <li>The main deck contains an illegal number of cards.</li>
+            <li>The main deck contains cards that are illegal for the format.</li>
+        </ul>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player in a constructed tournament has 58 cards in his deck when the minimum is 60.
+
+        </p>
+        <p>
+            <strong>(B)</strong> A player in any tournament has Madness of the Bard (a banned card) in his deck.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            If the deck contains an illegal selection of cards in some manner, the player is playing with an illegal
+            deck. However, it is not in the best interest of the event to disqualify players for illegal decks.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Game loss</strong>. Judges and other tournament officials must be vigilant about reminding players
+            before the tournament begins of the consequences of playing with an illegal deck.
+        </p>
+        <p>
+            When decklists are not being used, the general philosophy is to correct a player's deck and allow the player
+            to continue playing in subsequent rounds. The head judge should work with the player to correct the deck.
+            All illegal cards should be removed immediately. If cards need to be added to make the deck legal, the judge
+            should require the player add only simple cards like Master Discipline cards and Forced Awakening, etc. -
+            not specific counter cards like Gangrel Atavism, for example. If cards need to be removed to make the deck
+            legal, then random cards should be removed in order to make the deck legal.
+        </p>
+        <h3 id="H110-procedural-error">110. Procedural Error
+            <a class="link-secondary" rel="bookmark" href="#H110-procedural-error"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            This section provides penalties for procedural errors. Many infractions fit into this category, although it
+            is impossible to list them all. The head judge should use his or her discretion when deciding which penalty
+            applies to an unlisted procedural error.
+        </p>
+        <h3 id="H111-procedural-error-minor">111. Procedural Error - Minor
+            <a class="link-secondary" rel="bookmark" href="#H111-procedural-error-minor">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A Minor Procedural Error occurs when a player performs an unintentional, slightly disruptive action at the
+            tournament.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player fails to provide a reliable method to track her pool totals.
+        </p>
+        <p>
+            <strong>(B)</strong> A player shuffles his deck after an opponent has cut it.
+        </p>
+        <p>
+            <strong>(C)</strong> A player repeatedly holds her cards below the table.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Procedural errors vary significantly. The judge should adjust the penalty appropriately to reflect the level
+            of tournament disruption.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Caution</strong>. If the procedural error makes it impossible for a player to effectively continue
+            the game, then upgrade the penalty to <strong>game loss</strong> as needed.
+        </p>
+        <h3 id="H112-procedural-error-major">112. Procedural Error - Major
+            <a class="link-secondary" rel="bookmark" href="#H112-procedural-error-major">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A Major Procedural Error occurs when a player performs an unintentional, disruptive action at the
+            tournament.
+
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player replaces cards in his sealed deck with copies of the same card without
+            permission from a judge.
+        </p>
+        <p>
+            <strong>(B)</strong> A player does not sufficiently randomize her deck before presenting it to her opponent.
+
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Procedural errors vary significantly. The judge should adjust the penalty appropriately to reflect the level
+            of tournament disruption.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Warning</strong>. If the procedural error makes it impossible for a player to effectively continue
+            the game, then upgrade the penalty to <strong>game loss</strong> as needed.
+        </p>
+        <h3 id="H113-procedural-error-severe">113. Procedural Error - Severe
+            <a class="link-secondary" rel="bookmark" href="#H113-procedural-error-severe">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A Severe Procedural Error occurs when a player performs an unintentional, extremely disruptive action at the
+            tournament.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player spills his drink on his deck and is unable to continue the game effectively.
+
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Procedural errors vary significantly and the judge should adjust the penalty appropriately to reflect the
+            level of tournament disruption.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Game loss</strong>.
+        </p>
+        <h3 id="H114-procedural-error-misrepresentation">114. Procedural Error - Misrepresentation
+            <a class="link-secondary" rel="bookmark" href="#H114-procedural-error-misrepresentation">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player is considered to have committed this infraction when he or she unintentionally misplayed a card or
+            a
+            game rule.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player attempts to play Dread Gaze on a referendum that one of his vampires called.
+
+        </p>
+        <p>
+            <strong>(B)</strong> A player attempts to play Frenzy during his own turn.
+        </p>
+        <p>
+            <strong>(C)</strong> A player plays Art Museum when she doesn't have any ready Toreador.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            This penalty assumes an unintentional action on behalf of the player. If the judge believes the
+            misrepresentation was intentional, see section 160 - Cheating.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Caution</strong>.
+        </p>
+        <h3 id="H120-card-drawing">120. Card Drawing
+            <a class="link-secondary" rel="bookmark" href="#H120-card-drawing"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            This section includes infractions relating to inappropriate card drawing, card viewing, and related topics.
+
+        </p>
+        <h3 id="H121-card-drawing-drawing-extra-cards">121. Card Drawing - Drawing Extra Cards
+            <a class="link-secondary" rel="bookmark" href="#H121-card-drawing-drawing-extra-cards">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            Players are not considered to have drawn extra cards when they place a card face down on the table (without
+            looking at the card) in an effort to accurately count out cards as they draw. This penalty should be applied
+            only once to one or more cards if they are drawn in the same action or sequence of actions, at the judge's
+            discretion.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Any time players draw extra cards, there is always a chance they will go unnoticed by their opponent,
+            potentially giving them a significant advantage. Because of this potential for abuse, the penalty for
+            drawing extra cards is fairly severe. A player can accidentally look at extra cards very easily, so a
+            separate, less severe penalty is established for that infraction called Looking at Extra Cards (section
+            122).
+        </p>
+        <p>
+            Correcting the problem always involves putting the extra card (if known, or a random card from the player's
+            hand if not known) back in the deck and reshuffling the deck, unless some other player has, through the
+            course of the game, gained a knowledge of some portion of the player's deck, in which case the card should
+            simply be returned to the top of the deck without shuffling. This ensures that the game will be impacted as
+            little as possible.
+        </p>
+        <p>
+            Improper Drawing at Start of Game (section 123) is also a separate, less severe penalty.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Warning</strong>. For the game to continue, the situation should always be corrected. When it is
+            obvious which extra card was drawn, the card should be placed back in the deck. If it is unclear which card
+            is the "extra" card, a random card should be selected from a player's hand. The opponents of the player
+            committing the infraction should be allowed to see any cards the other player has seen due to this
+            infraction.
+        </p>
+        <p>
+            An automatic <strong>game loss</strong> should be applied if a player has drawn so many cards that a judge
+            is
+            unable to correct the situation.
+        </p>
+        <h3 id="H122-card-drawing-looking-at-extra-cards">122. Card Drawing - Looking at Extra Cards
+            <a class="link-secondary" rel="bookmark" href="#H122-card-drawing-looking-at-extra-cards">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            This could include dropping cards on the floor, turning a card over while shuffling an opponent's deck, or
+            revealing cards from their deck in the act of misplaying a card. This penalty also applies when a player has
+            looked at a card in an opponent's deck or hand in the course of a game (such as turning over an extra card
+            while resolving a random discard effect).
+        </p>
+        <p>
+            A player is not considered to have looked at extra cards when he or she places a card face down on the table
+            (without looking at the card) in an effort to count out cards he or she will draw.
+        </p>
+        <p>
+            This penalty should be applied only once to one or more cards if they are seen in the same action or
+            sequence
+            of actions.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player accidentally flips over a card while shuffling her opponent's deck.
+        </p>
+        <p>
+            <strong>(B)</strong> A player flips over an extra card while drawing from his deck.
+        </p>
+        <p>
+            <strong>(C)</strong> A player looks at the bottom card of his deck when presenting it to his predator for
+            cutting/shuffling.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            A player can accidentally look at extra cards very easily so the penalty is less severe than Drawing Extra
+            Cards. Drawing Extra Cards is a separate, more severe penalty because of the increased potential for abuse.
+            The card seen should be shuffled back into the deck or placed on top of the deck as appropriate (see 121) if
+            it was the top card of the deck that was seen, or returned to the area where it came from otherwise.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Caution</strong>. In addition to the appropriate penalty, the situation should always be corrected.
+
+        </p>
+        <p>
+            An automatic <strong>game loss</strong> should be applied if a player has seen so many cards that a judge is
+            unable to correct the situation or has received too much of an advantage by seeing an extra card (for
+            example, the player sees the next card which reveals some crucial, strategic information).
+        </p>
+        <h3 id="H123-card-drawing-improper-drawing-at-start-of-game">123. Card Drawing - Improper Drawing at Sta
+            <a class="link-secondary" rel="bookmark" href="#H123-card-drawing-improper-drawing-at-start-of-game"><i
+                    class="bi bi-link-45deg"></i></a>
+            rt of
+            Game
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            Players committing this infraction draw an extra card (or too few cards) when they draw their hand or
+            uncontrolled region cards.
+        </p>
+        <p>
+            <strong>Philosophy</strong>
+        </p>
+        <p>
+            This is generally a minor infraction and deserves a fairly minor penalty. Forcing players to redraw their
+            hands with one less card is fairly quick and simple and avoids the possibility of a player gaining an
+            advantage if he or she just had to reshuffle his or her cards and draw a new hand.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            The player must shuffle his or her hand into the deck and redraw the opening hand, drawing one less card
+            than
+            the number he or she should have drawn - not the number he or she actually drew. His or her hand size should
+            be restored to the normal amount after every player has taken a turn. If the error was in drawing too many
+            crypt cards for the uncontrolled region (and looking at them), the reduced draw (of three uncontrolled
+            vampires) is corrected by drawing the fourth vampire from the crypt after every player has taken a turn.
+        </p>
+        <h3 id="H124-card-drawing-failure-to-draw">124. Card Drawing - Failure to Draw
+            <a class="link-secondary" rel="bookmark" href="#H124-card-drawing-failure-to-draw">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player does not draw a card that he or she was required to draw.
+        </p>
+        <p>
+            <strong>Philosophy</strong>
+        </p>
+        <p>
+            This is generally a minor infraction and deserves a fairly minor penalty.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Caution</strong>. Players must correct the situation by drawing back up to their hand size.
+        </p>
+        <h3 id="H130-marked-cards">130. Marked Cards
+            <a class="link-secondary" rel="bookmark" href="#H130-marked-cards"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            <i>This section deals with marked cards or sleeves. As always, the penalties for these infractions assume
+                the
+                infraction was unintentional. If the head judge feels the markings are intentional, he or she should
+                refer to section 160 - Cheating</i>
+        </p>
+        <h3 id="H131-marked-cards-no-pattern">131. Marked Cards - No Pattern
+            <a class="link-secondary" rel="bookmark" href="#H131-marked-cards-no-pattern">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player's cards are marked with no pattern to the types of cards that are marked. If a player is using
+            opaque sleeves, they are taken into consideration instead of the actual cards. If a player is using clear
+            sleeves, both the card and sleeve are taken into consideration.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player in a tournament has small marks on a few of his sleeves. The markings are on
+            an
+            Ascendence, a Dodge, and a Scouting Mission. The judge decides this is not a significant pattern.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            The possibility for advantage is fairly low when there is no pattern to the markings.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Caution</strong>.
+        </p>
+        <h3 id="H132-marked-cards-observable-pattern">132. Marked Cards - Observable Pattern
+            <a class="link-secondary" rel="bookmark" href="#H132-marked-cards-observable-pattern">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player's cards are marked with a pattern to the types of cards that are marked. If a player is using
+            opaque
+            sleeves, they are taken into consideration instead of the actual cards. If a player is using clear sleeves,
+            both the card and sleeve are taken into consideration.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player in a tournament has Jyhad-backed reaction cards in an otherwise all
+            V:TES-backed library.
+        </p>
+        <p>
+            <strong>(B)</strong> A player in a tournament has four Kiss of Ra in her deck, all of which are in card
+            sleeves that have a slight bend in one corner.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            The potential for advantage is high when there is a pattern to the markings. Therefore the penalty must be
+            significant. Please note this penalty still assumes that the cards are marked unintentionally. Refer to
+            section 160 - Cheating, if the judge believes that the cards were marked intentionally.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Game loss</strong>.
+        </p>
+        <h3 id="H140-slow-play">140. Slow Play
+            <a class="link-secondary" rel="bookmark" href="#H140-slow-play"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            This section includes penalties for players who unintentionally play slowly.
+        </p>
+        <h3 id="H141-slow-play-playing-slowly">141. Slow Play - Playing Slowly
+            <a class="link-secondary" rel="bookmark" href="#H141-slow-play-playing-slowly">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            Players who take longer than is reasonably required to complete game actions are engaged in slow play. If a
+            judge believes that a player is intentionally playing slowly to take advantage of a time limit, that player
+            is guilty of Stalling (section 162).
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player is unsure of with which minion to block, and spends five minutes trying to
+            decide.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Slow Play penalties do not require a judge to determine whether a player is intentionally stalling. All
+            players have the responsibility to play quickly enough so their opponent is not at a significant
+            disadvantage because of the time limit. A judge should take into consideration the tournament scores when
+            deciding if this should be upgraded to a Stalling penalty.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Caution</strong>. In addition to the penalty, the judge may assign extra time to the game if he or
+            she feels it is appropriate. The option to add extra time should be used sparingly in order to avoid
+            tournament delays.
+        </p>
+        <h3 id="H142-slow-play-exceeding-pre-game-time-limit">142. Slow Play - Exceeding Pre-Game Time Limit
+            <a class="link-secondary" rel="bookmark" href="#H142-slow-play-exceeding-pre-game-time-limit">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player exceeds the time limit for completing his or her pre-game steps.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            After three minutes into a round, the player has not completed his shuffling.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            This penalty assumes the player is not intentionally stalling. If the head judge believes it is intentional,
+            refer to section 160 - Cheating, instead.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Caution</strong>. A one-minute time extension is included with the penalty.
+        </p>
+        <h3 id="H150-unsportsmanlike-conduct">150. Unsportsmanlike Conduct
+            <a class="link-secondary" rel="bookmark" href="#H150-unsportsmanlike-conduct">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            This section deals with Unsportsmanlike conduct at tournaments. A player does not have to be actively
+            involved in a game to receive a penalty for Unsportsmanlike conduct.
+        </p>
+        <h3 id="H151-unsportsmanlike-conduct-minor">151. Unsportsmanlike Conduct - Minor
+            <a class="link-secondary" rel="bookmark" href="#H151-unsportsmanlike-conduct-minor">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            Minor Unsportsmanlike Conduct is defined as behavior that may be disruptive to a person at the tournament,
+            but has no significant impact on the operation of the tournament in any way.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player uses inappropriate language.
+        </p>
+        <p>
+            <strong>(B)</strong> A player loudly demands to a judge that her opponent receive a penalty.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Different levels of Unsportsmanlike conduct should be penalized accordingly. The head judge is always the
+            final authority on what constitutes Unsportsmanlike conduct and is free to interpret the guidelines as he or
+            she sees fit for the appropriate situation.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Warning</strong>.
+        </p>
+        <h3 id="H152-unsportsmanlike-conduct-major">152. Unsportsmanlike Conduct - Major
+            <a class="link-secondary" rel="bookmark" href="#H152-unsportsmanlike-conduct-major">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            Major Unsportsmanlike Conduct is defined as behavior that is disruptive to a player or players at the
+            tournament, but does not cause delays or include any form of physical contact or significant emotional
+            distress.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player repeatedly calls a judge and argues that an opponent should lose the game for
+            insignificant procedural oversights.
+        </p>
+        <p>
+            <strong>(B)</strong> A player fails to obey the instructions of a tournament official.
+        </p>
+        <p>
+            <strong>(C)</strong> A player refuses to play a game.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Different levels of Unsportsmanlike conduct should be penalized accordingly. The head judge is always the
+            final authority on what constitutes Unsportsmanlike conduct and is free to interpret the guidelines as he or
+            she sees fit for the appropriate situation.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Game loss</strong>.
+        </p>
+        <h3 id="H153-unsportsmanlike-conduct-severe">153. Unsportsmanlike Conduct - Severe
+            <a class="link-secondary" rel="bookmark" href="#H153-unsportsmanlike-conduct-severe">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            Severe Unsportsmanlike Conduct is defined as behavior that is disruptive to a player or players at a
+            tournament, causes delays, and may include any form of physical contact or significant emotional distress.
+
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player pulls a chair from beneath another player, causing her to fall to the ground
+            with a minor injury.
+        </p>
+        <p>
+            <strong>(B)</strong> A player argues in an excessive and belligerent manner with a judge after the judge has
+            made a final ruling.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Different levels of Unsportsmanlike conduct should be penalized accordingly. The head judge is always the
+            final authority on what constitutes Unsportsmanlike conduct and is free to interpret the guidelines as he or
+            she sees fit for the appropriate situation.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Disqualification without Prize</strong>.
+        </p>
+        <h3 id="H160-cheating">160. Cheating
+            <a class="link-secondary" rel="bookmark" href="#H160-cheating"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            This section deals with intentionally committed infractions that can give a player a significant advantage
+            over others.
+        </p>
+        <h3 id="H161-cheating-bribery">161. Cheating - Bribery
+            <a class="link-secondary" rel="bookmark" href="#H161-cheating-bribery"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player attempts to bribe an opponent into changing the results of a game by offering inducements outside
+            of
+            the current game.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            A player offers an opponent cash or cards to throw a game.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Players in the finals of a tournament should not be considered in violation of this rule as long as they
+            meet
+            the following criteria:
+        </p>
+        <ul>
+            <li>No player introduces incentives outside the current game such as cash, cards, prizes, or other items.
+                (For example, an offer to split the prizes would not be acceptable.)</li>
+            <li>All players involved in all affected games agree on the outcome.</li>
+        </ul>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Disqualification without Prize</strong>.
+        </p>
+        <h3 id="H162-cheating-stalling">162. Cheating - Stalling
+            <a class="link-secondary" rel="bookmark" href="#H162-cheating-stalling"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player intentionally plays slowly in order to take advantage of the time limit. Refer to section 141 for
+            unintentional slow play.
+        </p>
+        <p>
+            <strong>Examples:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> A player has no options available to significantly affect the game, and spends several
+            minutes "thinking" about what to do.
+        </p>
+        <p>
+            <strong>(B)</strong> A player whose library is known to have no more equipment in it takes actions via Vast
+            Wealth to use the remaining time in the round searching and shuffling the library for the purpose of
+            preventing his opponent from getting another turn.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            If it is clear that a player is stalling, he or she should face a serious penalty. A player need not be
+            playing slowly to be guilty of stalling. If the player is just performing idle activity for no purpose other
+            than to take advantage of a time limit, this can also be considered stalling (e.g. using Vast Wealth on
+            every turn even when no more equipment can be found just to spend time "searching" the library and shuffling
+            it.) In addition to issuing any appropriate penalties to the stalling player, the judge may add an
+            appropriate amount of time to the round to compensate for time lost due to stalling. The time added should
+            not be more than the approximate amount of time lost due to the stalling violation. Any time added to the
+            round must be immediately announced.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Game loss</strong>.
+        </p>
+        <h3 id="H163-cheating-fraud">163. Cheating - Fraud
+            <a class="link-secondary" rel="bookmark" href="#H163-cheating-fraud"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            A player intentionally misrepresents rules, procedures, personal information, or any other relevant
+            tournament information.
+        </p>
+        <p>
+            <strong>Example:</strong>
+        </p>
+        <p>
+            A player uses a fake name and V:EKN number when registering for a tournament.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            There should be zero tolerance for this type of activity.
+        </p>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Disqualification without Prize</strong>.
+        </p>
+        <h3 id="H164-cheating-collusion">164. Cheating - Collusion
+            <a class="link-secondary" rel="bookmark" href="#H164-cheating-collusion"><i
+                    class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            <strong>Definition:</strong>
+        </p>
+        <p>
+            Players agree to alter, predetermine, or otherwise illegally establish the results of a game.
+        </p>
+        <p>
+            <strong>Examples:</strong>
+        </p>
+        <p>
+            A player agrees to let his friend oust him without offering resistance in order to improve the friend's
+            standings in the event.
+        </p>
+        <p>
+            With two players remaining, each agree to flip a coin to determine which player will concede the game.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            Players participating in standard table talk or in-game agreements should not be considered in violation of
+            this rule as long as they meet the following criteria:
+        </p>
+        <ul>
+            <li>No player introduces incentives outside the current game such as cash, cards, or other items.</li>
+            <li>No part of the agreement has been secret or has taken place outside of the current game.</li>
+            <li>No part of the agreement involves a random selection of the winner.</li>
+            <li>The agreement does not otherwise violate section 5.2 of the V:EKN Tournament Rules.</li>
+        </ul>
+        <p>
+            <strong>Penalty:</strong>
+        </p>
+        <p>
+            <strong>Disqualification without Prize</strong>.
+        </p>
+        <h3 id="H200-correction-of-game-state">200. Correction of Game State
+            <a class="link-secondary" rel="bookmark" href="#H200-correction-of-game-state">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            This section generally deals with returning the game to a fair and playable state after certain types of
+            infractions. Only the judge may make corrections to the game state. Correction of the game state is done in
+            addition to and not instead of the application of the appropriate penalty for the infraction.
+        </p>
+        <p>
+            <strong>Philosophy:</strong>
+        </p>
+        <p>
+            It is important that the player committing the infraction receive no benefit in the game for doing so. If no
+            significant game actions have taken place, play should be backed-up to the point of the error. The error
+            should then be corrected and the game should proceed forward from that point. If significant game actions
+            have taken place (such as having too many cards played and/or replaced), the judge may choose to leave the
+            game undisturbed or may adjust the game state in some other way (for instance, altering pool or blood
+            levels) since players have made play decisions based on the subsequent state of the game.
+        </p>
+        <p>
+            <strong>Examples:</strong>
+        </p>
+        <p>
+            <strong>(A)</strong> During his master phase, a player realizes he did not make the decision to pay for a
+            contested card.;
+        </p>
+        <p>
+            <strong><i>Resolution: </i></strong>In this case, very little has transpired since the error was made. The
+            player backs up to his untap phase, chooses to pay or give up the contest, then continues his turn. Once the
+            turn continues he may choose to make the same or different plays continuing forward from this point.
+        </p>
+        <p>
+            <strong>(B)</strong> At the end of a lengthy turn involving several complex combats, a player realizes he
+            did
+            not make the decision to pay for a contested card.;
+        </p>
+        <p>
+            <strong><i>Resolution: </i></strong>In this case, too much has transpired since the error and it would not
+            be
+            possible to rewind play to that point. In this instance, the judge decides to have the player immediately
+            make his choice of whether or not to pay for the contested card, and then have play continue from the point
+            where the error was realized.
+        </p>
+        <p>
+            <strong>(C)</strong> Several turns after the occurrence, the players realize that a player had a vampire
+            burned in combat from a strike card that the other player could not have legally played.
+        </p>
+        <p>
+            <strong><i>Resolution: </i></strong>In this instance, too much has transpired and no easy way to rewind play
+            presents itself. The judge returns the burned vampire from the affected player's ash heap to the ready
+            region with 1 blood. The affected player would have had the vampire during his prior two turns so the judge
+            puts two blood on the vampire to simulate the gain from two successful hunt actions. Play resumes from the
+            point where the players realized the error.
+        </p>
+        <h3 id="H210-event-organization">210. Event Organization
+            <a class="link-secondary" rel="bookmark" href="#H210-event-organization"><i
+                    class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            This section generally deals with organizational issues relating to the practical functions of running a
+            tournament.
+        </p>
+        <h3 id="H211-event-organization-unexpected-drop">211. Event Organization - Unexpected Drop
+            <a class="link-secondary" rel="bookmark" href="#H211-event-organization-unexpected-drop">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Description:</strong>
+        </p>
+        <p>
+            Player leaves the event.
+        </p>
+        <p>
+            <strong>Resolution</strong>
+        </p>
+        <ul>
+            <li>For 5-Player table, change the table to a four-player table.</li>
+            <li>For 4-Player table, re-distribute players to new tables to create legal table sizes.</li>
+        </ul>
+        <p>
+            The judge <strong>must</strong> take care that the changed seating arrangements conform to the V:EKN
+            Tournament Rules SEC 3.1.2.
+        </p>
+        <p>
+            If the dropout causes the event to have to have an invalid number of players, the event becomes
+            unsanctioned.
+            Between rounds, modifications can be made (judge can play, etc.) to maintain sanctioning.
+        </p>
+        <p>
+            If the drop occurs before the start of the first round and the event becomes unsanctioned due to not being
+            able to generate legal table sizes, White Wolf prize support should not be distributed at the event. Events
+            that become unsanctioned due to drops occurring during the event may still distribute prize support as
+            normal. Submit the Archon or event report as normal, indicating in the notes what transpired at the event.
+            The unsanctioned event will not count toward player ratings.
+        </p>
+        <h3 id="H212-event-organization-venue-interference">212. Event Organization - Venue Interference
+            <a class="link-secondary" rel="bookmark" href="#H212-event-organization-venue-interference">
+                <i class="bi bi-link-45deg"></i>
+            </a>
+        </h3>
+        <p>
+            <strong>Description:</strong>
+        </p>
+        <p>
+            Venue forces modification of round times.
+        </p>
+        <p>
+            <strong>Resolution</strong>
+        </p>
+        <p>
+            Modify round times to accomodate venue concerns. Event becomes unsanctioned if any round time limit is less
+            than 2 hours in duration and any game ends due to the time limit. If a round with a time limit of less than
+            2 hours is completed without any tables going to time, the event will retain sanctioning. Note venue
+            problems in event report. Distribute prize support as normal if you are able to complete the event.
+        </p>
+        <hr width="100%" size="2">
+        <p>
+            The V:EKN Judges' Guidelines are based on the applicable portions of the DCI Universal Penalty Guidelines
+            for
+            the 1999-2000 Tournament Season.
+        </p>
+        <p>
+            <strong>Vampire: The Eternal Struggle</strong> is a registered trademark of Black Chantry Productions.
+            <em>Jyhad</em> and <em>Vampire: Elder Kindred Network</em> are trademarks of Black Chantry Productions.
+        </p>
+        <p>
+            © 2025 Black Chantry Productions. All rights reserved.
+        </p>
+    </article>
+</div>
+{% endblock %}

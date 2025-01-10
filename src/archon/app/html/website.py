@@ -302,3 +302,36 @@ async def tournament_display(
         name="tournament/checkin.html.j2",
         context=context,
     )
+
+
+@router.get("/document/tournament_rules.html")
+async def document_tournament_rules(
+    request: fastapi.Request, context: dependencies.SessionContext
+):
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="document/tournament_rules.html.j2",
+        context=context,
+    )
+
+
+@router.get("/document/judges-guide.html")
+async def document_judges_guide(
+    request: fastapi.Request, context: dependencies.SessionContext
+):
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="document/judges_guide.html.j2",
+        context=context,
+    )
+
+
+@router.get("/document/code-of-ethics.html")
+async def document_code_of_ethics(
+    request: fastapi.Request, context: dependencies.SessionContext
+):
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="document/code_of_ethics.html.j2",
+        context=context,
+    )

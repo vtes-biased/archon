@@ -1676,7 +1676,9 @@ class TournamentConsole {
         } else if (this.tournament.state == d.TournamentState.FINALS) {
             this.help_message(
                 "Finals have been seeded. Perform the " +
-                '<a href="https://www.vekn.net/tournament-rules" target="_blank">seating procedure</a>' +
+                '<a href="/document/tournament_rules.html#H3-1-3-final-round-seating" target="_blank">' +
+                'seating procedure' +
+                '</a>' +
                 " and use " +
                 '<span class="btn btn-sm btn-primary active">' +
                 '<i class="bi bi-pentagon-fill"></i> Alter seating' +
