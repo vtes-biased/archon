@@ -762,7 +762,22 @@ class Registration {
             const score = base.create_append(row, "td", ["text-nowrap"])
             score.innerHTML = full_score_string(player, rank)
             const state = base.create_append(row, "td", ["text-nowrap"])
-            state.innerText = player.state
+            var color_cls: string
+            switch (player.state) {
+                case d.PlayerState.CHECKED_IN:
+                    color_cls = "text-bg-success"
+                    break;
+                case d.PlayerState.REGISTERED:
+                    color_cls = "text-bg-info"
+                    break;
+                case d.PlayerState.PLAYING:
+                    color_cls = "text-bg-warning"
+                    break;
+                case d.PlayerState.FINISHED:
+                    color_cls = "text-bg-danger"
+                    break;
+            }
+            state.innerHTML = `<span class="badge ${color_cls} align-text-top">${player.state}</span>`
             const actions = base.create_append(row, "td", ["text-nowrap"])
             const button = base.create_append(actions, "button", ["btn", "btn-sm", "me-2"])
             button.innerHTML = '<i class="bi bi-info-circle-fill"></i>'
@@ -784,7 +799,7 @@ class Registration {
                         button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
                         button.disabled = true
                         base.add_tooltip(span, player.barriers[0])
-                        // state.innerText += ` (${player.barriers[0]})`
+                        state.innerHTML += ` (${player.barriers[0]})`
                     } else {
                         const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-success", "me-2"])
                         button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
@@ -819,14 +834,14 @@ class Registration {
         }
         else if (this.console.tournament.state == d.TournamentState.WAITING) {
             const checkin_code = base.create_append(this.action_row, "a", ["me-2", "btn", "btn-primary"])
-            checkin_code.innerText = "Display Check-in code"
+            checkin_code.innerHTML = '<i class="bi bi-qr-code"></i> Display Check-in code'
             checkin_code.href = `/tournament/${this.console.tournament.uid}/checkin.html`
             checkin_code.target = "_blank"
             base.add_tooltip(checkin_code, "Display the QR code players can scan to check in")
             const checkin_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-primary"])
             checkin_button.innerText = "Check everyone in"
             const tooltip = base.add_tooltip(checkin_button, "Check all Registered players in. Drop absentees first.")
-            checkin_button.addEventListener("click", (ev) => { tooltip.hide(); this.console.check_everyone_in() })
+            checkin_button.addEventListener("click", (ev) => { tooltip.hide(); this.check_everyone_in() })
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
             const tooltip2 = base.add_tooltip(button, "Start next round")
@@ -854,7 +869,16 @@ class Registration {
         this.alert(`Registered ${this.register_element.person.name}`)
         this.register_element.reset()
     }
-
+    async check_everyone_in() {
+        const candidates = Object.values(this.console.tournament.players).filter(
+            p => p.state == d.PlayerState.REGISTERED && p.barriers.length == 0
+        )
+        if (candidates.length < 1) {
+            this.alert("Nobody was checked in. Check the Info tab: If you require decklists, " +
+                "players cannot be checked in without one.", d.AlertLevel.WARNING)
+        }
+        this.console.check_everyone_in()
+    }
     async check_in(player: d.Player) {
         await this.console.check_in(player.uid)
     }
@@ -1076,14 +1100,6 @@ class RoundTab {
             const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
             button.innerText = "Finish tournament"
             button.addEventListener("click", (ev) => { this.console.finish_tournament() })
-        }
-        if (!round.tables.every(t => t.state == d.TableState.FINISHED)) {
-            const help_message = base.create_prepend(this.panel, "div", ["alert", "alert-info", "mt-2"],
-                { role: "alert" }
-            )
-            help_message.innerHTML = (
-                'All tables need to be <span class="badge text-bg-success">Finished</span> before you can end the round'
-            )
         }
     }
 
@@ -1489,6 +1505,7 @@ class TournamentConsole {
     token: base.Token
     members_map: member.MemberMap | undefined
     tournament: d.Tournament | undefined
+    message_div: HTMLDivElement
     nav: HTMLElement
     tabs_div: HTMLDivElement
     score_modal: ScoreModal
@@ -1500,6 +1517,7 @@ class TournamentConsole {
     info: TournamentDisplay
     registration: Registration
     rounds: RoundTab[]
+
     constructor(el: HTMLDivElement, token: base.Token) {
         this.root = el
         this.token = token
@@ -1509,8 +1527,30 @@ class TournamentConsole {
         this.add_member_modal = new AddMemberModal(el, this)
         this.sanction_player_modal = new SanctionPlayerModal(el, this)
         this.seed_finals_modal = new SeedFinalsModal(el, this)
+        this.message_div = base.create_append(el, "div", ["alert"], { role: "status" })
         this.nav = base.create_append(el, "nav", ["nav", "nav-tabs"], { role: "tablist" })
         this.tabs_div = base.create_append(el, "div", ["tab-content"])
+    }
+
+    help_message(message: string, level: d.AlertLevel) {
+        this.message_div.innerHTML = message
+        this.message_div.classList.remove("alert-info", "alert-success", "alert-warning", "alert-danger")
+        switch (level) {
+            case d.AlertLevel.INFO:
+                this.message_div.classList.add("alert-info")
+                break;
+            case d.AlertLevel.SUCCESS:
+                this.message_div.classList.add("alert-success")
+                break;
+            case d.AlertLevel.WARNING:
+                this.message_div.classList.add("alert-warning")
+                break;
+            case d.AlertLevel.DANGER:
+                this.message_div.classList.add("alert-sanger")
+                break;
+            default:
+                break;
+        }
     }
 
     async init(tournament_uid: string) {
@@ -1547,7 +1587,12 @@ class TournamentConsole {
             await this.info.init(this.token, this.members_map, countries)
         }
         await this.display()
-        if (this.tournament.state == d.TournamentState.PLAYING) {
+        this.open_relevant_tab()
+    }
+    open_relevant_tab() {
+        if (this.tournament.state == d.TournamentState.FINALS) {
+            this.tabs.get(`Finals`).show()
+        } else if (this.tournament.state == d.TournamentState.PLAYING) {
             this.tabs.get(`Round ${this.rounds.length}`).show()
         } else if (this.rounds.length || this.tournament.state == d.TournamentState.WAITING) {
             this.tabs.get("Registration").show()
@@ -1555,23 +1600,101 @@ class TournamentConsole {
             this.tabs.get("Info").show()
         }
     }
-
     async display() {
         await this.info.display(this.tournament)
-        for (const el of this.root.children) {
-            if (el.classList.contains("alert")) {
-                el.remove()
+        if (this.tournament.state == d.TournamentState.REGISTRATION) {
+            if (this.tournament.rounds.length < 1) {
+                this.help_message(
+                    "Register players in advance. Players can register themselves on the " +
+                    `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a>.` +
+                    "<br>On tournament day, " +
+                    '<span class="btn btn-sm btn-success active">Open Check-in</span>' +
+                    " in the Registration tab to list the present players among those registered."
+                    , d.AlertLevel.INFO
+                )
+            } else {
+                this.help_message(
+                    '<span class="btn btn-sm btn-success active">Open Check-in</span>' +
+                    " again to enlist the present players for next round."
+                    , d.AlertLevel.INFO
+                )
             }
-        }
-        if (this.tournament.state == d.TournamentState.FINISHED) {
-            const alert = base.create_element("div", ["alert", "alert-success"], { role: "alert" })
-            var alert_text = "This tournament is Finished."
+        } else if (this.tournament.state == d.TournamentState.WAITING) {
+            if (this.tournament.rounds.length == 0) {
+                this.help_message(
+                    "Check players in " +
+                    '<span class="btn btn-sm btn-success active">' +
+                    '<i class="bi bi-box-arrow-in-right"></i>' +
+                    '</span>' +
+                    " before seating the next round. Only " +
+                    '<span class="badge text-bg-success">Checked-in</span>' +
+                    " players will be seated.<br>" +
+                    "Player can check themselves in on the " +
+                    `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a>` +
+                    " by scanning the " +
+                    '<i class="bi bi-qr-code"></i>' +
+                    " Check-in code you can present to them from the Registration tab "
+                    , d.AlertLevel.WARNING
+                )
+            } else if (this.tournament.rounds.length < 2) {
+                this.help_message(
+                    "Check players in " +
+                    '<span class="btn btn-sm btn-success active">' +
+                    '<i class="bi bi-box-arrow-in-right"></i>' +
+                    '</span>' +
+                    " individually or " +
+                    '<span class="btn btn-sm btn-primary active">Check everyone in</span>' +
+                    " and drop " +
+                    '<span class="btn btn-sm btn-danger active">' +
+                    '<i class="bi bi-x-circle-fill"></i>' +
+                    '</span>' +
+                    " absentees. Player can drop themselves on the " +
+                    `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a>.`
+                    , d.AlertLevel.WARNING
+                )
+            } else {
+                this.help_message(
+                    "Either start a new round (do not forget to check players in) or seed the finals.",
+                    d.AlertLevel.INFO
+                )
+            }
+        } else if (this.tournament.state == d.TournamentState.PLAYING) {
+            this.help_message(
+                "Round in progress. Alter the seating and record players results " +
+                '<span class="btn btn-sm btn-primary active">' +
+                '<i class="bi bi-pencil"></i>' +
+                '</span>' +
+                " in the round tab.<br>" +
+                "All tables need to be " +
+                '<span class="badge text-bg-success">Finished</span>' +
+                " before you can end the round. You can " +
+                '<span class="btn btn-sm btn-warning active">Override</span>' +
+                " the table score verification if needed."
+                ,
+                d.AlertLevel.INFO
+            )
+        } else if (this.tournament.state == d.TournamentState.FINALS) {
+            this.help_message(
+                "Finals have been seeded. Perform the " +
+                '<a href="https://www.vekn.net/tournament-rules" target="_blank">seating procedure</a>' +
+                " and use " +
+                '<span class="btn btn-sm btn-primary active">' +
+                '<i class="bi bi-pentagon-fill"></i> Alter seating' +
+                '</span>' +
+                " in the Finals tab to record it.<br>" +
+                "Once the finals are finished, record the results to finish the tournament.",
+                d.AlertLevel.INFO
+            )
+        } else if (this.tournament.state == d.TournamentState.FINISHED) {
             if (this.tournament.winner) {
                 const winner = this.tournament.players[this.tournament.winner]
-                alert_text += ` Congratulation ${winner.name} (${winner.vekn})!`
+                this.help_message(
+                    "This tournament is Finished." + ` Congratulation ${winner.name} (${winner.vekn})!`,
+                    d.AlertLevel.SUCCESS
+                )
+            } else {
+                this.help_message("This tournament is Finished.", d.AlertLevel.SUCCESS)
             }
-            alert.innerText = alert_text
-            this.nav.parentElement.insertBefore(alert, this.nav)
         }
         while (this.tournament.rounds.length > this.rounds.length) {
             var finals: boolean = false
@@ -1776,6 +1899,7 @@ class TournamentConsole {
             seating: s
         }
         await this.handle_tournament_event(event)
+        this.open_relevant_tab()
     }
     async override_table(round_number: number, table_number: number) {
         const event: events.Override = {
@@ -1812,7 +1936,7 @@ class TournamentConsole {
             uid: uuid.v4(),
         }
         await this.handle_tournament_event(event)
-        this.tabs.get("Registration").show()
+        this.open_relevant_tab()
     }
     async cancel_round() {
         const event: events.RoundCancel = {
@@ -1820,7 +1944,7 @@ class TournamentConsole {
             uid: uuid.v4(),
         }
         await this.handle_tournament_event(event)
-        this.tabs.get("Registration").show()
+        this.open_relevant_tab()
     }
     async seed_finals(seeds: string[], toss: Record<string, number>) {
         const event: events.SeedFinals = {
@@ -1830,6 +1954,7 @@ class TournamentConsole {
             toss: toss,
         }
         await this.handle_tournament_event(event)
+        this.open_relevant_tab()
     }
     async alter_seating(round: number, seating: string[][]) {
         const event: events.RoundAlter = {
@@ -1854,6 +1979,7 @@ class TournamentConsole {
             uid: uuid.v4()
         }
         await this.handle_tournament_event(event)
+        this.open_relevant_tab()
     }
 }
 
