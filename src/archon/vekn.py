@@ -37,7 +37,8 @@ COUNTRY_FIX = {
 
 
 async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
-    prefix = "1"
+    # a few players have a number starting with zero, so start there
+    prefix = "00"
     async with aiohttp.ClientSession() as session:
         token = await get_token(session)
         while prefix:
@@ -62,13 +63,17 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                         )
                         for data in players
                     ]
-                # if the API returns 50 players, there might be more
-                # so, increment the prefix if not
+                # if some players we got them all, just increment the prefix directly
                 if len(players) < 50:
                     prefix = increment(prefix)
-                # but go 10 by 10 otherwise (sadly the api does not return 100 entries)
+                # if the API returns 50 players max, there might be more
+                # we must increment slowly 10 by 10.
                 else:
                     prefix = players[-1]["veknid"][:6]
+                # VEKN api will return an empty list on a single-char prefix
+                # make sure 59 -> 60 and not 6
+                if prefix and len(prefix) < 2:
+                    prefix += "0"
 
 
 def increment(num: str) -> str:
@@ -86,7 +91,8 @@ def increment(num: str) -> str:
     while num and num[-1] == "9":
         num = num[:-1]
     if num:
-        return str(int(num) + 1)
+        # keep the leading zeros
+        return num[:-1] + str(int(num[-1]) + 1)
     return None
 
 
