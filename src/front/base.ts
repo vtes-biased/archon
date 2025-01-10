@@ -47,7 +47,7 @@ export function remove_children(el: HTMLElement) {
 export function add_tooltip(el: HTMLElement, tip: string): bootstrap.Tooltip {
     el.dataset.bsToggle = "tooltip"
     el.dataset.bsTitle = tip
-    return bootstrap.Tooltip.getOrCreateInstance(el)
+    return bootstrap.Tooltip.getOrCreateInstance(el, { trigger: "hover" })
 }
 
 export async function do_fetch(url: string, options: Object) {
