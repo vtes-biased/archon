@@ -371,7 +371,7 @@ export class TournamentDisplay {
     }
     set_alert(message: string, level: d.AlertLevel) {
         if (!this.alert) { return }
-        this.alert.innerText = message
+        this.alert.innerHTML = message
         this.alert.classList.remove("alert-info", "alert-success", "alert-warning", "alert-danger")
         switch (level) {
             case d.AlertLevel.INFO:
@@ -748,12 +748,14 @@ export class TournamentDisplay {
                     register_button.innerText = "Register"
                     register_button.addEventListener("click", (ev) => this.register(tournament, member))
                 } else {
-                    const message = base.create_append(this.root, "p")
-                    message.innerText = (
-                        "A VEKN ID# is required to register to this event.\n" +
-                        "Claim your VEKN ID# if you have one, you can do it in your Profile.\n" +
-                        "If you don't, ask a Judge or an organizer to register you."
-                    )
+                    this.set_alert(
+                        "A VEKN ID# is required to register to this event. " +
+                        "Claim your VEKN ID#, if you have one, in your " +
+                        '<a class="btn btn-sm btn-secondary" href="/profile.html">' +
+                        '<i class="bi bi-person-fill"></i> Profile' +
+                        '</a><br>' +
+                        "If you hav no VEKN ID#, ask a Judge or an organizer to register you."
+                        , d.AlertLevel.WARNING)
                 }
             }
         }
