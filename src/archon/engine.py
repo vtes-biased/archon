@@ -1,5 +1,6 @@
 import collections
 import dataclasses
+import io
 import itertools
 import krcg.seating
 import krcg.deck
@@ -259,7 +260,7 @@ class TournamentManager(models.Tournament):
         if ev.deck.startswith("https://"):
             deck = krcg.deck.Deck.from_url(ev.deck)
         else:
-            deck = krcg.deck.Deck.from_txt(ev.deck)
+            deck = krcg.deck.Deck.from_txt(io.StringIO(ev.deck))
         if check:
             self._check_deck(ev, deck)
         player = self.players[ev.player_uid]
