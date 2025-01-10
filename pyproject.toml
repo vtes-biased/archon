@@ -26,7 +26,7 @@ dependencies = [
     "fastapi[standard]",
     "itsdangerous",
     "jinja2",
-    "krcg",
+    "krcg>=4.4",
     "orjson",
     "psycopg[binary,pool]",
     "pyjwt",
