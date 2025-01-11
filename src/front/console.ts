@@ -459,7 +459,7 @@ class SeedFinalsModal {
     header: HTMLHeadingElement
     body: HTMLDivElement
     alert: HTMLDivElement
-    form: HTMLFormElement
+    form: HTMLDivElement
     players_table: HTMLTableElement
     players_table_body: HTMLTableSectionElement
     players: d.Player[]
@@ -536,7 +536,7 @@ class SeedFinalsModal {
             score_cell.innerHTML = full_score_string(player, rank)
             const toss_cel = base.create_append(row, "td", ["text-nowrap"])
             const toss = base.create_append(toss_cel, "input", ["border", "form-control-sm"],
-                { type: "number", min: "0", max: "5", placeholder: "0" }
+                { type: "number", min: "0", max: "5", placeholder: "0", name: `toss-${player.uid}` }
             )
             toss.value = player.toss.toString()
             toss.addEventListener("change", (ev) => this.change_toss(parseInt(toss.value), player))
@@ -1047,6 +1047,14 @@ class RoundTab {
     display() {
         base.remove_children(this.panel)
         this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
+        {
+            const print_button = base.create_append(this.action_row, "a", ["me-2", "btn", "btn-secondary"],
+                { target: "_blank" }
+            )
+            print_button.innerHTML = '<i class="bi bi-printer-fill"></i>'
+            base.add_tooltip(print_button, "Printable version")
+            print_button.href = `/tournament/${this.console.tournament.uid}/print-seating.html?round=${this.index}`
+        }
         {
             this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn"])
             if (this.finals) {

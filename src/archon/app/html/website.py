@@ -308,6 +308,31 @@ async def tournament_display(
     )
 
 
+@router.get("/tournament/{uid}/print-seating.html")
+async def tournament_print_seating(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    tournament: dependencies.Tournament,
+    round: typing.Annotated[int, fastapi.Query()],
+    _: dependencies.MemberUidFromSession,
+):
+    if round == len(tournament.rounds) and tournament.finals_seeds:
+        context["finals"] = True
+    context["round_number"] = round
+    context["round"] = []
+    for table in tournament.rounds[round - 1].tables:
+        data = []
+        for seat in table.seating:
+            player = tournament.players[seat.player_uid]
+            data.append({"vekn": player.vekn, "name": player.name})
+        context["round"].append(data)
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="tournament/print-seating.html.j2",
+        context=context,
+    )
+
+
 @router.get("/document/tournament_rules.html")
 async def document_tournament_rules(
     request: fastapi.Request, context: dependencies.SessionContext
