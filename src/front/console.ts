@@ -485,8 +485,10 @@ class SeedFinalsModal {
             "Make sure those players are available for the finals. " +
             "Close and drop or check-in players to adjust."
         )
-        this.form = base.create_append(this.body, "form")
-        this.players_table = base.create_append(this.form, "table", ["table", "table-sm"])
+        // WARNING: don't use a form here, even if we have the toss number as inputs.
+        // It breaks on Firefox in a strange way: failing to parse the form data itself
+        // makes it raise a Network error on the fetch sending the event there...
+        this.players_table = base.create_append(this.body, "table", ["table", "table-sm"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr")
         for (const label of ["Rank", "Toss", "Player"]) {
@@ -494,12 +496,12 @@ class SeedFinalsModal {
             cel.innerText = label
         }
         this.players_table_body = base.create_append(this.players_table, "tbody")
-        const buttons_div = base.create_append(this.form, "div", ["d-flex", "my-2"])
+        const buttons_div = base.create_append(this.body, "div", ["d-flex", "my-2"])
         this.submit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"],
             { type: "submit" }
         )
         this.submit_button.innerText = "Submit"
-        this.form.addEventListener("submit", async (ev) => await this.submit())
+        this.submit_button.addEventListener("click", async (ev) => await this.submit())
         this.toss_button = base.create_append(buttons_div, "button", ["btn", "btn-warning", "me-2"],
             { type: "button" }
         )
