@@ -28,14 +28,6 @@ async def get_token(session: aiohttp.ClientSession) -> str:
             raise
 
 
-# TODO: clean this using iso codes (vekn API improvement)
-COUNTRY_FIX = {
-    "Czech Republic": "Czechia",
-    "Netherlands": "The Netherlands",
-    "Russian Federation": "Russia",
-}
-
-
 async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
     # a few players have a number starting with zero, so start there
     prefix = "00"
@@ -54,10 +46,7 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                         models.Member(
                             vekn=data["veknid"],
                             name=data["firstname"] + " " + data["lastname"],
-                            country=COUNTRY_FIX.get(
-                                data["countryname"], data["countryname"]
-                            )
-                            or "",
+                            country=data["countryname"] or "",
                             state=data["statename"] or "",
                             city=data["city"] or "",
                         )
