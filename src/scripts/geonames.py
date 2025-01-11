@@ -31,6 +31,13 @@ logger = logging.getLogger()
 # V: forest,heath,...
 
 
+COUNTRYNAME_FIXES = {
+    "Czechia": "Czech Republic",
+    "The Netherlands": "Netherlands",
+    "Russia": "Russian Federation",
+}
+
+
 def geonames() -> None:
     """Fetch countries and first order cities from geonames.org, save as JSON"""
     print("generating geographical data...")
@@ -131,6 +138,9 @@ def geonames() -> None:
     )
     for country in countries:
         try:
+            country["country"] = COUNTRYNAME_FIXES.get(
+                country["country"], country["country"]
+            )
             country["languages"] = country["languages"].split(",")
             country.pop("neighbours", None)
             country["geoname_id"] = int(country.get("geoname_id") or 0) or None
