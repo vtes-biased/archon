@@ -29,24 +29,24 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('tournament_list') }}">Tournaments</a>
                     </li>
+                    <li class="nav-item dropdown">
+                        <a class="dropdown-toggle nav-link" href="/document" role="button" data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            <i class="bi bi-journal-text"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('document_tournament_rules') }}">
+                                    Tournament Rules
+                                </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('document_judges_guide') }}">
+                                    Judge's Guide
+                                </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('document_code_of_ethics') }}">
+                                    Code of Ethics
+                                </a></li>
+                        </ul>
+                    </li>
                 </ul>
-                <div class="nav-item dropdown">
-                    <a class="dropdown-toggle btn btn-secondary" href="#" role="button" data-bs-toggle="dropdown"
-                        aria-expanded="false">
-                        Documents
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('document_tournament_rules') }}">Tournament
-                                Rules</a>
-                        </li>
-                        <li><a class="dropdown-item" href="{{ url_for('document_judges_guide') }}">
-                                Judge's Guide
-                            </a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('document_code_of_ethics') }}">
-                                Code of Ethics
-                            </a></li>
-                    </ul>
-                </div>
                 {% if member %}
                 <a type="button" class="btn btn-secondary ms-2" href="{{ url_for('profile') }}">
                     <i class="bi bi-person-fill"></i> Profile
