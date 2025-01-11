@@ -192,7 +192,11 @@ async def login(
 
 
 @router.get("/profile.html")
-async def profile(request: fastapi.Request, context: dependencies.SessionContext):
+async def profile(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    _: dependencies.MemberUidFromSession,
+):
     request.session["next"] = str(request.url_for("profile"))
     return TEMPLATES.TemplateResponse(
         request=request, name="profile.html.j2", context=context
