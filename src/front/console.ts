@@ -1691,7 +1691,7 @@ class TournamentConsole {
             if (this.tournament.winner) {
                 const winner = this.tournament.players[this.tournament.winner]
                 this.help_message(
-                    "This tournament is Finished." + ` Congratulation ${winner.name} (${winner.vekn})!`,
+                    "This tournament is Finished." + ` Congratulations ${winner.name} (${winner.vekn})!`,
                     d.AlertLevel.SUCCESS
                 )
             } else {
