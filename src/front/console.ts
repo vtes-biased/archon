@@ -558,8 +558,7 @@ class SeedFinalsModal {
             toss.value = player.toss.toString()
             toss.addEventListener("change", (ev) => this.change_toss(parseInt(toss.value), player))
             const name = base.create_append(row, "td", ["w-100"])
-            // base.create_append(name, "span", ["badge", "text-bg-secondary"]).innerText = `#${player.vekn} ${player.name}`
-            name.innerText = `#${player.vekn} ${player.name}`
+                        name.innerText = `#${player.vekn} ${player.name}`
             if (rank == last_rank) {
                 if (toss_basket) {
                     toss_basket.push(player)
@@ -708,7 +707,7 @@ class Registration {
             { type: "checkbox", role: "switch", id: "filterSwitch" }
         )
         base.add_tooltip(this.filter_switch, "Filter")
-        this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label"],
+        this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label", "text-nowrap"],
             { for: "filterSwitch" }
         )
         this.filter = PlayerFilter.ALL
@@ -771,7 +770,23 @@ class Registration {
     display() {
         base.remove_children(this.players_table_body)
         const players = this.sorted_players()
-        this.players_count.innerText = `${players.length} players`
+base.remove_children(this.players_count)
+        const checked_in_count = (
+            Object.values(this.console.tournament.players)
+                .filter(p => p.state == d.PlayerState.CHECKED_IN)
+                .map(p => p.uid).length
+        )
+        const finished_count = (
+            Object.values(this.console.tournament.players)
+                .filter(p => p.state == d.PlayerState.FINISHED)
+                .map(p => p.uid).length
+        )
+        base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg-secondary"]
+        ).innerText = `${players.length} players`
+base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg-success"]
+        ).innerText = `${checked_in_count} checked-in`
+        base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg-danger"]
+        ).innerText = `${finished_count} finished`
         for (const [rank, player] of players) {
             const row = base.create_append(this.players_table_body, "tr", ["align-middle"])
             const head = base.create_append(row, "th", ["text-nowrap"], { scope: "row" })
@@ -1071,7 +1086,7 @@ class RoundTab {
 
     display() {
         base.remove_children(this.panel)
-        this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-2"])
+        this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-4"])
         {
             const print_button = base.create_append(this.action_row, "a", ["me-2", "mb-2", "btn", "btn-secondary"],
                 { target: "_blank" }
