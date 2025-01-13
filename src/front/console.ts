@@ -9,6 +9,47 @@ import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
 import QrScanner from "qr-scanner"
 
+interface EmptyFunction {
+    (): void
+}
+
+class ConfirmationModal {
+    modal_div: HTMLDivElement
+    modal: bootstrap.Modal
+    message: HTMLDivElement
+    callback: EmptyFunction
+    constructor(el: HTMLDivElement) {
+        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "confirmationModalLabel" }
+        )
+        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
+        const content = base.create_append(dialog, "div", ["modal-content"])
+        const header = base.create_append(content, "div", ["modal-header"])
+        const title = base.create_append(header, "h1", ["modal-title", "fs-5"], { id: "confirmationModalLabel" })
+        title.innerText = "Are you sure?"
+        base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
+        const body = base.create_append(content, "div", ["modal-body", "d-flex", "flex-column", "align-items-center"])
+        this.message = base.create_append(body, "div", ["d-flex", "flex-column", "align-items-center"])
+        const row = base.create_append(body, "div", ["mt-4", "d-flex", "flex-row", "align-items-center"])
+        const confirm = base.create_append(row, "button", ["btn", "btn-danger", "me-1", "mb-1"], { type: "button" })
+        confirm.innerText = "Confirm"
+        confirm.addEventListener("click", (ev) => this.confirm())
+        const cancel = base.create_append(row, "button", ["btn", "btn-secondary", "me-1", "mb-1"], { type: "button" })
+        cancel.innerText = "Cancel"
+        cancel.addEventListener("click", (ev) => this.modal.hide())
+        this.modal = new bootstrap.Modal(this.modal_div)
+    }
+
+    confirm() {
+        this.modal.hide()
+        this.callback()
+    }
+    show(message: string, callback: EmptyFunction) {
+        this.message.innerHTML = message
+        this.callback = callback
+        this.modal.show()
+    }
+}
 
 class PlayerSelectModal {
     modal_div: HTMLDivElement
@@ -558,7 +599,7 @@ class SeedFinalsModal {
             toss.value = player.toss.toString()
             toss.addEventListener("change", (ev) => this.change_toss(parseInt(toss.value), player))
             const name = base.create_append(row, "td", ["w-100"])
-                        name.innerText = `#${player.vekn} ${player.name}`
+            name.innerText = `#${player.vekn} ${player.name}`
             if (rank == last_rank) {
                 if (toss_basket) {
                     toss_basket.push(player)
@@ -770,7 +811,7 @@ class Registration {
     display() {
         base.remove_children(this.players_table_body)
         const players = this.sorted_players()
-base.remove_children(this.players_count)
+        base.remove_children(this.players_count)
         const checked_in_count = (
             Object.values(this.console.tournament.players)
                 .filter(p => p.state == d.PlayerState.CHECKED_IN)
@@ -783,7 +824,7 @@ base.remove_children(this.players_count)
         )
         base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg-secondary"]
         ).innerText = `${players.length} players`
-base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg-success"]
+        base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg-success"]
         ).innerText = `${checked_in_count} checked-in`
         base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg-danger"]
         ).innerText = `${finished_count} finished`
@@ -886,7 +927,7 @@ base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg
             const seat_button = base.create_append(seat_span, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
             )
-seat_button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
+            seat_button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
             var tooltip_message: string
             if (checked_in_count == 0) {
                 seat_button.disabled = false
@@ -1132,29 +1173,37 @@ class RoundTab {
             this.display_table(table)
         }
         if (
-            (
-                this.console.tournament.state == d.TournamentState.PLAYING ||
-                this.console.tournament.state == d.TournamentState.FINALS
-            )
-            && this.index == this.console.tournament.rounds.length
+            this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.seating.every(s => s.result.vp == 0))
         ) {
             const button = base.create_append(this.action_row, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-danger"]
             )
-            var tooltip: bootstrap.Tooltip
+            var message: string
             if (this.console.tournament.state == d.TournamentState.FINALS) {
-                button.innerText = "Cancel Seeding"
-                tooltip = base.add_tooltip(button, "This will not reset the toss (tie-breakers)")
+                button.innerHTML = '<i class="bi bi-x-circle-fill"></i> Cancel Seeding'
+                message = "This will not reset the toss (tie-breakers)"
             } else {
-                button.innerText = "Cancel round"
-                tooltip = base.add_tooltip(button, "Do not use if players have started to play")
+                button.innerHTML = '<i class="bi bi-x-circle-fill"></i> Cancel Round'
+                message = "Do not use if players have started to play"
             }
-            button.addEventListener("click", (ev) => { tooltip.hide(); this.console.cancel_round() })
+            const tooltip = base.add_tooltip(button, message)
+            button.addEventListener("click", (ev) => {
+                tooltip.hide()
+                if (round.tables.length > 0) {
+                    this.console.confirmation.show(
+                        "<strong>This seating will be lost</strong> <br>" +
+                        `<em>${message}</em>`,
+                        () => this.console.cancel_round()
+                    )
+                } else {
+                    this.console.cancel_round()
+                }
+            })
         }
         if (this.console.tournament.state == d.TournamentState.PLAYING
             && this.index == this.console.tournament.rounds.length
-&& round.tables.length > 0
+            && round.tables.length > 0
             && round.tables.every(t => t.state == d.TableState.FINISHED)
         ) {
             const button = base.create_append(this.action_row, "button",
@@ -1317,7 +1366,7 @@ class RoundTab {
         this.reseat_button.addEventListener("click", (ev) => { this.reseat() })
         if (!this.finals) {
             const add_table_button = base.create_append(this.action_row, "button",
-                ["col-2", "me-2", "btn", "btn-primary"]
+                ["me-2", "btn", "btn-primary"]
             )
             add_table_button.innerHTML = '<i class="bi bi-plus"></i> Add Table'
             add_table_button.addEventListener("click",
@@ -1522,7 +1571,7 @@ class ScoreModal {
         const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
         const content = base.create_append(dialog, "div", ["modal-content"])
         const header = base.create_append(content, "div", ["modal-header"])
-        this.title = base.create_append(header, "h1", ["modal-title", "fs-5"])
+        this.title = base.create_append(header, "h1", ["modal-title", "fs-5"], { id: "scoreModalLabel" })
         base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         const body = base.create_append(content, "div", ["modal-body", "d-flex", "flex-column", "align-items-center"])
         const row_1 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
@@ -1604,6 +1653,7 @@ class TournamentConsole {
     tabs_div: HTMLDivElement
     score_modal: ScoreModal
     tabs: Map<string, bootstrap.Tab>
+    confirmation: ConfirmationModal
     player_select: PlayerSelectModal
     add_member_modal: AddMemberModal
     sanction_player_modal: SanctionPlayerModal
@@ -1616,6 +1666,7 @@ class TournamentConsole {
         this.root = el
         this.token = token
         this.members_map = new member.MemberMap()
+        this.confirmation = new ConfirmationModal(el)
         this.score_modal = new ScoreModal(el, this)
         this.player_select = new PlayerSelectModal(el)
         this.add_member_modal = new AddMemberModal(el, this)
@@ -1748,9 +1799,9 @@ class TournamentConsole {
                 )
             }
         } else if (this.tournament.state == d.TournamentState.PLAYING) {
-if (this.tournament.rounds.slice(-1)[0].tables.length < 1) {
-            this.help_message(
-                "This round is empty because no player was checked in <br>" +
+            if (this.tournament.rounds.slice(-1)[0].tables.length < 1) {
+                this.help_message(
+                    "This round is empty because no player was checked in <br>" +
                     "<em>Either add tables manually with " +
                     '<i class="bi bi-pentagon-fill"></i>' +
                     " Alter Seating, or " +
@@ -1763,18 +1814,18 @@ if (this.tournament.rounds.slice(-1)[0].tables.length < 1) {
                     "Round in progress — " +
                     '<i class="bi bi-pentagon-fill"></i>' +
                     " Alter seating and " +
-                '<i class="bi bi-pencil"></i>' +
-" record players results " +
-                " in the round tab <br>" +
-                "<em>All tables need to be " +
-                '<span class="badge text-bg-success">Finished</span>' +
-                " before you can end the round — You can " +
-                '"Override"' +
-                " the table score verification if needed</em>"
-                ,
-                d.AlertLevel.INFO
-            )
-}
+                    '<i class="bi bi-pencil"></i>' +
+                    " record players results " +
+                    " in the round tab <br>" +
+                    "<em>All tables need to be " +
+                    '<span class="badge text-bg-success">Finished</span>' +
+                    " before you can end the round — You can " +
+                    '"Override"' +
+                    " the table score verification if needed</em>"
+                    ,
+                    d.AlertLevel.INFO
+                )
+            }
         } else if (this.tournament.state == d.TournamentState.FINALS) {
             this.help_message(
                 "Finals have been seeded — Perform the " +
