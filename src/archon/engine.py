@@ -524,6 +524,11 @@ class NoRoundInProgress(TournamentError):
         return f"There is no round in progress"
 
 
+class EmptyRound(TournamentError):
+    def __str__(self):
+        return f"No table: the round is empty"
+
+
 class CheckinClosed(TournamentError):
     def __str__(self):
         return f"Check-in is closed"
@@ -717,6 +722,8 @@ class TournamentOrchestrator(TournamentManager):
             models.TournamentState.WAITING,
         ]:
             raise NoRoundInProgress(ev)
+        if len(self.rounds[-1].tables) < 1:
+            raise EmptyRound(ev)
         invalid_tables = [
             idx
             for idx, t in enumerate(self.rounds[-1].tables, 1)
