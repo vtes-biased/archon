@@ -468,15 +468,15 @@ export class TournamentDisplay {
         const status_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
         switch (tournament.state) {
             case d.TournamentState.REGISTRATION:
-                status_badge.classList.add("bg-info", "text-dark")
+                status_badge.classList.add("text-bg-info")
                 status_badge.innerText = "Registration"
                 break;
             case d.TournamentState.FINISHED:
-                status_badge.classList.add("bg-secondary")
+                status_badge.classList.add("text-bg-secondary")
                 status_badge.innerText = "Finished"
                 break;
             default:
-                status_badge.classList.add("bg-warning", "text-dark")
+                status_badge.classList.add("text-bg-warning")
                 status_badge.innerText = "In Progress"
                 break;
         }
@@ -484,13 +484,13 @@ export class TournamentDisplay {
         format_badge.innerText = tournament.format
         switch (tournament.format) {
             case d.TournamentFormat.Standard:
-                format_badge.classList.add("bg-secondary")
+                format_badge.classList.add("text-bg-secondary")
                 break;
             case d.TournamentFormat.Limited:
-                format_badge.classList.add("bg-warning", "text-dark")
+                format_badge.classList.add("text-bg-warning")
                 break;
             case d.TournamentFormat.Draft:
-                format_badge.classList.add("bg-info", "text-dark")
+                format_badge.classList.add("text-bg-info")
                 break;
         }
         if (tournament.rank != d.TournamentRank.BASIC) {
@@ -498,19 +498,19 @@ export class TournamentDisplay {
             rank_badge.innerText = tournament.rank
             switch (tournament.rank) {
                 case d.TournamentRank.NC:
-                    rank_badge.classList.add("bg-primary")
+                    rank_badge.classList.add("text-bg-primary")
                     break;
                 case d.TournamentRank.GP:
-                    rank_badge.classList.add("bg-warning", "text-dark")
+                    rank_badge.classList.add("text-bg-warning")
                     break;
                 case d.TournamentRank.CC:
-                    rank_badge.classList.add("bg-danger")
+                    rank_badge.classList.add("text-bg-danger")
                     break;
             }
         }
         if (tournament.online) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "text-nowrap", "badge", "bg-info", "text-dark"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Online"
         }
         if (tournament.proxies) {
@@ -518,18 +518,22 @@ export class TournamentDisplay {
                 ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Proxies Allowed"
         } else {
-            base.create_append(badges_div, "span", ["me-2", "mb-2", "text-bg-secondary"]).innerText = "No Proxy"
+            base.create_append(badges_div, "span",
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-secondary"]
+            ).innerText = "No Proxy"
         }
         if (tournament.multideck) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "text-nowrap", "badge", "bg-info", "text-dark"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Multideck"
         } else {
-            base.create_append(badges_div, "span", ["me-2", "mb-2", "badge", "bg-secondary"]).innerText = "Single Deck"
+            base.create_append(badges_div, "span",
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-secondary"]
+            ).innerText = "Single Deck"
         }
         if (tournament.decklist_required) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "text-nowrap", "badge", "bg-info", "text-dark"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Decklist required"
         }
         // ------------------------------------------------------------------------------------------------- Date & Time
