@@ -194,6 +194,8 @@ class DeckModal {
     modal_div: HTMLDivElement
     qr_scanner: QrScanner
     form: HTMLFormElement
+    round_div: HTMLDivElement
+    round: HTMLSelectElement
     deck: HTMLTextAreaElement
     modal: bootstrap.Modal
     title: HTMLHeadingElement
@@ -217,6 +219,11 @@ class DeckModal {
             this.qr_scanner.start()
         })
         this.form = base.create_append(body, "form")
+        this.round_div = base.create_append(this.form, "div", ["input-group", "form-floating"])
+        this.round = base.create_append(this.round_div, "select", ["form-select", "my-2"],
+            { name: "round", id: "deckModalRoundInput" }
+        )
+        base.create_append(this.round_div, "label", ["form-label"], { for: "deckModalRoundInput" }).innerText = "Round"
         const deck_div = base.create_append(this.form, "div", ["input-group", "form-floating"])
         this.deck = base.create_append(deck_div, "textarea", ["form-control", "mb-2", "h-100"],
             { id: "deckModalTextInput", type: "text", autocomplete: "new-deck", rows: "10", maxlength: 10000 }
@@ -242,7 +249,7 @@ class DeckModal {
 
     async submit(ev: SubmitEvent) {
         ev.preventDefault()
-        await this.display.set_deck(this.tournament, this.player_uid, this.deck.value)
+        await this.display.set_deck(this.tournament, this.player_uid, this.deck.value, parseInt(this.round.value))
         this.modal.hide()
     }
 
@@ -251,6 +258,24 @@ class DeckModal {
         this.tournament = tournament
         this.player_uid = player.uid
         this.deck.value = ""
+        base.remove_children(this.round)
+        if (this.tournament.multideck) {
+            this.round_div.classList.add("visible")
+            this.round_div.classList.remove("invisible")
+            for (var idx = 1; idx <= this.tournament.rounds.length; idx++) {
+                const option = base.create_element("option")
+                if (idx == this.tournament.rounds.length && tournament.finals_seeds.length) {
+                    option.label = "Finals"
+                } else {
+                    option.label = `Round ${idx}`
+                }
+                option.value = idx.toString()
+                this.round.options.add(option)
+            }
+        } else {
+            this.round_div.classList.add("invisible")
+            this.round_div.classList.remove("visible")
+        }
         this.modal.show()
     }
 }
@@ -305,9 +330,24 @@ class CheckInModal {
     }
 }
 
+
+function ordinal(n: number): string {
+    if (!n) { return "" }
+    if (n <= 0) { return n.toString() }
+    const suffix = n.toString().slice(-1)
+    if (suffix == "1") { return `${n}<sup>st</sup>` }
+    if (suffix == "2") { return `${n}<sup>nd</sup>` }
+    if (suffix == "3") { return `${n}<sup>rd</sup>` }
+    return `${n}<sup>th</sup>`
+}
+
+interface TournamentDisplayCallback {
+    (): Promise<void>
+}
+
 export class TournamentDisplay {
     root: HTMLDivElement
-    included: boolean
+    display_callback: TournamentDisplayCallback
     score_modal: ScoreModal | undefined
     deck_modal: DeckModal | undefined
     checkin_modal: CheckInModal | undefined
@@ -337,10 +377,10 @@ export class TournamentDisplay {
     timezone: HTMLSelectElement
     description: HTMLTextAreaElement
     judges: Set<string>
-    constructor(root: HTMLDivElement, included: boolean = false) {
+    constructor(root: HTMLDivElement, display_callback: TournamentDisplayCallback | undefined = undefined) {
         this.root = base.create_append(root, "div")
-        this.included = included
-        if (!included) {
+        this.display_callback = display_callback
+        if (!display_callback) {
             this.score_modal = new ScoreModal(root, this)
             this.deck_modal = new DeckModal(root, this)
             this.checkin_modal = new CheckInModal(root, this)
@@ -392,44 +432,34 @@ export class TournamentDisplay {
     }
     async display(tournament: d.Tournament) {
         base.remove_children(this.root)
-        if (!this.included) {
+        if (!this.display_callback) {
             this.alert = base.create_append(this.root, "div", ["alert"], { role: "alert" })
         }
         this.judges = new Set(tournament.judges)
-        // ----------------------------------------------------------------------------------------------------- User ID
-        if (this.user_id && Object.hasOwn(tournament.players, this.user_id)) {
-            const player = tournament.players[this.user_id]
-            if (player.state != d.PlayerState.FINISHED) {
-                this.set_alert("You are registered for this tournament", d.AlertLevel.SUCCESS)
-            }
-        }
         // ------------------------------------------------------------------------------------------------------- Title
-        if (!this.included) {
+        if (!this.display_callback) {
             base.create_append(this.root, "h1", ["mb-2"]).innerText = tournament.name
         }
         // ----------------------------------------------------------------------------------------------------- Buttons
-        const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
-        if (this.included) {
+        if (this.display_callback) {
+            const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
             const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
             edit_button.innerText = "Edit"
             edit_button.addEventListener("click", (ev) => this.display_form(tournament))
-            const download_button = base.create_append(buttons_div, "a", ["btn", "btn-primary", "mb-2"],
+            const download_button = base.create_append(buttons_div, "a",
+                ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"],
                 { role: "button" }
             )
             download_button.innerHTML = '<i class="bi bi-download"></i> Download'
             download_button.href = "data:application/yaml;charset=utf-8;base64," + Base64.encode(stringify(tournament))
             download_button.download = `${tournament.name}.txt`
-        } else if (this.user_id && tournament.judges.includes(this.user_id)) {
-            base.create_append(buttons_div, "a", ["btn", "btn-primary", "me-2", "mb-2"],
-                { href: `/tournament/${tournament.uid}/console.html` }
-            ).innerText = "Console"
         }
         // ------------------------------------------------------------------------------------------------------ Badges
         const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
         base.create_append(badges_div, "span",
             ["me-2"]
         ).innerText = `${Object.getOwnPropertyNames(tournament.players).length} contenders`
-        const status_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "badge"])
+        const status_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
         switch (tournament.state) {
             case d.TournamentState.REGISTRATION:
                 status_badge.classList.add("bg-info", "text-dark")
@@ -444,7 +474,7 @@ export class TournamentDisplay {
                 status_badge.innerText = "In Progress"
                 break;
         }
-        const format_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "badge"])
+        const format_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
         format_badge.innerText = tournament.format
         switch (tournament.format) {
             case d.TournamentFormat.Standard:
@@ -458,7 +488,7 @@ export class TournamentDisplay {
                 break;
         }
         if (tournament.rank != d.TournamentRank.BASIC) {
-            const rank_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "badge"])
+            const rank_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
             rank_badge.innerText = tournament.rank
             switch (tournament.rank) {
                 case d.TournamentRank.NC:
@@ -474,26 +504,26 @@ export class TournamentDisplay {
         }
         if (tournament.online) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "badge", "bg-info", "text-dark"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "bg-info", "text-dark"]
             ).innerText = "Online"
         }
         if (tournament.proxies) {
             base.create_append(badges_div, "span",
-                ["me-2", "badge", "bg-info", "text-dark"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Proxies Allowed"
         } else {
-            base.create_append(badges_div, "span", ["me-2", "mb-2", "badge", "bg-secondary"]).innerText = "No Proxy"
+            base.create_append(badges_div, "span", ["me-2", "mb-2", "text-bg-secondary"]).innerText = "No Proxy"
         }
         if (tournament.multideck) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "badge", "bg-info", "text-dark"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "bg-info", "text-dark"]
             ).innerText = "Multideck"
         } else {
             base.create_append(badges_div, "span", ["me-2", "mb-2", "badge", "bg-secondary"]).innerText = "Single Deck"
         }
         if (tournament.decklist_required) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "badge", "bg-info", "text-dark"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "bg-info", "text-dark"]
             ).innerText = "Decklist required"
         }
         // ------------------------------------------------------------------------------------------------- Date & Time
@@ -525,6 +555,10 @@ export class TournamentDisplay {
         if (finish) {
             base.create_append(datetime_div, "div", ["me-2"]).innerHTML = '<i class="bi bi-arrow-right"></i>'
             base.create_append(datetime_div, "div", ["me-2"]).innerText = finish_string
+        }
+        // ----------------------------------------------------------------------------------------------- User Commands
+        if (!this.display_callback && this.user_id) {
+            this.display_user_info(tournament)
         }
         // ------------------------------------------------------------------------------------------------------- Venue
         if (!tournament.online && tournament.venue) {
@@ -575,190 +609,6 @@ export class TournamentDisplay {
                 { ADD_ATTR: ['target'] }
             )
         }
-        // ----------------------------------------------------------------------------------------------- User Commands
-        if (!this.included && this.user_id && tournament.state != d.TournamentState.FINISHED) {
-            const current_round = tournament.rounds.length
-            var status: string
-            switch (tournament.state) {
-                case d.TournamentState.REGISTRATION:
-                    if (current_round > 0) {
-                        status = `Round ${current_round} finished`
-                    } else {
-                        status = "Registrations open, waiting for check-in"
-                    }
-                    break;
-                case d.TournamentState.WAITING:
-                    status = `Round ${current_round + 1} begins soon`
-                    break;
-                case d.TournamentState.PLAYING:
-                    status = `Round ${current_round} in progress`
-                    break;
-                case d.TournamentState.FINALS:
-                    status = `Finals in progress`
-                    break;
-            }
-            const status_title = base.create_append(this.root, "h2", ["my-2"])
-            status_title.innerText = status
-            const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "align-items-center", "my-2"])
-            if (Object.hasOwn(tournament.players, this.user_id)) {
-                const player = tournament.players[this.user_id]
-                if (tournament.multideck || tournament.rounds.length < 1) {
-                    const upload_deck_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"])
-                    if (tournament.multideck) {
-                        upload_deck_button.innerText = `Upload Deck for round ${current_round + 1}`
-                    } else {
-                        upload_deck_button.innerText = "Upload Deck"
-                    }
-                    const tooltip = base.add_tooltip(upload_deck_button,
-                        "You can re-upload a new version anytime before the tournament begins"
-                    )
-                    upload_deck_button.addEventListener("click", (ev) => {
-                        tooltip.hide()
-                        this.deck_modal.show(tournament, player)
-                    })
-                }
-                if (tournament.multideck && player.state == d.PlayerState.PLAYING) {
-                    const player_seat = tournament.rounds.at(-1).tables.at(player.table - 1).seating.at(player.seat - 1)
-                    if (player_seat.deck?.vdb_link) {
-                        const deck_link = base.create_append(buttons_div, "a", ["btn", "btn-vdb", "bg-vdb", "me-2"],
-                            { target: "_blank" }
-                        )
-                        deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
-                        deck_link.innerHTML += `Round ${current_round} decklist`
-                        deck_link.href = player.deck.vdb_link
-                    }
-                } else if (player.deck && player.deck.vdb_link) {
-                    const deck_link = base.create_append(buttons_div, "a", ["btn", "btn-vdb", "bg-vdb", "me-2"],
-                        { target: "_blank" }
-                    )
-                    deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
-                    deck_link.innerHTML += "See your decklist"
-                    deck_link.href = player.deck.vdb_link
-                }
-                if (player.state != d.PlayerState.FINISHED) {
-                    const drop_button = base.create_append(buttons_div, "button", ["btn", "btn-danger", "me-2"])
-                    drop_button.innerHTML = '<i class="bi bi-x-circle-fill"></i> Drop from the tournament'
-                    const tooltip = base.add_tooltip(drop_button, "Let the organizers know you are leaving")
-                    drop_button.addEventListener("click", (ev) => { tooltip.hide(); this.drop(tournament, player) })
-
-                }
-                if (tournament.state == d.TournamentState.WAITING && player.state == d.PlayerState.REGISTERED) {
-                    this.set_alert(
-                        "You need to check in to play the next round. If you do not check in, you won't be seated.",
-                        d.AlertLevel.WARNING
-                    )
-                    const tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
-                    const checkin_button = base.create_append(tooltip_span, "button", ["btn", "btn-primary", "me-2"])
-                    checkin_button.innerHTML = '<i class="bi bi-qr-code-scan"> Check In</i>'
-                    checkin_button.addEventListener("click", (ev) => this.checkin_modal.show(tournament, player))
-                    if (player.barriers.length > 0) {
-                        checkin_button.disabled = true
-                        var tooltip: string
-                        switch (player.barriers[0]) {
-                            case d.Barrier.BANNED:
-                                tooltip = "You have been banned from tournament play"
-                                this.set_alert(tooltip, d.AlertLevel.DANGER)
-                                break;
-                            case d.Barrier.DISQUALIFIED:
-                                tooltip = "You have been disqualified"
-                                this.set_alert(tooltip, d.AlertLevel.DANGER)
-                                break;
-                            case d.Barrier.MAX_ROUNDS:
-                                tooltip = "You have played the maximum number of rounds"
-                                this.set_alert(tooltip, d.AlertLevel.INFO)
-                                break;
-                            case d.Barrier.MISSING_DECK:
-                                tooltip = "You must record your deck list"
-                                this.set_alert(tooltip, d.AlertLevel.WARNING)
-                                break;
-                        }
-                        base.add_tooltip(tooltip_span, tooltip)
-                    } else {
-                        checkin_button.disabled = false
-                    }
-                }
-                else if (player.state == d.PlayerState.CHECKED_IN) {
-                    this.set_alert(`You are ready to play`, d.AlertLevel.SUCCESS)
-                }
-                else if (player.state == d.PlayerState.PLAYING) {
-                    const player_table = tournament.rounds[current_round - 1].tables[player.table - 1]
-                    const table_div = base.create_append(this.root, "div")
-                    if (tournament.state == d.TournamentState.FINALS) {
-                        this.set_alert("You play the finals", d.AlertLevel.SUCCESS)
-                    } else {
-                        this.set_alert(`You play on table ${player.table}, seat ${player.seat}`, d.AlertLevel.SUCCESS)
-                        status_title.innerText += ` — Your table: Table ${player.table}`
-                    }
-                    const table = base.create_append(table_div, "table", ["table"])
-                    const head = base.create_append(table, "thead")
-                    const tr = base.create_append(head, "tr")
-                    var headers = ["Seat", "VEKN#", "Name", "Score", ""]
-                    if (tournament.state == d.TournamentState.FINALS) {
-                        headers = ["Seed", "VEKN#", "Name", "Score"]
-                    }
-                    for (const label of headers) {
-                        const th = base.create_append(tr, "th", [], { scope: "col" })
-                        th.innerText = label
-                    }
-                    const body = base.create_append(table, "tbody")
-                    var player_seat: d.TableSeat
-                    for (const [idx, seat] of player_table.seating.entries()) {
-                        const seat_player = tournament.players[seat.player_uid]
-                        const row = base.create_append(body, "tr", ["align-middle"])
-                        var cell_cls = ["text-nowrap"]
-                        var name_cls = ["w-100"]
-                        if (player.uid == seat_player.uid) {
-                            player_seat = seat
-                            cell_cls.push("bg-primary-subtle")
-                            name_cls.push("bg-primary-subtle")
-                        }
-                        if (tournament.state == d.TournamentState.FINALS) {
-                            base.create_append(row, "td", cell_cls).innerHTML = full_score_string(seat_player)
-                            base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
-                        } else {
-                            base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = (idx + 1).toString()
-                            base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
-                        }
-                        base.create_append(row, "td", name_cls).innerText = seat_player.name
-                        if (seat) {
-                            base.create_append(row, "td", cell_cls).innerText = score_string(seat.result)
-                            const actions = base.create_append(row, "td", cell_cls)
-                            const changeButton = base.create_append(actions, "button",
-                                ["me-2", "btn", "btn-sm", "btn-primary"]
-                            )
-                            changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
-                            changeButton.addEventListener("click", (ev) => {
-                                this.score_modal.show(tournament, seat_player, current_round, seat.result.vp)
-                            })
-                        }
-                    }
-                    if (player_seat && tournament.state != d.TournamentState.FINALS) {
-                        const report_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "my-2"])
-                        report_button.innerText = "Report Score"
-                        report_button.addEventListener("click",
-                            (ev) => this.score_modal.show(tournament, player, current_round, player_seat.result.vp)
-                        )
-                    }
-                }
-            }
-            else if (tournament.state != d.TournamentState.FINALS) {
-                const member = this.members_map.by_uid.get(this.user_id)
-                if (member && member.vekn.length > 0) {
-                    const register_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "my-2"])
-                    register_button.innerText = "Register"
-                    register_button.addEventListener("click", (ev) => this.register(tournament, member))
-                } else {
-                    this.set_alert(
-                        "A VEKN ID# is required to register to this event. " +
-                        "Claim your VEKN ID#, if you have one, in your " +
-                        '<a class="btn btn-sm btn-secondary" href="/profile.html">' +
-                        '<i class="bi bi-person-fill"></i> Profile' +
-                        '</a><br>' +
-                        "If you hav no VEKN ID#, ask a Judge or an organizer to register you."
-                        , d.AlertLevel.WARNING)
-                }
-            }
-        }
         // --------------------------------------------------------------------------------------------------- Standings
         if (this.user_id &&
             (tournament.state == d.TournamentState.FINALS || tournament.state == d.TournamentState.FINISHED)
@@ -784,6 +634,311 @@ export class TournamentDisplay {
                 base.create_append(tr, "td", classes).innerText = player.city
                 base.create_append(tr, "td", classes).innerText = player.country
                 base.create_append(tr, "td", classes).innerHTML = score_string(player.result)
+            }
+        }
+    }
+    display_user_info(tournament: d.Tournament) {
+        if (!this.user_id) { return }
+        const member = this.members_map.by_uid.get(this.user_id)
+        const current_round = tournament.rounds.length
+        const started = current_round > 0
+        const first_round_checkin = (tournament.state == d.TournamentState.WAITING && !started)
+        const buttons_div = base.create_append(this.root, "div", ["align-items-center", "my-2"])
+        if (tournament.judges.includes(this.user_id)) {
+            base.create_append(buttons_div, "a", ["btn", "btn-warning", "text-nowrap", "me-2", "mb-2"],
+                { href: `/tournament/${tournament.uid}/console.html` }
+            ).innerText = "Tournament Manager"
+        }
+        // _________________________________________________________________________________________ User not registered
+        if (!Object.hasOwn(tournament.players, this.user_id)) {
+            if (tournament.state == d.TournamentState.FINISHED) {
+                return
+            }
+            if (tournament.state == d.TournamentState.FINALS) {
+                this.set_alert("Finals in progress: you are not participating", d.AlertLevel.INFO)
+                return
+            }
+            if (!member || member.vekn.length < 1) {
+                this.set_alert(
+                    "A VEKN ID# is required to register to this event: " +
+                    "claim your VEKN ID#, if you have one, in your " +
+                    '<a class="btn btn-sm btn-secondary" href="/profile.html">' +
+                    '<i class="bi bi-person-fill"></i> Profile' +
+                    '</a><br>' +
+                    "<em>If you hav no VEKN ID#, ask a Judge or an organizer to register you</em>"
+                    , d.AlertLevel.WARNING
+                )
+                return
+            }
+            if (tournament.state == d.TournamentState.REGISTRATION || first_round_checkin) {
+                this.set_alert("You can register to this tournament", d.AlertLevel.INFO)
+                this.display_user_register(tournament, buttons_div, member)
+                return
+            }
+            this.set_alert(
+                "Tournament in progress: you are not participating <br>" +
+                "<em>Either ask a Judge to check you in, or register for next round</em>",
+                d.AlertLevel.WARNING
+            )
+            this.display_user_register(tournament, buttons_div, member)
+            return
+        }
+        // _______________________________________________________________________________________________ ADD: Decklist
+        // in all cases, even after the tournament's finished, allow players to upload their decklist
+        const player = tournament.players[this.user_id]
+        if (!tournament.multideck || tournament.rounds.length > 0) {
+            this.display_user_set_deck(tournament, buttons_div)
+        }
+        // _________________________________________________________________________________________ Tournament Finished
+        if (tournament.state == d.TournamentState.FINISHED) {
+            if (tournament.winner == player.uid) {
+                this.set_alert(
+                    "Tournament finished: you won, congratulations!",
+                    d.AlertLevel.WARNING
+                )
+            }
+            // no message otherwise. Participation appears in standings.
+            return
+        }
+        // _________________________________________________________________________________________________ ADD: Status
+        var status: string
+        switch (tournament.state) {
+            case d.TournamentState.REGISTRATION:
+                if (current_round > 0) {
+                    status = `Round ${current_round} finished`
+                } else {
+                    status = "Registrations open"
+                }
+                break;
+            case d.TournamentState.WAITING:
+                status = `Round ${current_round + 1} begins soon — Check-in open`
+                break;
+            case d.TournamentState.PLAYING:
+                status = `Round ${current_round} in progress`
+                if (player.state == d.PlayerState.PLAYING) {
+                    status += ` — Your table: Table ${player.table}`
+                }
+                break;
+            case d.TournamentState.FINALS:
+                status = `Finals in progress`
+                if (player.state == d.PlayerState.PLAYING) {
+                    status += ` — You play ${ordinal(player.seed)} seed`
+                }
+                break;
+        }
+        const status_title = base.create_append(this.root, "h2", ["my-2"])
+        status_title.innerHTML = status
+        // ______________________________________________________________________________________________________ Finals
+        if (tournament.state == d.TournamentState.FINALS) {
+            if (player.state == d.PlayerState.PLAYING) {
+                this.set_alert("You play the finals", d.AlertLevel.SUCCESS)
+                this.display_user_table(tournament, player)
+            } else {
+                this.set_alert("Finals in progress: you are not participating", d.AlertLevel.INFO)
+                // TODO: it would be nice to be able to link live streams here
+            }
+            return
+        }
+
+        // ______________________________________________________________________________________ Finished before finals
+        if (player.state == d.PlayerState.FINISHED) {
+            if (player.barriers.includes(d.Barrier.BANNED)) {
+                this.set_alert("You are banned from tournament play by the VEKN", d.AlertLevel.DANGER)
+                return
+            }
+            if (player.barriers.includes(d.Barrier.DISQUALIFIED)) {
+                this.set_alert("You have been disqualified", d.AlertLevel.DANGER)
+                return
+            }
+            this.set_alert(
+                "You have dropped out of this tournament <br>" +
+                "<em>You can register back</em>",
+                d.AlertLevel.WARNING
+            )
+            const register_button = base.create_append(buttons_div, "button",
+                ["btn", "btn-success", "me-2", "mb-2"]
+            )
+            register_button.innerText = "Register back"
+            register_button.addEventListener("click", (ev) => this.register(tournament, member))
+            return
+        }
+        // ____________________________________________________________________________________________ ADD: Drop button
+        {
+            const drop_button = base.create_append(buttons_div, "button",
+                ["btn", "btn-danger", "text-nowrap", "me-2", "mb-2"]
+            )
+            drop_button.innerHTML = '<i class="bi bi-x-circle-fill"></i> Drop from the tournament'
+            const tooltip = base.add_tooltip(drop_button, "Let the organizers know you are leaving")
+            drop_button.addEventListener("click", (ev) => { tooltip.hide(); this.drop(tournament, player) })
+        }
+        // _________________________________________________________________________________________ Open (registration)
+        if (tournament.state == d.TournamentState.REGISTRATION) {
+            this.set_alert(
+                "You are registered <br>" +
+                "<em>You can upload (and re-upload) you deck list at any time until the first round starts — " +
+                "not even judges can see your deck list until it starts.</em>",
+                d.AlertLevel.SUCCESS
+            )
+            return
+        }
+        // _____________________________________________________________________________________________________ Playing
+        if (tournament.state == d.TournamentState.PLAYING) {
+            if (player.state != d.PlayerState.PLAYING) {
+                this.set_alert(
+                    "You are not playing <br> " +
+                    "<em>Contact a judge urgently if you should be</em>",
+                    d.AlertLevel.DANGER
+                )
+                return
+            }
+            this.set_alert(`You are playing on table ${player.table}, seat ${player.seat}`, d.AlertLevel.SUCCESS)
+            this.display_user_table(tournament, player)
+            return
+        }
+        // ____________________________________________________________________________________________________ Check-In
+        if (tournament.state == d.TournamentState.WAITING) {
+            if (player.state == d.PlayerState.CHECKED_IN) {
+                this.set_alert(`You are checked in and ready to play`, d.AlertLevel.SUCCESS)
+                return
+            }
+            const tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
+            const checkin_button = base.create_append(tooltip_span, "button",
+                ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"]
+            )
+            checkin_button.innerHTML = '<i class="bi bi-qr-code-scan"> Check In</i>'
+            if (player.barriers.length == 0) {
+                checkin_button.disabled = false
+                checkin_button.addEventListener("click", (ev) => this.checkin_modal.show(tournament, player))
+                this.set_alert(
+                    "You need to check in to play the next round <br>" +
+                    "<em>If you do not check in, you will not play<em>",
+                    d.AlertLevel.WARNING
+                )
+                return
+            }
+            checkin_button.disabled = true
+            if (player.barriers.includes(d.Barrier.BANNED)) {
+                const msg = "You are banned from tournament play by the VEKN"
+                this.set_alert(msg, d.AlertLevel.DANGER)
+                base.add_tooltip(tooltip_span, msg)
+                return
+            }
+            if (player.barriers.includes(d.Barrier.DISQUALIFIED)) {
+                const msg = "You have been disqualified"
+                this.set_alert(msg, d.AlertLevel.DANGER)
+                base.add_tooltip(tooltip_span, msg)
+                return
+            }
+            if (player.barriers.includes(d.Barrier.MAX_ROUNDS)) {
+                const msg = "You have played the maximum number of rounds"
+                this.set_alert(msg, d.AlertLevel.INFO)
+                base.add_tooltip(tooltip_span, msg)
+                return
+            }
+            if (player.barriers.includes(d.Barrier.MISSING_DECK)) {
+                const msg = "You must upload your deck list"
+                this.set_alert(msg, d.AlertLevel.WARNING)
+                base.add_tooltip(tooltip_span, msg)
+                return
+            }
+        }
+        return
+    }
+    display_user_register(tournament: d.Tournament, buttons_div: HTMLDivElement, member: d.Member) {
+        const register_button = base.create_append(buttons_div, "button",
+            ["btn", "btn-success", "text-nowrap", "me-2", "mb-2"]
+        )
+        register_button.innerText = "Register"
+        register_button.addEventListener("click", (ev) => this.register(tournament, member))
+    }
+    display_user_set_deck(tournament: d.Tournament, buttons_div: HTMLDivElement) {
+        const current_round = tournament.rounds.length
+        const player = tournament.players[this.user_id]
+        const tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
+        const upload_deck_button = base.create_append(tooltip_span, "button",
+            ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"]
+        )
+        upload_deck_button.innerText = "Upload Deck"
+        var vdb_link: string
+        var link_name: string
+        if (player.deck && player.deck.vdb_link) {
+            vdb_link = player.deck.vdb_link
+            link_name = "Decklist"
+        }
+        if (tournament.multideck && player.state == d.PlayerState.PLAYING) {
+            const player_seat = tournament.rounds.at(-1).tables.at(player.table - 1).seating.at(player.seat - 1)
+            if (player_seat.deck?.vdb_link) {
+                vdb_link = player_seat.deck.vdb_link
+                link_name = `Round ${current_round} decklist`
+            }
+        }
+        if (vdb_link) {
+            const deck_link = base.create_append(buttons_div, "a",
+                ["btn", "btn-vdb", "bg-vdb", "text-nowrap", "me-2", "mb-2"],
+                { target: "_blank" }
+            )
+            deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
+            deck_link.innerHTML += link_name
+            deck_link.href = vdb_link
+        }
+        if (tournament.decklist_required && current_round > 0) {
+            upload_deck_button.disabled = true
+            base.add_tooltip(tooltip_span, "The tournament has started, only a judge can modify your deck list")
+            return
+        }
+        const tooltip = base.add_tooltip(tooltip_span,
+            "You can re-upload a new version anytime before the tournament begins"
+        )
+        upload_deck_button.addEventListener("click", (ev) => {
+            tooltip.hide()
+            this.deck_modal.show(tournament, player)
+        })
+    }
+    display_user_table(tournament: d.Tournament, player: d.Player) {
+        const current_round = tournament.rounds.length
+        const player_table = tournament.rounds[current_round - 1].tables[player.table - 1]
+        const table_div = base.create_append(this.root, "div")
+        const table = base.create_append(table_div, "table", ["table"])
+        const head = base.create_append(table, "thead")
+        const tr = base.create_append(head, "tr")
+        var headers = ["Seat", "VEKN#", "Name", "Score", ""]
+        if (tournament.state == d.TournamentState.FINALS) {
+            headers = ["Seed", "VEKN#", "Name", "Score"]
+        }
+        for (const label of headers) {
+            const th = base.create_append(tr, "th", [], { scope: "col" })
+            th.innerText = label
+        }
+        const body = base.create_append(table, "tbody")
+        var player_seat: d.TableSeat
+        for (const [idx, seat] of player_table.seating.entries()) {
+            const seat_player = tournament.players[seat.player_uid]
+            const row = base.create_append(body, "tr", ["align-middle"])
+            var cell_cls = ["text-nowrap"]
+            var name_cls = ["w-100"]
+            if (player.uid == seat_player.uid) {
+                player_seat = seat
+                cell_cls.push("bg-primary-subtle")
+                name_cls.push("bg-primary-subtle")
+            }
+            if (tournament.state == d.TournamentState.FINALS) {
+                base.create_append(row, "td", cell_cls).innerHTML = full_score_string(seat_player)
+                base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
+            } else {
+                base.create_append(row, "th", cell_cls, { scope: "row" }).innerText = (idx + 1).toString()
+                base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
+            }
+            base.create_append(row, "td", name_cls).innerText = seat_player.name
+            if (seat) {
+                base.create_append(row, "td", cell_cls).innerText = score_string(seat.result)
+                const actions = base.create_append(row, "td", cell_cls)
+                const changeButton = base.create_append(actions, "button",
+                    ["me-2", "mb-2", "btn", "btn-sm", "btn-primary"]
+                )
+                changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
+                changeButton.addEventListener("click", (ev) => {
+                    this.score_modal.show(tournament, seat_player, current_round, seat.result.vp)
+                })
             }
         }
     }
@@ -836,12 +991,13 @@ export class TournamentDisplay {
         } as events.SetResult
         await this.handle_tournament_event(tournament.uid, tev)
     }
-    async set_deck(tournament: d.Tournament, player_uid: string, deck: string) {
+    async set_deck(tournament: d.Tournament, player_uid: string, deck: string, round: number | undefined = undefined) {
         const tev = {
             uid: uuid.v4(),
             type: events.EventType.SET_DECK,
             player_uid: player_uid,
             deck: deck,
+            round: round ?? null,
         } as events.SetDeck
         const ret = await this.handle_tournament_event(tournament.uid, tev)
         if (ret) {
@@ -930,19 +1086,16 @@ export class TournamentDisplay {
                 { type: "checkbox", name: "proxies", id: "switchProxy" }
             )
             this.proxies_label = base.create_append(field_div, "label", ["form-check-label"], { for: "switchProxy" })
+            this.proxies_label.innerText = "Proxies allowed"
             if (tournament?.proxies) {
                 this.proxies.checked = true
-                this.proxies_label.innerText = "Proxies allowed"
             } else {
                 this.proxies.checked = false
-                this.proxies_label.innerText = "No proxy"
             }
             if (this.rank.value != d.TournamentRank.BASIC || tournament?.online) {
                 this.proxies.checked = false
-                this.proxies_label.innerText = "No proxy"
                 this.proxies.disabled = true
             }
-            this.proxies.addEventListener("change", (ev) => this.switch_proxies())
         }
         { // multideck
             const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
@@ -953,16 +1106,14 @@ export class TournamentDisplay {
             this.multideck_label = base.create_append(field_div, "label", ["form-check-label"],
                 { for: "switchMultideck" }
             )
+            this.multideck_label.innerText = "Multideck"
             if (tournament?.multideck) {
                 this.multideck.checked = true
-                this.multideck_label.innerText = "Multideck"
             } else {
                 this.multideck.checked = false
-                this.multideck_label.innerText = "Single deck"
             }
             if (this.rank.value != d.TournamentRank.BASIC) {
                 this.multideck.checked = false
-                this.multideck.innerText = "Single deck"
                 this.multideck.disabled = true
             }
             this.multideck.addEventListener("change", (ev) => this.switch_multideck())
@@ -976,19 +1127,16 @@ export class TournamentDisplay {
             this.decklist_required_label = base.create_append(field_div, "label", ["form-check-label"],
                 { for: "switchDecklistRequired" }
             )
+            this.decklist_required_label.innerText = "Decklist required"
             if (!tournament || tournament.decklist_required) {
                 this.decklist_required.checked = true
-                this.decklist_required_label.innerText = "Decklist required"
             } else {
                 this.decklist_required.checked = false
-                this.decklist_required_label.innerText = "Decklist optional"
             }
             if (this.multideck.checked) {
                 this.decklist_required.checked = false
                 this.decklist_required.disabled = true
-                this.decklist_required_label.innerText = "Decklist optional"
             }
-            this.decklist_required.addEventListener("change", (ev) => this.switch_decklist_required())
         }
         // filler
         base.create_append(form, "div", ["w-100"])
@@ -1087,6 +1235,12 @@ export class TournamentDisplay {
             }
         }
         // ------------------------------------------------------------------------------------------------------ line 5
+        var start_week: number = 1  // Monday
+        if (["en-US", "pt-BR"].includes(
+            (navigator.languages && navigator.languages.length) ? navigator.languages[0] : ""
+        )) {
+            start_week = 7
+        }
         { // start
             const div = base.create_append(form, "div", ["col-md-4"])
             const group = base.create_append(div, "div", ["input-group", "form-floating"], { id: "pickerStart" })
@@ -1112,7 +1266,7 @@ export class TournamentDisplay {
             }
             new tempusDominus.TempusDominus(group, {
                 display: { icons: biOneIcons },
-                localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" },
+                localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23", startOfTheWeek: start_week },
                 stepping: 15,
                 promptTimeOnDateChange: true
             })
@@ -1142,7 +1296,7 @@ export class TournamentDisplay {
             }
             new tempusDominus.TempusDominus(group, {
                 display: { icons: biOneIcons },
-                localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23" },
+                localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23", startOfTheWeek: start_week },
                 stepping: 15,
                 promptTimeOnDateChange: true
             })
@@ -1259,13 +1413,11 @@ export class TournamentDisplay {
             this.rank.dispatchEvent(new Event('change', { bubbles: true }))
         }
     }
-
     select_rank() {
         // No proxy and no multideck for national tournaments and above
         if (this.rank.value != d.TournamentRank.BASIC) {
             this.proxies.checked = false
             this.proxies.disabled = true
-            this.proxies.dispatchEvent(new Event('change', { bubbles: true }))
             this.multideck.checked = false
             this.multideck.disabled = true
             this.multideck.dispatchEvent(new Event('change', { bubbles: true }))
@@ -1277,35 +1429,15 @@ export class TournamentDisplay {
             this.multideck.disabled = false
         }
     }
-
-    switch_proxies() {
-        // Label change between "No Proxy" / "Proxies allowed"
-        if (this.proxies.checked) {
-            this.proxies_label.innerText = "Proxies allowed"
-        }
-        else {
-            this.proxies_label.innerText = "No Proxy"
-        }
-    }
-
     switch_multideck() {
         // Label change between "Multideck" / "Single deck"
         if (this.multideck.checked) {
-            this.multideck_label.innerText = "Multideck"
             this.decklist_required.checked = false
             this.decklist_required.disabled = true
             this.decklist_required.dispatchEvent(new Event('change', { bubbles: true }))
         }
         else {
-            this.multideck_label.innerText = "Single deck"
             this.decklist_required.disabled = false
-        }
-    }
-    switch_decklist_required() {
-        if (this.decklist_required.checked) {
-            this.decklist_required_label.innerText = "Decklist required"
-        } else {
-            this.decklist_required_label.innerText = "Decklist optional"
         }
     }
     switch_online() {
@@ -1373,8 +1505,13 @@ export class TournamentDisplay {
         const response = await res.json()
         console.log(response)
         if (tournament) {
-            Object.assign(tournament, json_data)
-            await this.display(tournament)
+            if (this.display_callback) {
+                // TODO: what about offline mode? Probably just deactivate the edit button
+                await this.display_callback()
+            } else {
+                Object.assign(tournament, json_data)
+                await this.display(tournament)
+            }
         } else {
             window.location.href = response.url
         }

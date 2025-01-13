@@ -61,8 +61,16 @@ class TournamentManager(models.Tournament):
                 self.finish_tournament(ev, member_uid)
 
     def register(self, ev: events.Register, member_uid: str) -> None:
-        # if player is already registered do nothing
+        # if player is already registered, only change his state if he has dropped
         if ev.player_uid and ev.player_uid in self.players:
+            player = self.players[ev.player_uid]
+            if player.state != models.PlayerState.FINISHED:
+                return
+            if models.Barrier.BANNED in player.barriers:
+                return
+            if models.Barrier.DISQUALIFIED in player.barriers:
+                return
+            player.state = models.PlayerState.REGISTERED
             return
         state = models.PlayerState.REGISTERED
         if self.state in [
@@ -118,7 +126,7 @@ class TournamentManager(models.Tournament):
                 player.table = 0
                 player.seat = 0
                 if player.state != models.PlayerState.FINISHED:
-                    player.state = models.PlayerState.REGISTERED  # or CHECKED_IN?
+                    player.state = models.PlayerState.REGISTERED
 
     def round_alter(self, ev: events.RoundAlter, member_uid: str) -> None:
         """Keep players results, decks and table overrides."""

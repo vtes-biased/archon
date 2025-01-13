@@ -219,6 +219,8 @@ class SanctionPlayerModal {
     modal: bootstrap.Modal
     console: TournamentConsole
     member: d.Member | null
+    round: number | undefined
+    seat: d.TableSeat | undefined
     constructor(el: HTMLElement, console: TournamentConsole) {
         this.console = console
         this.member = null
@@ -302,8 +304,10 @@ class SanctionPlayerModal {
         })
     }
 
-    show(member_uid: string) {
+    show(member_uid: string, round: number | undefined, seat: d.TableSeat | undefined) {
         this.member = this.console.members_map.by_uid.get(member_uid)
+        this.round = round
+        this.seat = seat
         this.header.innerText = this.member.name
         this.comment.value = ""
         this.level.selectedIndex = 0
@@ -330,7 +334,10 @@ class SanctionPlayerModal {
         this.modal.show()
     }
     display() {
-        const deck_link = this.console.tournament.players[this.member.uid]?.deck?.vdb_link
+        var deck_link = this.console.tournament.players[this.member.uid]?.deck?.vdb_link
+        if (this.console.tournament.multideck) {
+            deck_link = this.seat?.deck?.vdb_link
+        }
         if (deck_link) {
             this.deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
             this.deck_link.innerHTML += "Decklist"
@@ -338,16 +345,26 @@ class SanctionPlayerModal {
             this.deck_link.classList.remove("disabled")
         } else {
             this.deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
-            this.deck_link.innerHTML += "No Decklist registered"
+            if (this.console.tournament.multideck && !this.seat) {
+                // TODO: improve to be able to choose round when redoing this modal
+                this.deck_link.innerHTML += "Decklist only on tables"
+            } else {
+                this.deck_link.innerHTML += "No Decklist registered"
+            }
             this.deck_link.href = "javascript:void(0)"
             this.deck_link.classList.add("disabled")
+        }
+        if (this.console.tournament.multideck && !this.seat) {
+            this.qr_button.disabled = true
+        } else {
+            this.qr_button.disabled = false
         }
     }
     async scanned(result: QrScanner.ScanResult) {
         this.qr_scanner.stop()
         this.qr_button.disabled = false
         this.video.hidden = true
-        await this.console.set_deck(this.member.uid, result.data)
+        await this.console.set_deck(this.member.uid, result.data, this.round)
         this.display()
     }
     add_sanction_display(sanction: d.Sanction) {
@@ -658,7 +675,7 @@ class Registration {
             { ariaAtomic: true, ariaLive: "polite" }
         )
         this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
-        this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
+        this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-4"])
         const registration_controls = base.create_append(this.panel, "div", ["d-md-flex", "my-2"])
         this.register_element = new member.PersonLookup<d.Member>(
             this.console.members_map, registration_controls, "Register", true
@@ -786,7 +803,7 @@ class Registration {
             const tip = base.add_tooltip(button, "Decklist & sanctions")
             button.addEventListener("click", (ev) => {
                 tip.hide()
-                this.console.sanction_player_modal.show(player.uid)
+                this.console.sanction_player_modal.show(player.uid, undefined, undefined)
             })
             if (this.console.warn_about_player(player.uid)) {
                 button.classList.add("btn-warning")
@@ -829,22 +846,30 @@ class Registration {
         }
         base.remove_children(this.action_row)
         if (this.console.tournament.state == d.TournamentState.REGISTRATION) {
-            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
+            )
             button.innerText = "Open Check-In"
             const tooltip = base.add_tooltip(button, "Start listing present players")
             button.addEventListener("click", (ev) => { tooltip.hide(); this.console.open_checkin() })
         }
         else if (this.console.tournament.state == d.TournamentState.WAITING) {
-            const checkin_code = base.create_append(this.action_row, "a", ["me-2", "btn", "btn-primary"])
+            const checkin_code = base.create_append(this.action_row, "a",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"]
+            )
             checkin_code.innerHTML = '<i class="bi bi-qr-code"></i> Display Check-in code'
             checkin_code.href = `/tournament/${this.console.tournament.uid}/checkin.html`
             checkin_code.target = "_blank"
             base.add_tooltip(checkin_code, "Display the QR code players can scan to check in")
-            const checkin_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-primary"])
+            const checkin_button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"]
+            )
             checkin_button.innerText = "Check everyone in"
             const tooltip = base.add_tooltip(checkin_button, "Check all Registered players in. Drop absentees first.")
             checkin_button.addEventListener("click", (ev) => { tooltip.hide(); this.check_everyone_in() })
-            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
+            )
             button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
             const tooltip2 = base.add_tooltip(button, "Start next round")
             button.addEventListener("click", (ev) => { tooltip2.hide(); this.console.start_round() })
@@ -853,7 +878,7 @@ class Registration {
             this.console.tournament.state == d.TournamentState.WAITING) {
             if (this.console.tournament.rounds.length > 1) {
                 const finals_button = base.create_append(this.action_row, "button",
-                    ["me-2", "btn", "btn-success"]
+                    ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
                 )
                 finals_button.innerText = "Seed Finals"
                 const tooltip = base.add_tooltip(finals_button, "Start the finals when you are done with the rounds")
@@ -1046,9 +1071,9 @@ class RoundTab {
 
     display() {
         base.remove_children(this.panel)
-        this.action_row = base.create_append(this.panel, "div", ["d-flex", "my-4"])
+        this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-2"])
         {
-            const print_button = base.create_append(this.action_row, "a", ["me-2", "btn", "btn-secondary"],
+            const print_button = base.create_append(this.action_row, "a", ["me-2", "mb-2", "btn", "btn-secondary"],
                 { target: "_blank" }
             )
             print_button.innerHTML = '<i class="bi bi-printer-fill"></i>'
@@ -1056,7 +1081,7 @@ class RoundTab {
             print_button.href = `/tournament/${this.console.tournament.uid}/print-seating.html?round=${this.index}`
         }
         {
-            this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn"])
+            this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "mb-2", "text-nowrap", "btn"])
             if (this.finals) {
                 this.reseat_button.classList.add("btn-primary")
                 const tooltip = base.add_tooltip(this.reseat_button,
@@ -1084,7 +1109,9 @@ class RoundTab {
             && this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.seating.every(s => s.result.vp == 0))
         ) {
-            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-danger"])
+            const button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-danger"]
+            )
             var tooltip: bootstrap.Tooltip
             if (this.console.tournament.state == d.TournamentState.FINALS) {
                 button.innerText = "Cancel Seeding"
@@ -1099,7 +1126,9 @@ class RoundTab {
             && this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.state == d.TableState.FINISHED)
         ) {
-            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
+            )
             button.innerText = "Finish round"
             button.addEventListener("click", (ev) => { this.console.finish_round() })
         }
@@ -1107,7 +1136,9 @@ class RoundTab {
             && this.index == this.console.tournament.rounds.length
             && round.tables.every(t => t.state == d.TableState.FINISHED)
         ) {
-            const button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
+            const button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
+            )
             button.innerText = "Finish tournament"
             button.addEventListener("click", (ev) => { this.console.finish_tournament() })
         }
@@ -1115,7 +1146,7 @@ class RoundTab {
 
     display_table(data: d.Table | undefined): HTMLTableSectionElement {
         if (this.next_table_index % 2 === 1) {
-            this.table_div = base.create_append(this.panel, "div", ["row", "g-5", "my-4"])
+            this.table_div = base.create_append(this.panel, "div", ["row", "g-5", "my-0"])
         }
         const table_index = this.next_table_index++
         const div = base.create_append(this.table_div, "div", ["col-lg-6"])
@@ -1185,7 +1216,7 @@ class RoundTab {
             const tooltip2 = base.add_tooltip(sanctionButton, "Decklist & sanctions")
             sanctionButton.addEventListener("click", (ev) => {
                 tooltip2.hide()
-                this.console.sanction_player_modal.show(player.uid)
+                this.console.sanction_player_modal.show(player.uid, this.index, seat)
             })
             if (this.console.warn_about_player(player.uid)) {
                 sanctionButton.classList.add("btn-warning")
@@ -1574,8 +1605,11 @@ class TournamentConsole {
         })
         this.tournament = await res.json()
         this.tabs = new Map()
+        base.remove_children(this.message_div)
+        base.remove_children(this.nav)
+        base.remove_children(this.tabs_div)
         const display_tab = this.add_nav("Info")
-        this.info = new TournamentDisplay(display_tab, true)
+        this.info = new TournamentDisplay(display_tab, () => this.init(this.tournament.uid))
         this.registration = new Registration(this)
         this.rounds = []
         for (var i = 0; i < this.tournament.rounds.length; i++) {
@@ -1615,17 +1649,15 @@ class TournamentConsole {
         if (this.tournament.state == d.TournamentState.REGISTRATION) {
             if (this.tournament.rounds.length < 1) {
                 this.help_message(
-                    "Register players in advance. Players can register themselves on the " +
-                    `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a>.` +
-                    "<br>On tournament day, " +
-                    '<span class="btn btn-sm btn-success active">Open Check-in</span>' +
-                    " in the Registration tab to list the present players among those registered."
+                    "Register players in advance — Players can register themselves on the " +
+                    `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a>` +
+                    "<br><em>On tournament day, " +
+                    '"Open Check-in" in the "Registration" tab to list the present players among those registered</em>'
                     , d.AlertLevel.INFO
                 )
             } else {
                 this.help_message(
-                    '<span class="btn btn-sm btn-success active">Open Check-in</span>' +
-                    " again to enlist the present players for next round."
+                    '"Open Check-in" again to enlist the present players for next round'
                     , d.AlertLevel.INFO
                 )
             }
@@ -1633,33 +1665,27 @@ class TournamentConsole {
             if (this.tournament.rounds.length == 0) {
                 this.help_message(
                     "Check players in " +
-                    '<span class="btn btn-sm btn-success active">' +
                     '<i class="bi bi-box-arrow-in-right"></i>' +
-                    '</span>' +
-                    " before seating the next round. Only " +
+                    " before seating the next round — Only " +
                     '<span class="badge text-bg-success">Checked-in</span>' +
-                    " players will be seated.<br>" +
-                    "Player can check themselves in on the " +
+                    " players will be seated <br>" +
+                    "<em>Players can check themselves in on the " +
                     `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a>` +
                     " by scanning the " +
                     '<i class="bi bi-qr-code"></i>' +
-                    " Check-in code you can present to them from the Registration tab "
+                    " Check-in code you can present to them from the Registration tab</em>"
                     , d.AlertLevel.WARNING
                 )
             } else if (this.tournament.rounds.length < 2) {
                 this.help_message(
                     "Check players in " +
-                    '<span class="btn btn-sm btn-success active">' +
                     '<i class="bi bi-box-arrow-in-right"></i>' +
-                    '</span>' +
                     " individually or " +
-                    '<span class="btn btn-sm btn-primary active">Check everyone in</span>' +
-                    " and drop " +
-                    '<span class="btn btn-sm btn-danger active">' +
+                    '"Check everyone in" and drop ' +
                     '<i class="bi bi-x-circle-fill"></i>' +
-                    '</span>' +
-                    " absentees. Player can drop themselves on the " +
-                    `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a>.`
+                    " absentees <br>" +
+                    "<em>Player can drop themselves on the " +
+                    `<a href="/tournament/${this.tournament.uid}/display.html" target="_blank">tournament page</a></em>`
                     , d.AlertLevel.WARNING
                 )
             } else {
@@ -1670,42 +1696,40 @@ class TournamentConsole {
             }
         } else if (this.tournament.state == d.TournamentState.PLAYING) {
             this.help_message(
-                "Round in progress. Alter the seating and record players results " +
-                '<span class="btn btn-sm btn-primary active">' +
+                "Round in progress — Alter the seating and record players results " +
                 '<i class="bi bi-pencil"></i>' +
-                '</span>' +
-                " in the round tab.<br>" +
-                "All tables need to be " +
+                " in the round tab <br>" +
+                "<em>All tables need to be " +
                 '<span class="badge text-bg-success">Finished</span>' +
                 " before you can end the round. You can " +
-                '<span class="btn btn-sm btn-warning active">Override</span>' +
-                " the table score verification if needed."
+                '"Override"' +
+                " the table score verification if needed</em>"
                 ,
                 d.AlertLevel.INFO
             )
         } else if (this.tournament.state == d.TournamentState.FINALS) {
             this.help_message(
-                "Finals have been seeded. Perform the " +
+                "Finals have been seeded — Perform the " +
                 '<a href="/document/tournament_rules.html#H3-1-3-final-round-seating" target="_blank">' +
                 'seating procedure' +
                 '</a>' +
                 " and use " +
-                '<span class="btn btn-sm btn-primary active">' +
-                '<i class="bi bi-pentagon-fill"></i> Alter seating' +
-                '</span>' +
-                " in the Finals tab to record it.<br>" +
-                "Once the finals are finished, record the results to finish the tournament.",
+                '"<i class="bi bi-pentagon-fill"></i> Alter seating"' +
+                " in the Finals tab to record it <br>" +
+                "<em>Once the finals are finished, record the results " +
+                '<i class="bi bi-pencil"></i> ' +
+                "to finish the tournament</em>",
                 d.AlertLevel.INFO
             )
         } else if (this.tournament.state == d.TournamentState.FINISHED) {
             if (this.tournament.winner) {
                 const winner = this.tournament.players[this.tournament.winner]
                 this.help_message(
-                    "This tournament is Finished." + ` Congratulations ${winner.name} (${winner.vekn})!`,
+                    "This tournament is finished —" + ` Congratulations ${winner.name} (${winner.vekn})!`,
                     d.AlertLevel.SUCCESS
                 )
             } else {
-                this.help_message("This tournament is Finished.", d.AlertLevel.SUCCESS)
+                this.help_message("This tournament is finished", d.AlertLevel.SUCCESS)
             }
         }
         while (this.tournament.rounds.length > this.rounds.length) {
@@ -1819,7 +1843,7 @@ class TournamentConsole {
         const response: d.Tournament = await res.json()
         console.log(response)
         this.tournament = response
-        this.display()
+        await this.display()
         return response
     }
 
@@ -1933,12 +1957,13 @@ class TournamentConsole {
         }
         await this.handle_tournament_event(event)
     }
-    async set_deck(player_uid: string, deck: string) {
+    async set_deck(player_uid: string, deck: string, round: number | undefined = undefined) {
         const tev = {
             uid: uuid.v4(),
             type: events.EventType.SET_DECK,
             player_uid: player_uid,
             deck: deck,
+            round: round ?? null,
         } as events.SetDeck
         await this.handle_tournament_event(tev)
     }
