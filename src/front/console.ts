@@ -851,7 +851,7 @@ class Registration {
         }
         if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
             this.console.tournament.state == d.TournamentState.WAITING) {
-            if (this.console.tournament.rounds.length > 0) {
+            if (this.console.tournament.rounds.length > 1) {
                 const finals_button = base.create_append(this.action_row, "button",
                     ["me-2", "btn", "btn-success"]
                 )
