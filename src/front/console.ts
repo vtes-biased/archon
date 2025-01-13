@@ -1139,6 +1139,7 @@ class RoundTab {
         }
         if (this.console.tournament.state == d.TournamentState.PLAYING
             && this.index == this.console.tournament.rounds.length
+&& round.tables.length > 0
             && round.tables.every(t => t.state == d.TableState.FINISHED)
         ) {
             const button = base.create_append(this.action_row, "button",
