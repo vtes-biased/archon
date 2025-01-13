@@ -410,6 +410,7 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
         shuffle_array(players)
         return default_seating(players)
     }
+    const present_players = new Set(players)
     const all_players = new Set(players)
     for (const round_ of previous_rounds) {
         for (const table of round_) {
@@ -421,6 +422,9 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
     const E = new Evaluator(all_players)
     const base_measure = E.measure_rounds(previous_rounds)
     shuffle_array(players)
+    if (players.length < 1) {
+        return default_seating(players)
+    }
     var best_seating = new Seating(default_seating(players))
     var best_issues = E.issues(add3(base_measure, E.measure(best_seating.seating)))
     // keep it simple, guided monte-carlo
@@ -430,7 +434,11 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
         const players_to_switch: Set<string> = new Set()
         for (const rule of best_issues) {
             for (const players of rule) {
-                if (players.length < 2) {
+                const switchable = players.filter(p => present_players.has(p))
+                if (switchable.length < 1) {
+                    continue
+                }
+                if (switchable.length < 2) {
                     players_to_switch.add(players[0])
                 } else {
                     players_to_switch.add(players[Math.floor(Math.random() * players.length)])
