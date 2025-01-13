@@ -41,7 +41,7 @@ class Barrier(enum.StrEnum):
 class Person:
     name: str
     vekn: str = ""
-    uid: str = pydantic.Field(default_factory=uuid.uuid4)
+    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     country: str | None = ""  # country name
     city: str | None = ""  # city name
 
@@ -77,7 +77,7 @@ class KrcgLibrary:
 class KrcgDeck:
     crypt: KrcgCrypt
     library: KrcgLibrary
-    id: str = pydantic.Field(default_factory=uuid.uuid4)
+    id: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     vdb_link: str = ""
     event: str = ""
     event_link: str = ""
