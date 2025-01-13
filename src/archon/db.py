@@ -253,12 +253,14 @@ class Operator:
             existing = {e[0]: e[1] for e in existing}
 
             # do not overwrite local data & lose relevant info (sanctions, login, etc.)
-            # don't even revert changes on name, country nor city for now.
+            # don't even revert changes on name nor city for now.
             for i, m in enumerate(members):
                 if m.vekn in existing:
                     local: models.Member = existing[m.vekn]
-                    local.ranking = m.ranking
-                    members[i] = local
+                    # TODO remove the country
+                    local["country"] = m.country
+                    local["ranking"] = m.ranking
+                    members[i] = models.Member(**local)
             # update existing
             # cannot run two prepared statements in parallel, just wait
             await cursor.executemany(
