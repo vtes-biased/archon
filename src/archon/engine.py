@@ -726,15 +726,8 @@ class TournamentOrchestrator(TournamentManager):
             raise InvalidTables(ev, invalid_tables)
         super().round_finish(ev, member_uid)
 
-    def round_cancel(self, ev: events.RoundFinish, member_uid: str) -> None:
+    def round_cancel(self, ev: events.RoundCancel, member_uid: str) -> None:
         self._check_judge(ev, member_uid)
-        if self.state == models.TournamentState.FINISHED:
-            raise TournamentFinished(ev)
-        if self.state in [
-            models.TournamentState.REGISTRATION,
-            models.TournamentState.WAITING,
-        ]:
-            raise NoRoundInProgress(ev)
         if any(
             seat.result.vp != 0
             for table in self.rounds[-1].tables
