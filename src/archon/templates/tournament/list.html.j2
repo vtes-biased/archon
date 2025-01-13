@@ -11,6 +11,9 @@
         Appointed judges follow the <a href="{{ url_for('document_judges_guide') }}">Judges' Guide</a>
         and enforce the <a href="{{ url_for('document_code_of_ethics') }}">VEKN Code of Ethics</a>.
     </p>
+    {% if member %}
+    <a href="{{ url_for('tournament_create') }}" class="btn btn-primary my-2">Create Tournament</a>
+    {% endif %}
     <table class="table table-striped table-hover">
         <thead>
             <tr>
@@ -47,8 +50,5 @@
             {% endfor %}
         </tbody>
     </table>
-    {% if member %}
-    <a href="{{ url_for('tournament_create') }}" class="btn btn-primary">Create Tournament</a>
-    {% endif %}
 </div>
 {% endblock %}
