@@ -882,12 +882,27 @@ base.create_append(this.players_count, "div", ["me-2", "mb-1", "badge", "text-bg
             checkin_button.innerText = "Check everyone in"
             const tooltip = base.add_tooltip(checkin_button, "Check all Registered players in. Drop absentees first.")
             checkin_button.addEventListener("click", (ev) => { tooltip.hide(); this.check_everyone_in() })
-            const button = base.create_append(this.action_row, "button",
+            const seat_span = base.create_append(this.action_row, "span", [], { tabindex: "0" })
+            const seat_button = base.create_append(seat_span, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
             )
-            button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
-            const tooltip2 = base.add_tooltip(button, "Start next round")
-            button.addEventListener("click", (ev) => { tooltip2.hide(); this.console.start_round() })
+seat_button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
+            var tooltip_message: string
+            if (checked_in_count == 0) {
+                seat_button.disabled = false
+                seat_button.classList.add("btn-warning")
+                tooltip_message = "Start empty round (no player checked in)"
+            } else if (checked_in_count < 4 || [6, 7, 11].includes(checked_in_count)) {
+                seat_button.disabled = true
+                seat_button.classList.add("btn-danger")
+                tooltip_message = `Invalid check-in (${checked_in_count})`
+            } else {
+                seat_button.disabled = false
+                tooltip_message = "Start next round"
+                seat_button.classList.add("btn-success")
+            }
+            const tooltip2 = base.add_tooltip(seat_span, tooltip_message)
+            seat_button.addEventListener("click", (ev) => { tooltip2.hide(); this.console.start_round() })
         }
         if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
             this.console.tournament.state == d.TournamentState.WAITING) {
@@ -1733,18 +1748,33 @@ class TournamentConsole {
                 )
             }
         } else if (this.tournament.state == d.TournamentState.PLAYING) {
+if (this.tournament.rounds.slice(-1)[0].tables.length < 1) {
             this.help_message(
-                "Round in progress — Alter the seating and record players results " +
+                "This round is empty because no player was checked in <br>" +
+                    "<em>Either add tables manually with " +
+                    '<i class="bi bi-pentagon-fill"></i>' +
+                    " Alter Seating, or " +
+                    '<i class="bi bi-x-circle-fill"></i>' +
+                    " Cancel and proceed with the check-in",
+                    d.AlertLevel.WARNING
+                )
+            } else {
+                this.help_message(
+                    "Round in progress — " +
+                    '<i class="bi bi-pentagon-fill"></i>' +
+                    " Alter seating and " +
                 '<i class="bi bi-pencil"></i>' +
+" record players results " +
                 " in the round tab <br>" +
                 "<em>All tables need to be " +
                 '<span class="badge text-bg-success">Finished</span>' +
-                " before you can end the round. You can " +
+                " before you can end the round — You can " +
                 '"Override"' +
                 " the table score verification if needed</em>"
                 ,
                 d.AlertLevel.INFO
             )
+}
         } else if (this.tournament.state == d.TournamentState.FINALS) {
             this.help_message(
                 "Finals have been seeded — Perform the " +

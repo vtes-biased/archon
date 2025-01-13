@@ -232,7 +232,7 @@ class Evaluator {
                                 if (value >= rounds && rounds > 2) {
                                     result[RULE.R2_OPPONENT_ALWAYS].push([this.reverse.get(i), this.reverse.get(j)])
                                 }
-                            } else if (k <= IDX.PREDATOR) {
+                            } else if (k <= IDX.PREDATOR) { // predator or prey twice
                                 result[RULE.R1_PREDATOR_PREY].push([this.reverse.get(i), this.reverse.get(j)])
                                 result[RULE.R6_SAME_POSITION].push([this.reverse.get(i), this.reverse.get(j)])
                             } else if (k <= IDX.CROSS_TABLE) {
@@ -332,7 +332,11 @@ function default_seating(players: string[]) {
     const res: string[][] = []
     while (seated < players.length) {
         const seats = seated < seat_in_fives ? 5 : 4
-        res.push(players.slice(seated, seated + seats))
+        const slice = players.slice(seated, seated + seats)
+        if (slice.length < 4) {
+            throw new Error("Invalid players count")
+        }
+        res.push(slice)
         seated += seats
     }
     return res
