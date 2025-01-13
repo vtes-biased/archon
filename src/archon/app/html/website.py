@@ -316,16 +316,22 @@ async def tournament_print_seating(
     round: typing.Annotated[int, fastapi.Query()],
     _: dependencies.MemberUidFromSession,
 ):
-    if round == len(tournament.rounds) and tournament.finals_seeds:
-        context["finals"] = True
     context["round_number"] = round
     context["round"] = []
-    for table in tournament.rounds[round - 1].tables:
+    if round == len(tournament.rounds) and tournament.finals_seeds:
+        context["finals"] = True
         data = []
-        for seat in table.seating:
-            player = tournament.players[seat.player_uid]
+        for uid in tournament.finals_seeds:
+            player = tournament.players[uid]
             data.append({"vekn": player.vekn, "name": player.name})
         context["round"].append(data)
+    else:
+        for table in tournament.rounds[round - 1].tables:
+            data = []
+            for seat in table.seating:
+                player = tournament.players[seat.player_uid]
+                data.append({"vekn": player.vekn, "name": player.name})
+            context["round"].append(data)
     return TEMPLATES.TemplateResponse(
         request=request,
         name="tournament/print-seating.html.j2",
