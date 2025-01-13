@@ -124,6 +124,8 @@ class ScoreModal {
     modal_div: HTMLDivElement
     modal: bootstrap.Modal
     title: HTMLHeadingElement
+    btn_50: HTMLButtonElement
+    btn_35: HTMLButtonElement
     constructor(el: HTMLDivElement, display: TournamentDisplay) {
         this.display = display
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],
@@ -141,13 +143,12 @@ class ScoreModal {
         const btn_20 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const btn_30 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const btn_40 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const btn_50 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        this.btn_50 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const row_2 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
         const btn_05 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const btn_15 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const btn_25 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const btn_35 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        const btn_45 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
+        this.btn_35 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         btn_00.innerText = "0"
         btn_05.innerText = "0.5"
         btn_10.innerText = "1"
@@ -155,10 +156,9 @@ class ScoreModal {
         btn_20.innerText = "2"
         btn_25.innerText = "2.5"
         btn_30.innerText = "3"
-        btn_35.innerText = "3.5"
+        this.btn_35.innerText = "3.5"
         btn_40.innerText = "4"
-        btn_45.innerText = "4.5"
-        btn_50.innerText = "5"
+        this.btn_50.innerText = "5"
         btn_00.addEventListener("click", (ev) => this.set_score(0))
         btn_05.addEventListener("click", (ev) => this.set_score(0.5))
         btn_10.addEventListener("click", (ev) => this.set_score(1))
@@ -166,10 +166,9 @@ class ScoreModal {
         btn_20.addEventListener("click", (ev) => this.set_score(2))
         btn_25.addEventListener("click", (ev) => this.set_score(2.5))
         btn_30.addEventListener("click", (ev) => this.set_score(3))
-        btn_35.addEventListener("click", (ev) => this.set_score(3.5))
+        this.btn_35.addEventListener("click", (ev) => this.set_score(3.5))
         btn_40.addEventListener("click", (ev) => this.set_score(4))
-        btn_45.addEventListener("click", (ev) => this.set_score(4.5))
-        btn_50.addEventListener("click", (ev) => this.set_score(5))
+        this.btn_50.addEventListener("click", (ev) => this.set_score(5))
         this.modal = new bootstrap.Modal(this.modal_div)
     }
 
@@ -178,11 +177,18 @@ class ScoreModal {
         this.modal.hide()
     }
 
-    show(tournament: d.Tournament, player: d.Player, round_number: number, vps: number = 0) {
+    show(tournament: d.Tournament, player: d.Player, round_number: number, table_size: number, vps: number = 0) {
         this.title.innerText = `${player.name} result: round ${round_number}`
         this.tournament = tournament
         this.player_uid = player.uid
         this.round_number = round_number
+        if (table_size < 5) {
+            this.btn_50.hidden = true
+            this.btn_35.hidden = true
+        } else {
+            this.btn_50.hidden = false
+            this.btn_35.hidden = false
+        }
         this.modal.show()
     }
 }
@@ -937,7 +943,13 @@ export class TournamentDisplay {
                 )
                 changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
                 changeButton.addEventListener("click", (ev) => {
-                    this.score_modal.show(tournament, seat_player, current_round, seat.result.vp)
+                    this.score_modal.show(
+                        tournament,
+                        seat_player,
+                        current_round,
+                        player_table.seating.length,
+                        seat.result.vp
+                    )
                 })
             }
         }
