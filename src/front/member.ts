@@ -123,19 +123,20 @@ export class PersonLookup<Type extends d.Person> {
 
         const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2", "dropdown"])
         this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"],
-            { type: "text", placeholder: "Name", autocomplete: "off", form: form_uid, name: "new-name" }
+            { type: "text", placeholder: "Name", autocomplete: "off", form: form_uid, name: "new-name", "data-bs-toggle": "dropdown" }
         )
         this.input_name.ariaAutoComplete = "none"
         this.input_name.spellcheck = false
         this.dropdown_menu = base.create_append(dropdown_div, "ul", ["dropdown-menu"])
+        base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
+            { type: "button" }).innerText = "Start typing..."
         const button_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
         this.button = base.create_append(button_div, "button", ["btn", "btn-primary"],
             { type: "submit", form: form_uid }
         )
         this.button.innerText = label
         this.button.disabled = true
-        this.dropdown = new bootstrap.Dropdown(this.input_name)
-        this.dropdown.hide()
+        this.dropdown = bootstrap.Dropdown.getOrCreateInstance(this.input_name)
         this.input_vekn_id.addEventListener("input", (ev) => this.select_member_by_vekn())
         this.input_name.addEventListener("input", base.debounce((ev) => this.complete_member_name()))
         dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev));
@@ -195,13 +196,20 @@ export class PersonLookup<Type extends d.Person> {
         this.reset_focus()
         this.input_vekn_id.value = ""
         this.button.disabled = true
+        if (this.input_name.value.length < 1) {
+            base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "Start typing..."
+            return
+        }
         if (this.input_name.value.length < 3) {
-            this.dropdown.hide()
+            base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "Type some more..."
             return
         }
         const persons_list = this.persons_map.complete_name(this.input_name.value)
-        if (!persons_list) {
-            this.dropdown.hide()
+        if (!persons_list || persons_list.length < 1) {
+            base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "No result"
             return
         }
         for (const person of persons_list.slice(0, 10)) {
