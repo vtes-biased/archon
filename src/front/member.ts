@@ -89,6 +89,9 @@ export class MemberMap extends PersonMap<d.Member> {
             },
         })
         const members = await res.json() as d.Member[]
+        this.by_vekn.clear()
+        this.by_uid.clear()
+        this.trie.clear()
         this.add(members)
     }
 }
@@ -120,11 +123,15 @@ export class PersonLookup<Type extends d.Person> {
         )
         this.input_vekn_id.ariaAutoComplete = "none"
         this.input_vekn_id.spellcheck = false
-
         const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2", "dropdown"])
-        this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"],
-            { type: "text", placeholder: "Name", autocomplete: "off", form: form_uid, name: "new-name", "data-bs-toggle": "dropdown" }
-        )
+        this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"], {
+            type: "text",
+            placeholder: "Name",
+            autocomplete: "off",
+            form: form_uid,
+            name: "new-name",
+            "data-bs-toggle": "dropdown"
+        })
         this.input_name.ariaAutoComplete = "none"
         this.input_name.spellcheck = false
         this.dropdown_menu = base.create_append(dropdown_div, "ul", ["dropdown-menu"])
