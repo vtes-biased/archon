@@ -34,6 +34,8 @@
         "src/front/d.ts",
         "src/front/login.ts",
         "src/front/member.ts",
+        "src/front/member_display.ts",
+        "src/front/member_list.ts",
         "src/front/profile.ts",
         "src/front/seating.ts",
         "src/front/topnav.ts",

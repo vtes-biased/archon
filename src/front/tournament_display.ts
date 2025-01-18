@@ -593,7 +593,7 @@ export class TournamentDisplay {
         if (this.user_id) {
             const table = base.create_append(this.root, "table", ["table", "table-striped", "my-2"])
             const head = base.create_append(table, "thead")
-            const row = base.create_append(head, "tr")
+            const row = base.create_append(head, "tr", ["align-middle"])
             for (const label of ["Judges", "", ""]) {
                 const cel = base.create_append(row, "th", [], { scope: "col" })
                 cel.innerText = label
@@ -625,13 +625,13 @@ export class TournamentDisplay {
         ) {
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
             const thead = base.create_append(table, "thead")
-            const tr = base.create_append(thead, "tr")
+            const tr = base.create_append(thead, "tr", ["align-middle"])
             for (const header of ["Rank", "VEKN #", "Name", "City", "Country", "Score"]) {
                 base.create_append(tr, "th", [], { scope: "col" }).innerText = header
             }
             const tbody = base.create_append(table, "tbody")
             for (const [rank, player] of standings(tournament)) {
-                const tr = base.create_append(tbody, "tr")
+                const tr = base.create_append(tbody, "tr", ["align-middle"])
                 const classes = ["text-nowrap"]
                 if (rank == 1 && tournament.state == d.TournamentState.FINISHED) {
                     classes.push("bg-warning-subtle")
@@ -910,7 +910,7 @@ export class TournamentDisplay {
         const table_div = base.create_append(this.root, "div")
         const table = base.create_append(table_div, "table", ["table"])
         const head = base.create_append(table, "thead")
-        const tr = base.create_append(head, "tr")
+        const tr = base.create_append(head, "tr", ["align-middle"])
         var headers = ["Seat", "VEKN#", "Name", "Score", ""]
         if (tournament.state == d.TournamentState.FINALS) {
             headers = ["Seed", "VEKN#", "Name", "Score"]
@@ -1362,7 +1362,7 @@ export class TournamentDisplay {
         {
             const table = base.create_append(form, "table", ["table", "table-striped", "my-2"])
             const head = base.create_append(table, "thead")
-            const row = base.create_append(head, "tr")
+            const row = base.create_append(head, "tr", ["align-middle"])
             for (const label of ["Judges", "", ""]) {
                 const cel = base.create_append(row, "th", [], { scope: "col" })
                 cel.innerText = label
@@ -1373,7 +1373,7 @@ export class TournamentDisplay {
                 const member = this.members_map.by_uid.get(judge_uid)
                 body.append(this.create_judge_row(member, true))
             }
-            const lookup_row = base.create_append(body, "tr", [])
+            const lookup_row = base.create_append(body, "tr", ["align-middle"])
             const lookup_cell = base.create_append(body, "td", [], { colspan: "3" })
             const lookup = new member.PersonLookup(this.members_map, lookup_cell, "Add Judge", true)
             lookup.form.addEventListener("submit", (ev) => {

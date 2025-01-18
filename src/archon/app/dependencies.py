@@ -18,6 +18,7 @@ import uuid
 
 from .. import db
 from .. import engine
+from .. import geo
 from .. import models
 
 
@@ -65,45 +66,6 @@ class DiscordAuth:
     expires_in: int  # seconds
     refresh_token: str
     scope: str  # "identify email"
-
-
-# ########################################################################## Static data
-class StaticData:
-    countries: list[models.Country]
-    countries_map = dict[str, models.Country]
-    cities: dict[str, list[models.City]]
-
-    def __init__(self):
-        with importlib.resources.path("archon", "geodata") as geodata:
-            with importlib.resources.as_file(geodata / "countries.json") as countries:
-                self.countries = [
-                    models.Country(**d) for d in orjson.loads(countries.read_bytes())
-                ]
-                self.countries.sort(key=lambda x: x.country)
-                self.countries_map = {c.country: c for c in self.countries}
-            self.cities = {}
-            with importlib.resources.as_file(geodata / "cities.json") as cities:
-                for data in orjson.loads(cities.read_bytes()):
-                    city = models.City(**data)
-                    self.cities.setdefault(city.country_name, [])
-                    self.cities[city.country_name].append(city)
-                    # some cities are listed as part of multiple countries
-                    for cc in city.cc2:
-                        self.cities.setdefault(cc, [])
-                        self.cities[cc].append(city)
-                for l in self.cities.values():
-                    l.sort(key=lambda x: (x.name, x.admin1, x.admin2))
-
-    def get_county_flag(self, country_name: str) -> str:
-        base = 127397
-        country = self.countries_map.get(country_name, None)
-        if not country:
-            return ""
-        return "".join(chr(base + ord(c)) for c in country.iso)
-
-
-# just load the static data at import time
-STATIC_DATA = StaticData()
 
 
 # ############################################################################# Database

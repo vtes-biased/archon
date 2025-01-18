@@ -19,13 +19,13 @@ $bootstrap-icons-font-dir: "../../node_modules/bootstrap-icons/font/fonts";
     --bs-btn-hover-bg: #4249ae;
     --bs-btn-hover-border-color: #4249ae;
     --bs-btn-focus-shadow-rgb: 49, 132, 253;
-    --bs-btn-active-color: #fff;
+    --bs-btn-active-color: #959494;
     --bs-btn-active-bg: #4249ae;
     --bs-btn-active-border-color: #4249ae;
     --bs-btn-active-shadow: inset 0 3px 5px #00000020;
-    --bs-btn-disabled-color: #fff;
-    --bs-btn-disabled-bg: #5A64EC;
-    --bs-btn-disabled-border-color: #5A64EC;
+    --bs-btn-disabled-color: #555;
+    --bs-btn-disabled-bg: #FFF;
+    --bs-btn-disabled-border-color: #555;
 }
 
 .bg-vdb {
@@ -45,9 +45,26 @@ $bootstrap-icons-font-dir: "../../node_modules/bootstrap-icons/font/fonts";
     --bs-btn-active-bg: #4249ae;
     --bs-btn-active-border-color: #4249ae;
     --bs-btn-active-shadow: inset 0 3px 5px #00000020;
-    --bs-btn-disabled-color: #fff;
-    --bs-btn-disabled-bg: #5A5AFF;
-    --bs-btn-disabled-border-color: #5A5AFF;
+    --bs-btn-disabled-color: #555;
+    --bs-btn-disabled-bg: #FFF;
+    --bs-btn-disabled-border-color: #555;
+}
+
+.btn-whatsapp {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #57ac61;
+    --bs-btn-border-color: #65D072;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #5dbf69;
+    --bs-btn-hover-border-color: #5dbf69;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #5dbf69;
+    --bs-btn-active-border-color: #5dbf69;
+    --bs-btn-active-shadow: inset 0 3px 5px #00000020;
+    --bs-btn-disabled-color: #555;
+    --bs-btn-disabled-bg: #FFF;
+    --bs-btn-disabled-border-color: #555;
 }
 
 tr[draggable] {

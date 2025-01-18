@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import aiohttp
 import asyncio
 import typer
 import typing
@@ -41,10 +40,20 @@ async def get_members() -> None:
     async with db.POOL:
         async with db.operator() as op:
             rankings = await vekn.get_rankings()
+            prefixes_map = {}  # prefix owners
             async for members in vekn.get_members_batches():
                 for member in members:
                     member.ranking = rankings.get(member.vekn, models.Ranking())
+                # note insert members modifies the passed members list
+                # after this call, all members have the right DB uid and data
                 await op.insert_members(members)
+                for member in members:
+                    if member.prefix and len(member.prefix) == 3:
+                        if member.prefix in prefixes_map:
+                            assert prefixes_map[member.prefix].vekn == member.vekn
+                        prefixes_map[member.prefix] = member
+            for prefix, owner in prefixes_map.items():
+                await op.set_sponsor_on_prefix(prefix, owner.uid)
 
 
 @app.command()

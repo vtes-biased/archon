@@ -71,6 +71,15 @@ export async function do_fetch(url: string, options: Object) {
     }
 }
 
+export async function do_fetch_with_token(url: string, token: Token, options: Object) {
+    options["headers"] = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.access_token}`
+    }
+    return do_fetch(url, options)
+}
+
 export function displayError(msg: string) {
     // display a message in the toaster
     const toast_div = document.getElementById('errorToast') as HTMLDivElement

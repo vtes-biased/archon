@@ -291,8 +291,107 @@ export class PersonLookup<Type extends d.Person> {
     }
 }
 
-
-
+export function can_sponsor(member: d.Member): boolean {
+    if (member && member.roles && (
+        member.roles.includes(d.MemberRole.ADMIN) ||
+        member.roles.includes(d.MemberRole.NC) ||
+        member.roles.includes(d.MemberRole.PRINCE)
+    )) {
+        return true
+    }
+    return false
+}
+export function can_playtest(member: d.Member): boolean {
+    if (member && member.roles && (
+        member.roles.includes(d.MemberRole.ADMIN) ||
+        member.roles.includes(d.MemberRole.PTC) ||
+        member.roles.includes(d.MemberRole.PLAYTESTER)
+    )) {
+        return true
+    }
+    return false
+}
+export function can_make_prince(member: d.Member): boolean {
+    if (member && member.roles && (
+        member.roles.includes(d.MemberRole.ADMIN) ||
+        member.roles.includes(d.MemberRole.NC)
+    )) {
+        return true
+    }
+    return false
+}
+export function can_make_playtester(member: d.Member): boolean {
+    if (member && member.roles && (
+        member.roles.includes(d.MemberRole.ADMIN) ||
+        member.roles.includes(d.MemberRole.PTC)
+    )) {
+        return true
+    }
+    return false
+}
+export function can_change_info(member: d.Member, target: d.Member): boolean {
+    if (!(member && member.roles && target)) {
+        return false
+    }
+    if (member.uid == target.uid || member.roles.includes(d.MemberRole.ADMIN)) {
+        return true
+    }
+    if (target.roles.includes(d.MemberRole.PRINCE) || target.roles.includes(d.MemberRole.NC)) {
+        if (member.country == target.country && member.roles.includes(d.MemberRole.NC)) {
+            return true
+        }
+    } else if (member.country == target.country && (
+        member.roles.includes(d.MemberRole.PRINCE) ||
+        member.roles.includes(d.MemberRole.NC)
+    )) {
+        return true
+    }
+    return false
+}
+export function can_contact(member: d.Member, target: d.Member): boolean {
+    if (!(member && member.roles && target)) {
+        return false
+    }
+    if (member.uid == target.uid || member.roles.includes(d.MemberRole.ADMIN)) {
+        return true
+    }
+    if (target.roles.includes(d.MemberRole.NC)) {
+        return true
+    }
+    if (member.country == target.country && target.roles.includes(d.MemberRole.PRINCE)) {
+        return true
+    }
+    if (member.country == target.country && (
+        member.roles.includes(d.MemberRole.PRINCE) ||
+        member.roles.includes(d.MemberRole.NC)
+    )) {
+        return true
+    }
+    if (member.roles.includes(d.MemberRole.NC) && target.roles.includes(d.MemberRole.ADMIN)) {
+        return true
+    }
+    return false
+}
+export function can_admin(member: d.Member): boolean {
+    if (member && member.roles && (member.roles.includes(d.MemberRole.ADMIN))) {
+        return true
+    }
+    return false
+}
+export function can_edit_role(member: d.Member, target: d.Member, role: d.MemberRole) {
+    if (!(member && member.roles && target)) {
+        return false
+    }
+    if (member.roles.includes(d.MemberRole.ADMIN)) {
+        return true
+    }
+    if (role == d.MemberRole.PRINCE && member.country == target.country && member.roles.includes(d.MemberRole.NC)) {
+        return true
+    }
+    if (role == d.MemberRole.PLAYTESTER && member.roles.includes(d.MemberRole.PTC)) {
+        return true
+    }
+}
 // async function select_country(ev: Event) {
 //     // Fetch the cities (>15k pop) depending on the country. Disambiguate names.
 //     const selectCountry = ev.currentTarget as HTMLSelectElement

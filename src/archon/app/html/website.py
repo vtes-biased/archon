@@ -8,7 +8,7 @@ import typing
 
 
 from .. import dependencies
-from ... import engine
+from ... import geo
 from ... import models
 
 LOG = logging.getLogger()
@@ -20,7 +20,7 @@ def jsonable(obj: typing.Any) -> typing.Any:
 
 
 def country_with_flag(country_name: str) -> str:
-    return dependencies.STATIC_DATA.get_county_flag(country_name) + " " + country_name
+    return geo.COUNTRIES_BY_NAME[country_name].flag + " " + country_name
 
 
 def __init_templates() -> fastapi.templating.Jinja2Templates:
@@ -368,5 +368,31 @@ async def document_code_of_ethics(
     return TEMPLATES.TemplateResponse(
         request=request,
         name="document/code_of_ethics.html.j2",
+        context=context,
+    )
+
+
+@router.get("/member/list.html")
+async def member_list(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    member: dependencies.MemberFromSession,
+):
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="member/list.html.j2",
+        context=context,
+    )
+
+
+@router.get("/member/{uid}/display.html")
+async def member_display(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    member: dependencies.MemberFromSession,
+):
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="member/display.html.j2",
         context=context,
     )

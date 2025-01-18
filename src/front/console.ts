@@ -275,7 +275,7 @@ class SanctionPlayerModal {
         this.header.innerText = "Sanction Member"  // Update to player name in display()
         base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.body = base.create_append(content, "div", ["modal-body"])
-        const deck_buttons_div = base.create_append(this.body, "div", ["d-flex-md"])
+        const deck_buttons_div = base.create_append(this.body, "div", ["d-md-flex"])
         this.deck_link = base.create_append(deck_buttons_div, "a", ["btn", "btn-vdb", "bg-vdb", "my-2", "me-2"],
             { target: "_blank" }
         )
@@ -548,7 +548,7 @@ class SeedFinalsModal {
         // makes it raise a Network error on the fetch sending the event there...
         this.players_table = base.create_append(this.body, "table", ["table", "table-sm"])
         const head = base.create_append(this.players_table, "thead")
-        const row = base.create_append(head, "tr")
+        const row = base.create_append(head, "tr", ["align-middle"])
         for (const label of ["Rank", "Toss", "Player"]) {
             const cel = base.create_append(row, "th", [], { scope: "col" })
             cel.innerText = label
@@ -758,7 +758,7 @@ class Registration {
         this.players_count = base.create_append(table_controls, "div")
         this.players_table = base.create_append(table_div, "table", ["table", "table-striped"])
         const head = base.create_append(this.players_table, "thead")
-        const row = base.create_append(head, "tr")
+        const row = base.create_append(head, "tr", ["align-middle"])
         for (const label of ["VEKN #", "Name", "Rank", "Status", ""]) {
             const cel = base.create_append(row, "th", [], { scope: "col" })
             cel.innerText = label
@@ -1239,7 +1239,7 @@ class RoundTab {
         }
         const table = base.create_append(div, "table", ["table"])
         const head = base.create_append(table, "thead")
-        const tr = base.create_append(head, "tr")
+        const tr = base.create_append(head, "tr", ["align-middle"])
         var headers = ["VEKN#", "Name", "Score", ""]
         if (this.finals) {
             headers = ["Seed", "VEKN#", "Name", "Score", ""]
@@ -1497,7 +1497,7 @@ class RoundTab {
     }
 
     add_empty_row(body: HTMLTableSectionElement) {
-        const empty_row = base.create_append(body, "tr")
+        const empty_row = base.create_append(body, "tr", ["align-middle"])
         base.create_append(empty_row, "th")
         base.create_append(empty_row, "td")
         base.create_append(empty_row, "td")

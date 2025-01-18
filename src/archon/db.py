@@ -17,7 +17,9 @@ import typing
 import uuid
 
 from . import events
+from . import geo
 from . import models
+from . import engine
 
 logger = logging.getLogger()
 
@@ -78,6 +80,11 @@ async def init():
                 "CREATE INDEX IF NOT EXISTS idx_tournament_json "
                 "ON tournaments "
                 "USING GIN (data jsonb_path_ops)"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_players "
+                "ON tournaments "
+                "USING GIN ((data->'players'))"
             )
             # Index on tournaments start date (as text)
             await cursor.execute(
@@ -242,7 +249,9 @@ class Operator:
             return res.rowcount
 
     async def insert_members(self, members: list[models.Member]) -> None:
-        """Insert members from VEKN"""
+        """Insert members from VEKN.
+        Modify the members list in place to match DB (ie. uuids).
+        """
         async with self.conn.cursor() as cursor:
             # get existing VEKN, lock the table
             res = await cursor.execute(
@@ -250,28 +259,37 @@ class Operator:
                 [[m.vekn for m in members]],
             )
             existing = await res.fetchall()
-            existing = {e[0]: e[1] for e in existing}
-
+            existing = {e[0]: self._instanciate_member(e[1]) for e in existing}
             # do not overwrite local data & lose relevant info (sanctions, login, etc.)
-            # don't even revert changes on name nor city for now.
+            # don't revert changes on name
+            # TODO: also don't revert country, city, roles and sponsor changes
+            # once we're stable on this
             for i, m in enumerate(members):
                 if m.vekn in existing:
                     local: models.Member = existing[m.vekn]
-                    # TODO remove the country
-                    local["country"] = m.country
-                    local["ranking"] = m.ranking
-                    members[i] = models.Member(**local)
+                    # TODO remove country & city
+                    local.country = m.country
+                    local.city = m.city
+                    local.ranking = m.ranking
+                    local.roles = m.roles
+                    local.prefix = m.prefix
+                    local.sponsor = None
+                    members[i] = local
             # update existing
             # cannot run two prepared statements in parallel, just wait
             await cursor.executemany(
                 "UPDATE members SET data=%s WHERE vekn=%s",
-                [[jsonize(m), m.vekn] for m in members if m.vekn in existing],
+                [
+                    [self._jsonize_member(m), m.vekn]
+                    for m in members
+                    if m.vekn in existing
+                ],
             )
             # insert new
             await cursor.executemany(
                 "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
                 [
-                    [uuid.UUID(m.uid), m.vekn, jsonize(m)]
+                    [uuid.UUID(m.uid), m.vekn, self._jsonize_member(m)]
                     for m in members
                     if m.vekn not in existing
                 ],
@@ -284,8 +302,8 @@ class Operator:
         async with self.conn.cursor() as cursor:
             # insert new
             await cursor.execute(
-                "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
-                [uuid.UUID(member.uid), "", jsonize(member)],
+                "INSERT INTO members (uid, data) VALUES (%s, %s, %s)",
+                [uuid.UUID(member.uid), self._jsonize_member(member)],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError("INSERT failed")
@@ -301,14 +319,43 @@ class Operator:
             res = await cursor.execute(query, [uuid.UUID(uid)])
             data = await res.fetchone()
             if data:
-                return models.Member(**data[0])
+                return self._instanciate_member(data[0])
+            return None
+
+    async def get_member_with_ratings(self, uid: str) -> models.Member | None:
+        """Get a member from their uid, with tournament results
+        For now, it's a live computation, but this will be updated by a cron
+        once this supersedes vekn.net ratings
+        """
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM members WHERE uid=%s", [uuid.UUID(uid)]
+            )
+            data = await res.fetchone()
+            if data:
+                ret = self._instanciate_member(data[0])
+                res = await cursor.execute(
+                    "SELECT data FROM tournaments WHERE data->'players' ? %s", [uid]
+                )
+                for tournament_data in await res.fetchall():
+                    if tournament_data[0]["state"] != models.TournamentState.FINISHED:
+                        continue
+                    player = tournament_data[0]["players"][uid]
+                    if not player["rounds_played"]:
+                        continue
+                    tournament = models.Tournament(**tournament_data[0])
+
+                    ratings = engine.ratings(tournament)
+                    if uid in ratings:
+                        ret.ratings[tournament.uid] = ratings[uid]
+                return ret
             return None
 
     async def get_members(self) -> list[models.Member]:
         """Get all members"""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute("SELECT data FROM members")
-            return [models.Member(**data[0]) for data in await res.fetchall()]
+            return [self._instanciate_member(data[0]) for data in await res.fetchall()]
 
     async def upsert_member_discord(self, user: models.DiscordUser) -> models.Member:
         """Get or create a member from their discord profile"""
@@ -320,7 +367,7 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
-                member = models.Member(**data[0])
+                member = self._instanciate_member(data[0])
                 member.discord = user
                 member.name = member.name or user.global_name or user.username
                 member.nickname = member.nickname or user.global_name or user.username
@@ -329,7 +376,7 @@ class Operator:
                     member.verified = user.verified
                 await cursor.execute(
                     "UPDATE members SET data=%s WHERE data -> 'discord' ->> 'id' = %s",
-                    [jsonize(member), user.id],
+                    [self._jsonize_member(member), user.id],
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError(f"Failed to update Discord ID# {user.id}")
@@ -346,7 +393,7 @@ class Operator:
                 )
                 await cursor.execute(
                     "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
-                    [uid, member.vekn, jsonize(member)],
+                    [uid, member.vekn, self._jsonize_member(member)],
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError("INSERT failed")
@@ -356,7 +403,7 @@ class Operator:
         async with self.conn.cursor() as cursor:
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid = %s",
-                [jsonize(member), member.uid],
+                [self._jsonize_member(member), member.uid],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to update member {member.uid}")
@@ -373,7 +420,7 @@ class Operator:
             if not data:
                 return None
             old_vekn = data[0]
-            member = models.Member(**data[1])
+            member = self._instanciate_member(data[1])
             if old_vekn == vekn:
                 #  no change
                 logger.warning("%s claiming %s but already has it", uid, vekn)
@@ -386,7 +433,7 @@ class Operator:
             if not data:
                 logger.warning("no VEKN record found for %s", vekn)
                 return None
-            vekn_member = models.Member(**data[0])
+            vekn_member = self._instanciate_member(data[0])
             if vekn_member.discord:
                 if vekn_member.discord.id != member.discord.id:
                     logger.warning(
@@ -407,7 +454,7 @@ class Operator:
                 vekn_member.verified = False
                 await cursor.execute(
                     "UPDATE members SET data=%s WHERE uid=%s",
-                    [jsonize(vekn_member), uuid.UUID(uid)],
+                    [self._jsonize_member(vekn_member), uuid.UUID(uid)],
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError(f"Failed to update Member {uid}")
@@ -417,7 +464,7 @@ class Operator:
             # update the VEKN record
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE vekn=%s",
-                [jsonize(vekn_member), vekn],
+                [self._jsonize_member(vekn_member), vekn],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to update VEKN {vekn}")
@@ -435,20 +482,21 @@ class Operator:
                 logger.warning("User not found: %s", uid)
                 return None
             vekn = data[0]
-            member = models.Member(**data[1])
+            member = self._instanciate_member(data[1])
             if not vekn:
                 logger.warning("No vekn for %s, nothing to do", uid)
                 return member
-            new_member = models.Member(
-                uid=str(uuid.uuid4()), vekn="", name=member.name, discord=member.discord
-            )
+            new_member = models.Member(**dataclasses.asdict(member))
+            new_uid = uuid.uuid4()
+            new_member.vekn = ""
+            new_member.uid = str(new_uid)
             member.discord = None
             member.nickname = None
             member.email = None
             member.verified = False
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid=%s",
-                [jsonize(member), uuid.UUID(uid)],
+                [self._jsonize_member(member), uuid.UUID(uid)],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to find Member {uid}")
@@ -461,13 +509,51 @@ class Operator:
                 new_member.verified = new_member.discord.verified
                 await cursor.execute(
                     "INSERT INTO members (uid, data) VALUES (%s, %s)",
-                    [uuid.UUID(new_member.uid), jsonize(new_member)],
+                    [new_uid, self._jsonize_member(new_member)],
                 )
                 logger.warning("New member created: %s - %s", new_member.uid, data)
             else:
                 logger.warning("No discord detected! %s", member)
                 return None
             return new_member
+
+    async def set_sponsor_on_prefix(self, prefix: str, sponsor_uid: str):
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM members WHERE vekn LIKE %s FOR UPDATE",
+                [prefix.replace("%", "") + "%"],
+            )
+            recruits = [
+                self._instanciate_member(data[0]) for data in await res.fetchall()
+            ]
+            for recruit in recruits:
+                recruit.sponsor = sponsor_uid
+            await cursor.executemany(
+                "UPDATE members SET data=%s WHERE uid=%s",
+                [[self._jsonize_member(m), uuid.UUID(m.uid)] for m in recruits],
+            )
+
+    def _jsonize_member(self, member: models.Member):
+        data = dataclasses.asdict(member)
+        if member.country:
+            country = geo.COUNTRIES_BY_NAME[member.country]
+            data["country_flag"] = country.flag
+            data["country_iso"] = country.iso
+            data["country_geoname_id"] = country.geoname_id
+        if member.city:
+            data["city_geoname_id"] = geo.CITIES_BY_COUNTRY[member.country][
+                member.city
+            ].geoname_id
+        return psycopg.types.json.Json(data)
+
+    def _instanciate_member(self, data: dict, cls: typing.Type[T] = models.Member) -> T:
+        if "country_iso" in data:
+            country = geo.COUNTRIES_BY_ISO[data["country_iso"]]
+            data["country"] = country.country
+            data["country_flag"] = country.flag
+        if "city_geoname_id" in data:
+            data["city"] = geo.CITIES_BY_GEONAME_ID[data["city_geoname_id"]].unique_name
+        return cls(**data)
 
 
 @contextlib.asynccontextmanager

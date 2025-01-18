@@ -86,7 +86,7 @@ async def api_tournament_event_post(
     orchestrator.handle_event(event, member_uid)
     await op.record_event(orchestrator.uid, member_uid, event)
     await op.update_tournament(orchestrator)
-    # TODO: we might want to move this in a "VEKN member orchastrator" of sorts
+    # TODO: we might want to move this in a "VEKN member orchestrator" of sorts
     if (
         event.type == events.EventType.SANCTION
         and event.level != events.SanctionLevel.CAUTION

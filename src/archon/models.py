@@ -37,12 +37,25 @@ class Barrier(enum.StrEnum):
     MAX_ROUNDS = "Max Rounds"
 
 
+class MemberRole(enum.StrEnum):
+    ADMIN = "Admin"
+    PRINCE = "Prince"
+    JUDGE = "Judge"  # Elder judge (event judges don't need to be official judges)
+    ANC_JUDGE = "Anc. Judge"  # Ancilla Judge
+    NEO_JUDGE = "Neo. Judge"  # Neonate Judge
+    NC = "NC"  # National Coordinator
+    PTC = "PTC"  # Playtest Coordinator
+    PLAYTESTER = "Playtester"
+    ETHICS = "Ethics"  # Member of the Ethics Comitee
+
+
 @dataclasses.dataclass
 class Person:
     name: str
     vekn: str = ""
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     country: str | None = ""  # country name
+    country_flag: str | None = ""  # unicode flag char
     city: str | None = ""  # city name
 
 
@@ -219,6 +232,7 @@ class Country:
     iso_numeric: int  # ISO-3166 numeric country code
     fips: str  # FIPS 2 - letters code
     country: str  # Country name
+    flag: str  # Country flag (unicode char)
     capital: str  # Capital name
     continent: str  # Continent 2 - letters code(cf.top - level comment)
     tld: str  # Internet Top - Level Domain, including the dot
@@ -233,6 +247,7 @@ class Country:
 @dataclasses.dataclass
 class City:
     geoname_id: int  # integer id of record in geonames database
+    unique_name: str  # A name unique in the country (w/ admin divisions when needed)
     name: str  # name of geographical point (utf8) varchar(200)
     ascii_name: str  # name of geographical point in plain ascii characters
     latitude: float  # latitude in decimal degrees (wgs84)
@@ -241,6 +256,7 @@ class City:
     feature_code: str  # see http://www.geonames.org/export/codes.html
     country_code: str  # ISO-3166 2-letter country code, 2 characters
     country_name: str  # Country name (matches country.country)
+    country_flag: str  # Country flag (unicode char)
     cc2: list[str]  # alternate country codes, ISO-3166 2-letter country codes
     admin1: str  # name of first administrative division (state/region)
     admin2: str  # name of second administrative division (county)
@@ -287,14 +303,28 @@ class Ranking:
 
 
 @dataclasses.dataclass
+class TournamentRating:
+    tournament: TournamentConfig
+    rounds_played: int = 0
+    result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    rank: int = 0
+    rating_points: int = 0
+
+
+@dataclasses.dataclass
 class Member(Person):
     nickname: str | None = None  # player nickname (on social, lackey, etc.)
     email: str | None = None  # the user's email
     verified: bool | None = None  # whether the email has been verified
     state: str | None = None  # state/region name
     discord: DiscordUser | None = None  # Discord data
+    whatsapp: str | None = None  # phone
     sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
     ranking: Ranking = pydantic.Field(default_factory=Ranking)
+    sponsor: str | None = None  # Prince/NC who sponsored their VEKN membership
+    roles: list[MemberRole] = pydantic.Field(default_factory=list)
+    ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
+    prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
 
 
 @dataclasses.dataclass

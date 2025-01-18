@@ -27,7 +27,13 @@
                 </a>
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Rankings</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('tournament_list') }}">Tournaments</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('member_list') }}">Members</a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="dropdown-toggle nav-link" href="/document" role="button" data-bs-toggle="dropdown"
@@ -35,6 +41,7 @@
                             <i class="bi bi-journal-text"></i>
                         </a>
                         <ul class="dropdown-menu">
+
                             <li><a class="dropdown-item" href="{{ url_for('document_tournament_rules') }}">
                                     Tournament Rules
                                 </a></li>

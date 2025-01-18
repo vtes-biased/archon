@@ -1,0 +1,9 @@
+{% extends "layout.html.j2" %}
+
+{% block scripts %}
+<script async src="{{ url_for('static', path='member_list.js') }}" type="module"></script>
+{% endblock%}
+
+{% block content %}
+<div id="contentDiv"></div>
+{% endblock %}

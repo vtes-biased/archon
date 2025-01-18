@@ -5,8 +5,10 @@ import itertools
 import krcg.seating
 import krcg.deck
 import logging
+import math
 import random
 
+from . import geo
 from . import models
 from . import events
 from . import scoring
@@ -61,6 +63,8 @@ class TournamentManager(models.Tournament):
                 self.finish_tournament(ev, member_uid)
 
     def register(self, ev: events.Register, member_uid: str) -> None:
+        # note players are not necessary VEKN members (they may not even exist in DB)
+        # this is allowed on purpose: you can use the engine without the VEKN members DB
         # if player is already registered, only change his state if he has dropped
         if ev.player_uid and ev.player_uid in self.players:
             player = self.players[ev.player_uid]
@@ -78,12 +82,19 @@ class TournamentManager(models.Tournament):
             models.TournamentState.FINISHED,
         ]:
             state = models.PlayerState.FINISHED
+        # Check and normalize geodata
+        country = geo.COUNTRIES_BY_NAME.get(ev.country, None)
+        if country:
+            city = geo.CITIES_BY_COUNTRY.get(country.country).get(ev.city, None)
+        else:
+            city = None
         self.players[ev.player_uid] = models.Player(
             name=ev.name,
             uid=ev.player_uid,
             vekn=ev.vekn,
-            country=ev.country,
-            city=ev.city,
+            country=country.country if country else "",
+            country_flag=country.flag if country else "",
+            city=city.unique_name if city else "",
             state=state,
         )
         if self.decklist_required:
@@ -934,6 +945,35 @@ def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
         else:
             rank += len(players)
     return res
+
+
+def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]:
+    if tournament.state != models.TournamentState.FINISHED:
+        return {}
+    participants = [p for p in tournament.players.values() if p.rounds_played > 0]
+    size = len(participants)
+    if size < 10:
+        return {}
+    ret = {}
+    coef = math.log(size * size, 15) - 1
+    if tournament.rank in [models.TournamentRank.NC, models.TournamentRank.GP]:
+        coef += 0.25
+    elif tournament.rank == models.TournamentRank.CC:
+        coef += 1
+    for rank, player in standings(tournament):
+        rating_points = 5 + 4 * player.result.vp + 8 * player.result.gw
+        if rank == 1:
+            rating_points += round(90 * coef)
+        elif rank == 2:
+            rating_points += round(30 * coef)
+        ret[player.uid] = models.TournamentRating(
+            tournament=models.TournamentConfig(**dataclasses.asdict(tournament)),
+            rounds_played=player.rounds_played,
+            result=player.result,
+            rank=rank,
+            rating_points=rating_points,
+        )
+    return ret
 
 
 def toss_for_finals(tournament: models.Tournament) -> tuple[list[str], dict[str, int]]:

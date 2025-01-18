@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import collections
 import csv
 import io
 import orjson
@@ -35,7 +36,32 @@ COUNTRYNAME_FIXES = {
     "Czechia": "Czech Republic",
     "The Netherlands": "Netherlands",
     "Russia": "Russian Federation",
+    "South Korea": "Korea, Republic of",
+    "North Korea": "Korea, Democratic People's Republic of",
+    "Bolivia": "Bolivia, Plurinational State of",
+    "Taiwan": "China, Republic of (Taiwan)",
 }
+
+
+def _refine_name(
+    cities_by_name: dict[list[dict]], fields: list[str]
+) -> dict[list[dict]]:
+    """Remove duplicate cities by refining their names with admin zones"""
+    duplicates = collections.defaultdict(list)
+    names_index = collections.defaultdict(list)
+    for _, cities_list in cities_by_name.items():
+        for city in cities_list:
+            if not all(all(c.get(f, None) for f in fields) for c in cities_list):
+                continue
+            city["unique_name"] = ", ".join([city.get(f) for f in fields])
+            names_index[city["unique_name"]].append(city)
+        for city in cities_list:
+            if "unique_name" not in city:
+                duplicates[city["name"]].append(city)
+            elif len(names_index.get(city["unique_name"])) > 1:
+                duplicates[city["unique_name"]].append(city)
+                city.pop("unique_name", None)
+    return duplicates
 
 
 def geonames() -> None:
@@ -141,6 +167,7 @@ def geonames() -> None:
             country["country"] = COUNTRYNAME_FIXES.get(
                 country["country"], country["country"]
             )
+            country["flag"] = "".join(chr(127397 + ord(c)) for c in country["iso"])
             country["languages"] = country["languages"].split(",")
             country.pop("neighbours", None)
             country["geoname_id"] = int(country.get("geoname_id") or 0) or None
@@ -186,7 +213,7 @@ def geonames() -> None:
             ],
         )
     )
-    filtered_cities = []
+    cities_by_country = {c["country"]: [] for c in countries}
     for city in cities:
         # ignore city subdivisions
         if city["feature_code"] in {"PPLX", "PPLA5"}:
@@ -196,6 +223,7 @@ def geonames() -> None:
         city["longitude"] = float(city["longitude"])
         city["cc2"] = city["cc2"].split(",") if city.get("cc2", None) else []
         city["country_name"] = countries_dict[city["country_code"]]["country"]
+        city["country_flag"] = countries_dict[city["country_code"]]["flag"]
         try:
             city["admin1"] = admin_1[city["country_code"]][city["admin1_code"]]
         except KeyError:
@@ -220,17 +248,27 @@ def geonames() -> None:
                 city["admin2"] = ""
             else:
                 city["admin2"] = city["admin2_code"]
-        city.pop("admin1_code", None)
-        city.pop("admin2_code", None)
-        city.pop("admin3_code", None)
-        city.pop("admin4_code", None)
-        city.pop("population", None)
-        city.pop("elevation", None)
-        city.pop("dem", None)
-        city.pop("alternate_names", None)
-        filtered_cities.append(city)
+        cities_by_country[city["country_name"]].append(city)
+
+    unique_cities_by_country = {}
+
+    # Compute a unique name for all cities of a given country
+    for country, cities in cities_by_country.items():
+        cities_by_name = collections.defaultdict(list)
+        for city in cities:
+            cities_by_name[city["name"]].append(city)
+        duplicates = _refine_name(cities_by_name, ["name"])
+        duplicates = _refine_name(duplicates, ["name", "admin1"])
+        duplicates = _refine_name(duplicates, ["name", "admin1", "admin2"])
+        if duplicates:
+            logger.info("skipping duplicates for %s: %s", country, duplicates)
+        unique_cities_by_country[country] = {
+            c["unique_name"]: c for c in cities if "unique_name" in c
+        }
     with open(path / "geodata" / "cities.json", mode="wb") as fp:
-        fp.write(orjson.dumps(filtered_cities, option=orjson.OPT_APPEND_NEWLINE))
+        fp.write(
+            orjson.dumps(unique_cities_by_country, option=orjson.OPT_APPEND_NEWLINE)
+        )
 
 
 if __name__ == "__main__":

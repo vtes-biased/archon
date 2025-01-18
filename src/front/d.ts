@@ -28,6 +28,23 @@ export enum Barrier {
     MAX_ROUNDS = "Max Rounds",
 }
 
+export enum MemberRole {
+    ADMIN = "Admin",
+    PRINCE = "Prince",
+    JUDGE = "Judge",
+    ANC_JUDGE = "Anc. Judge",  // Ancilla Judge
+    NEO_JUDGE = "Neo. Judge",  // Neonate Judge
+    NC = "NC",  // National Coordinator
+    PTC = "PTC",  // Platest Coordinator
+    PLAYTESTER = "Playtester",
+    ETHICS = "Ethics",  // Member of the Ethics committee
+}
+
+export enum MemberFilter {
+    MY_RECRUITS = "My Recruits",
+    NO_SPONSOR = "No Sponsor",
+}
+
 export enum AlertLevel {
     INFO = "Info",
     SUCCESS = "Success",
@@ -46,10 +63,9 @@ export interface Person {
     vekn: string,
     uid: string,
     country: string | undefined,  // country name
+    country_flag: string | undefined,  // unicode flag char
     city: string | undefined,  // city name
 }
-
-
 
 export interface KrcgCard {
     id: number,
@@ -198,13 +214,41 @@ export interface RegisteredSanction extends Sanction {
     tournament_timezone: string,
 }
 
+export interface DiscordUser {
+    id: string,  // the user's id (Discord snowflake)
+    username: string,  // the user's username, not unique across the platform
+    discriminator: string,  // the user's Discord-tag
+    global_name: string | undefined,  // the user's display name, if it is set
+}
+
+export interface TournamentRating {
+    tournament: TournamentConfig,
+    rounds_played: number,
+    result: Score,
+    rank: number,
+    rating_points: number,
+}
+
+export interface Ranking {
+    constructed_onsite: number,
+    constructed_online: number,
+    limited_onsite: number,
+    limited_online: number,
+}
+
 export interface Member extends Person {
     nickname: string | undefined,  // player nickname
     email: string | undefined,  // the user's email
     verified: boolean | undefined,  // whether the email has been verified
     state: string | undefined,  // state/region name
     sanctions: RegisteredSanction[] | undefined,  // previous sanctions delivered
-    discord: {} | undefined,
+    discord: DiscordUser | undefined,
+    whatsapp: string | undefined,
+    ranking: Ranking,
+    sponsor: string | undefined  // UUID of the Prince/NC who sponsored membership
+    roles: MemberRole[]
+    ratings: Record<string, TournamentRating>
+    // prefix: string | undefined // Do not use - temporary field will be removed
 }
 
 export interface Country {
@@ -213,6 +257,7 @@ export interface Country {
     iso_numeric: number,  // ISO-3166 numeric country code
     fips: string,  // FIPS 2 - letters code
     country: string,  // Country name
+    flag: string,  // Country flag (unicode char)
     capital: string,  // Capital name
     continent: string,  // Continent 2 - letters code(cf.top - level comment)
     tld: string,  // Internet Top - Level Domain, including the dot
@@ -227,6 +272,7 @@ export interface Country {
 export interface City {
     geoname_id: number,  // integer id of record in geonames database
     name: string,  // name of geographical point (utf8) varchar(200)
+    unique_name: string,  // unique name in the country (w/ admin zone suffix)
     ascii_name: string,  // name of geographical point in plain ascii characters
     latitude: number,  // latitude in decimal degrees (wgs84)
     longitude: number,  // longitude in decimal degrees (wgs84)
@@ -234,6 +280,7 @@ export interface City {
     feature_code: string,  // see http://www.geonames.org/export/codes.html
     country_code: string,  // ISO-3166 2-letter country code, 2 characters
     country_name: string,  // country name, matches country.country
+    country_flag: string,  // country flag, unicode char
     cc2: string[],  // alternate country codes, ISO-3166 2-letter country codes
     admin1: string,  // name of first administrative division (state/region)
     admin2: string,  // name of second administrative division (county)
