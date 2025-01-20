@@ -105,8 +105,11 @@ async def api_vekn_add_member(
         else:
             member.country = ""
             member.country_flag = ""
+    city = None
     if member.country and member.city:
-        member.city = geo.CITIES_BY_COUNTRY[member.country].get(member.city, "")
+        city = geo.CITIES_BY_COUNTRY[member.country].get(member.city, None)
+    if city:
+        member.city = city.unique_name
     else:
         member.city = ""
     return await op.insert_member(member)
