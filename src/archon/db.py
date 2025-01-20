@@ -333,7 +333,7 @@ class Operator:
             res = await cursor.execute(query, [uuid.UUID(uid)])
             data = await res.fetchone()
             if data:
-                return self._instanciate_member(data[0])
+                return self._instanciate_member(data[0], cls)
             return None
 
     async def get_members(self, uids: list[str] | None = None) -> list[models.Person]:
