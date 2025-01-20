@@ -167,12 +167,16 @@ def check_can_change_role(
                 raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
-def check_organizer(member: models.Person) -> None:
-    if not set(member.roles) & {
+def can_organize(member: models.Person) -> bool:
+    return set(member.roles) & {
         models.MemberRole.ADMIN,
         models.MemberRole.NC,
         models.MemberRole.PRINCE,
-    }:
+    }
+
+
+def check_organizer(member: models.Person) -> None:
+    if not can_organize(member):
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
@@ -268,7 +272,7 @@ async def get_session_context(
     if uid:
         member = await op.get_member(uid)
         if member:
-            return {"member": member}
+            return {"member": member, "organizer": can_organize(member)}
     anonymous_session(request)
     return {
         "discord_oauth": DISCORD_AUTH_URL(state=hash_state(request.session["state"]))

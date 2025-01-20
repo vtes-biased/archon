@@ -213,6 +213,14 @@ class Operator:
                 return None
             return cls(**(data[0]))
 
+    async def played_tournaments(self, uid: str) -> list[models.Tournament]:
+        """Get all tournament played by a given member"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM tournaments WHERE data->'players' ? %s", [uid]
+            )
+            return [models.Tournament(**data[0]) for data in await res.fetchall()]
+
     async def update_tournament(self, tournament: models.Tournament) -> str:
         """Update a tournament, returns its uid"""
         uid = uuid.UUID(tournament.uid)
@@ -454,6 +462,14 @@ class Operator:
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to update member {member.uid}")
+            # also set the vekn in all tournaments the player has been in
+            await cursor.execute(
+                f"""UPDATE tournaments
+                SET data=jsonb_set(data, '{{players,{member.uid},vekn}}', %s, false)
+                WHERE data->'players' ? %s
+                """,
+                [psycopg.types.json.Jsonb(member.vekn), member.uid],
+            )
             return await self.update_member(member)
 
     async def claim_vekn(self, uid: str, vekn: str) -> models.Member | None:
