@@ -291,16 +291,72 @@ export class PersonLookup<Type extends d.Person> {
     }
 }
 
-export function can_sponsor(member: d.Member): boolean {
-    if (member && member.roles && (
-        member.roles.includes(d.MemberRole.ADMIN) ||
-        member.roles.includes(d.MemberRole.NC) ||
-        member.roles.includes(d.MemberRole.PRINCE)
-    )) {
+export function can_change_role(member: d.Member, target: d.Member, role: d.MemberRole): boolean {
+    if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
+    switch (role) {
+        case d.MemberRole.PRINCE:
+            if (member.roles.includes(d.MemberRole.NC) && member.country == target.country) {
+                return true
+            }
+            return false
+        case d.MemberRole.PLAYTESTER:
+            if (member.roles.includes(d.MemberRole.PTC)) { return true }
+            return false
+        default:
+            return false
+    }
+}
+
+export function can_organize(member: d.Member): boolean {
+    if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
+    if (member.roles.includes(d.MemberRole.NC)) { return true }
+    if (member.roles.includes(d.MemberRole.PRINCE)) { return true }
+    return false
+}
+
+export function can_change_info(member: d.Member, target: d.Member): boolean {
+    if (member.uid == target.uid) { return true }
+    const member_roles = new Set(member.roles)
+    if (member_roles.has(d.MemberRole.ADMIN)) { return true }
+    const target_roles = new Set(target.roles)
+    if (target_roles.has(d.MemberRole.ADMIN)) { return false }
+    if (target_roles.has(d.MemberRole.NC)) { return false }
+
+    if (
+        target_roles.has(d.MemberRole.PRINCE) ||
+        target_roles.has(d.MemberRole.PTC) ||
+        target_roles.has(d.MemberRole.ETHICS)
+    ) {
+        if (member.roles.includes(d.MemberRole.NC) && member.country == target.country) { return true }
+        return false
+    }
+    if (
+        member_roles.has(d.MemberRole.NC) ||
+        member_roles.has(d.MemberRole.PTC) ||
+        member_roles.has(d.MemberRole.ETHICS)
+    ) {
+        return true
+    }
+    if (member_roles.has(d.MemberRole.PRINCE) && member.country == target.country) {
         return true
     }
     return false
 }
+
+export function can_sanction(member: d.Member): boolean {
+    if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
+    if (member.roles.includes(d.MemberRole.JUDGE)) { return true }
+    if (member.roles.includes(d.MemberRole.ETHICS)) { return true }
+    return false
+}
+
+export function can_change_vekn(member: d.Member, target: d.Member): boolean {
+    if (member.uid == target.uid) { return true }
+    if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
+    if (member.roles.includes(d.MemberRole.NC) && member.country == target.country) { return true }
+    return false
+}
+
 export function can_playtest(member: d.Member): boolean {
     if (member && member.roles && (
         member.roles.includes(d.MemberRole.ADMIN) ||
@@ -311,43 +367,7 @@ export function can_playtest(member: d.Member): boolean {
     }
     return false
 }
-export function can_make_prince(member: d.Member): boolean {
-    if (member && member.roles && (
-        member.roles.includes(d.MemberRole.ADMIN) ||
-        member.roles.includes(d.MemberRole.NC)
-    )) {
-        return true
-    }
-    return false
-}
-export function can_make_playtester(member: d.Member): boolean {
-    if (member && member.roles && (
-        member.roles.includes(d.MemberRole.ADMIN) ||
-        member.roles.includes(d.MemberRole.PTC)
-    )) {
-        return true
-    }
-    return false
-}
-export function can_change_info(member: d.Member, target: d.Member): boolean {
-    if (!(member && member.roles && target)) {
-        return false
-    }
-    if (member.uid == target.uid || member.roles.includes(d.MemberRole.ADMIN)) {
-        return true
-    }
-    if (target.roles.includes(d.MemberRole.PRINCE) || target.roles.includes(d.MemberRole.NC)) {
-        if (member.country == target.country && member.roles.includes(d.MemberRole.NC)) {
-            return true
-        }
-    } else if (member.country == target.country && (
-        member.roles.includes(d.MemberRole.PRINCE) ||
-        member.roles.includes(d.MemberRole.NC)
-    )) {
-        return true
-    }
-    return false
-}
+
 export function can_contact(member: d.Member, target: d.Member): boolean {
     if (!(member && member.roles && target)) {
         return false
@@ -372,61 +392,187 @@ export function can_contact(member: d.Member, target: d.Member): boolean {
     }
     return false
 }
-export function can_admin(member: d.Member): boolean {
-    if (member && member.roles && (member.roles.includes(d.MemberRole.ADMIN))) {
-        return true
+
+export class AddMemberModal extends base.Modal {
+    token: base.Token | undefined
+    countries: d.Country[] | undefined
+    form: HTMLFormElement
+    name: HTMLInputElement
+    country: HTMLSelectElement
+    city: HTMLSelectElement
+    email: HTMLInputElement
+    submit_button: HTMLButtonElement
+    callback: { (member: d.Member): void }
+    constructor(el: HTMLElement, callback: { (member: d.Member): void }) {
+        super(el)
+        this.callback = callback
+        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
+            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "AddMemberModalLabel" }
+        )
+        this.modal_title.innerText = "Add Member"
+        this.form = base.create_append(this.modal_body, "form")
+        this.name = base.create_append(this.form, "input", ["form-control", "my-2"],
+            { type: "text", autocomplete: "new-name", name: "new-name" }
+        )
+        this.name.ariaAutoComplete = "none"
+        this.name.spellcheck = false
+        this.name.placeholder = "Name"
+        this.country = base.create_append(this.form, "select", ["form-select", "my-2"],
+            { name: "country", autocomplete: "none" }
+        )
+        this.city = base.create_append(this.form, "select", ["form-select", "my-2"], { name: "city" })
+        this.email = base.create_append(this.form, "input", ["form-control", "my-2"],
+            { type: "text", autocomplete: "new-email", name: "new-email" }
+        )
+        this.email.placeholder = "E-mail"
+        this.email.ariaAutoComplete = "none"
+        this.email.spellcheck = false
+        this.submit_button = base.create_append(this.form, "button", ["btn", "btn-primary", "my-2"], { type: "submit" })
+        this.submit_button.innerText = "Submit"
+        this.country.ariaLabel = "Country"
+        this.country.options.add(base.create_element("option", [], { value: "", label: "Country" }))
+        this.country.required = true
+        this.city.options.add(base.create_element("option", [], { value: "", label: "City" }))
+        this.city.required = false
+        this.country.addEventListener("change", (ev) => this.change_country())
+        this.form.addEventListener("submit", (ev) => this.submit(ev))
     }
-    return false
+
+    async init(token: base.Token | undefined = undefined, countries: d.Country[] | undefined = undefined) {
+        if (token) {
+            this.token = token
+        } else {
+            this.token = await base.fetchToken()
+        }
+        if (countries) {
+            this.countries = countries
+        } else {
+            const res = await base.do_fetch("/api/vekn/country", {})
+            this.countries = await res.json() as d.Country[]
+        }
+        for (const country of this.countries) {
+            const option = document.createElement("option")
+            option.value = country.country
+            option.label = country.country
+            this.country.options.add(option)
+        }
+    }
+
+    show() {
+        this.name.value = ""
+        this.email.value = ""
+        this.country.selectedIndex = 0
+        this.city.selectedIndex = 0
+        this.city.disabled = true
+        this.modal.show()
+    }
+
+    async change_country() {
+        while (this.city.options.length > 1) {
+            this.city.options.remove(1)
+        }
+        if (this.country.selectedIndex < 1) {
+            this.city.disabled = true
+        } else {
+            // TODO deactivate this or something for offline mode
+            const res = await base.do_fetch(`/api/vekn/country/${this.country.value}/city`, {})
+            const cities = await res.json() as d.City[]
+            for (const city of cities) {
+                const option = document.createElement("option")
+                option.value = city.unique_name
+                option.label = city.unique_name
+                this.city.options.add(option)
+            }
+            this.city.disabled = false
+        }
+    }
+
+    async submit(ev: SubmitEvent) {
+        ev.preventDefault()
+        var member = {
+            uid: uuid.v4(),
+            name: this.name.value,
+            vekn: "",
+            country: this.country.value,
+            city: this.city.value,
+            email: this.email.value
+        } as d.Member
+        const res = await base.do_fetch_with_token("/api/vekn/members", this.token,
+            { method: "post", body: JSON.stringify(member) }
+        )
+        if (res) {
+            this.callback(await res.json())
+        }
+        this.modal.hide()
+    }
 }
-export function can_edit_role(member: d.Member, target: d.Member, role: d.MemberRole) {
-    if (!(member && member.roles && target)) {
-        return false
+
+export interface VeknCallbackOptions {
+    token: base.Token | undefined,
+    member: d.Member | undefined,
+}
+
+export class ExistingVeknModal extends base.Modal {
+    token: base.Token | undefined
+    user_uid: string
+    target_uid: string
+    form: HTMLFormElement
+    vekn_input: HTMLInputElement
+    submit_button: HTMLButtonElement
+    callback: { (opt: VeknCallbackOptions): Promise<void> }
+    constructor(el: HTMLElement, callback: { (opt: VeknCallbackOptions): Promise<void> }) {
+        super(el)
+        this.callback = callback
+        this.form = base.create_append(this.modal_body, "form")
+        this.vekn_input = base.create_append(this.form, "input", ["form-control", "mb-2"],
+            { type: "text", name: "new-vekn", placeholder: "VEKN# ID", autocomplete: "new-vekn" }
+        )
+        this.vekn_input.spellcheck = false
+        this.vekn_input.ariaAutoComplete = "none"
+        this.submit_button = base.create_append(this.form, "button", ["btn", "btn-primary", "me-2", "mb-2"], { type: "submit" })
+        this.form.addEventListener("submit", (ev) => this.submit(ev).then())
     }
-    if (member.roles.includes(d.MemberRole.ADMIN)) {
-        return true
+    async init(
+        token: base.Token | undefined = undefined,
+        user_uid: string | undefined = undefined,
+        target_uid: string | undefined = undefined,
+    ) {
+        if (token) {
+            this.token = token
+        } else {
+            this.token = await base.fetchToken()
+        }
+        if (user_uid) {
+            this.user_uid = user_uid
+        } else {
+            this.user_uid = base.user_uid_from_token(token)
+        }
+        if (target_uid) {
+            this.target_uid = target_uid
+        } else {
+            this.target_uid = this.user_uid
+        }
+        if (this.target_uid == this.user_uid) {
+            this.modal_title.innerText = "Claim VEKN ID"
+            this.submit_button.innerText = "Claim"
+        } else {
+            this.modal_title.innerText = "Assign existing VEKN ID"
+            this.submit_button.innerText = "Assign"
+        }
     }
-    if (role == d.MemberRole.PRINCE && member.country == target.country && member.roles.includes(d.MemberRole.NC)) {
-        return true
+    async submit(ev: SubmitEvent) {
+        ev.preventDefault()
+        const options = { method: "post", body: JSON.stringify({ vekn: this.vekn_input.value }) }
+        if (this.target_uid == this.user_uid) {
+            const res = await base.do_fetch_with_token("/api/vekn/claim", this.token, options)
+            this.callback({ token: await res.json(), member: undefined })
+        } else {
+            const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target_uid}/vekn`, this.token, options)
+            this.callback({ token: undefined, member: await res.json() })
+        }
+        this.modal.hide()
     }
-    if (role == d.MemberRole.PLAYTESTER && member.roles.includes(d.MemberRole.PTC)) {
-        return true
+    show() {
+        this.modal.show()
     }
 }
-// async function select_country(ev: Event) {
-//     // Fetch the cities (>15k pop) depending on the country. Disambiguate names.
-//     const selectCountry = ev.currentTarget as HTMLSelectElement
-//     const selectCity = document.getElementById("selectCity") as HTMLSelectElement
-//     selectCity.options.selectedIndex = 0
-//     selectCity.dispatchEvent(new Event('change', { bubbles: true }))
-//     while (selectCity.options.length > 1) {
-//         selectCity.options.remove(1)
-//     }
-//     if (selectCountry.selectedIndex < 1) {
-//         selectCity.disabled = true
-//     } else {
-//         const res = await base.do_fetch(`/api/vekn/country/${selectCountry.value}/city`, {})
-//         const cities = await res.json() as City[]
-//         // find duplicate city names, add administrative divisions for distinction
-//         const names_count = {}
-//         for (const city of cities) {
-//             var name = city.name
-//             names_count[name] = (names_count[name] || 0) + 1
-//             name += `, ${city.admin1}`
-//             names_count[name] = (names_count[name] || 0) + 1
-//         }
-//         for (const city of cities) {
-//             var name = city.name
-//             if (names_count[name] > 1) {
-//                 name += `, ${city.admin1}`
-//             }
-//             if (names_count[name] > 1) {
-//                 name += `, ${city.admin2}`
-//             }
-//             const option = document.createElement("option")
-//             option.value = name
-//             option.label = name
-//             selectCity.options.add(option)
-//         }
-//         selectCity.disabled = false
-//     }
-// }

@@ -1,3 +1,4 @@
+import dataclasses
 import fastapi
 import logging
 import typing
@@ -94,13 +95,9 @@ async def api_tournament_event_post(
         member = await op.get_member(event.player_uid, for_update=True)
         member.sanctions.append(
             models.RegisteredSanction(
-                tournament_uid=orchestrator.uid,
-                tournament_name=orchestrator.name,
-                tournament_start=orchestrator.start,
-                tournament_timezone=orchestrator.timezone,
+                tournament=models.TournamentConfig(**dataclasses.asdict(orchestrator)),
                 uid=event.sanction_uid,
                 judge_uid=member_uid,
-                player_uid=event.player_uid,
                 level=event.level,
                 category=event.category,
                 comment=event.comment,

@@ -97,6 +97,18 @@ class TournamentManager(models.Tournament):
             city=city.unique_name if city else "",
             state=state,
         )
+        if any(
+            s.level == events.SanctionLevel.BAN
+            for s in self.sanctions.get(ev.player_uid, [])
+        ):
+            self.players[ev.player_uid].barriers.append(models.Barrier.BANNED)
+            self.players[ev.player_uid].state = models.PlayerState.FINISHED
+        if any(
+            s.level == events.SanctionLevel.DISQUALIFICATION
+            for s in self.sanctions.get(ev.player_uid, [])
+        ):
+            self.players[ev.player_uid].barriers.append(models.Barrier.DISQUALIFIED)
+            self.players[ev.player_uid].state = models.PlayerState.FINISHED
         if self.decklist_required:
             self.players[ev.player_uid].barriers.append(models.Barrier.MISSING_DECK)
 
@@ -968,6 +980,7 @@ def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]
             rating_points += round(30 * coef)
         ret[player.uid] = models.TournamentRating(
             tournament=models.TournamentConfig(**dataclasses.asdict(tournament)),
+            size=size,
             rounds_played=player.rounds_played,
             result=player.result,
             rank=rank,

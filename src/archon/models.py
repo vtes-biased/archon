@@ -171,8 +171,7 @@ class LimitedFormat:
 
 @dataclasses.dataclass
 class Sanction:
-    judge_uid: str
-    player_uid: str
+    judge_uid: str | None = None  # not set on web interfaces, set before entering DB
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     level: events.SanctionLevel = events.SanctionLevel.CAUTION
     category: events.SanctionCategory = events.SanctionCategory.NONE
@@ -288,10 +287,7 @@ class DiscordUser:
 
 @dataclasses.dataclass(kw_only=True)
 class RegisteredSanction(Sanction):
-    tournament_uid: str
-    tournament_name: str
-    tournament_start: datetime.datetime
-    tournament_timezone: str
+    tournament: TournamentConfig | None = None
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -305,6 +301,7 @@ class Ranking:
 @dataclasses.dataclass
 class TournamentRating:
     tournament: TournamentConfig
+    size: int = 0
     rounds_played: int = 0
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
     rank: int = 0
@@ -312,11 +309,20 @@ class TournamentRating:
 
 
 @dataclasses.dataclass
+class MemberInfo:
+    name: str | None = None
+    country: str | None = None  # country name
+    city: str | None = None  # city name
+    nickname: str | None = None  # player nickname (on social, lackey, etc.)
+    email: str | None = None  # the user's email
+    whatsapp: str | None = None  # phone
+
+
+@dataclasses.dataclass
 class Member(Person):
     nickname: str | None = None  # player nickname (on social, lackey, etc.)
     email: str | None = None  # the user's email
     verified: bool | None = None  # whether the email has been verified
-    state: str | None = None  # state/region name
     discord: DiscordUser | None = None  # Discord data
     whatsapp: str | None = None  # phone
     sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
@@ -331,3 +337,13 @@ class Member(Person):
 class Client:
     name: str
     uid: str | None = None  # UUID assigned by the backend
+
+
+@dataclasses.dataclass
+class RoleParameter:
+    role: MemberRole
+
+
+@dataclasses.dataclass
+class VeknParameter:
+    vekn: str

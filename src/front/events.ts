@@ -24,6 +24,7 @@ export enum SanctionLevel {
     CAUTION = "Caution",
     WARNING = "Warning",
     DISQUALIFICATION = "Disqualification",
+    BAN = "Ban",
 }
 
 export enum SanctionCategory {
@@ -35,6 +36,7 @@ export enum SanctionCategory {
     SLOW_PLAY = "Slow Play",
     UNSPORTSMANLIKE_CONDUCT = "Unsportsmanlike Conduct",
     CHEATING = "Cheating",
+    ETHICS = "Ethics",
 }
 
 export interface Score {

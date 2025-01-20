@@ -55,7 +55,7 @@
                     </li>
                 </ul>
                 {% if member %}
-                <a type="button" class="btn btn-secondary ms-2" href="{{ url_for('profile') }}">
+                <a type="button" class="btn btn-secondary ms-2" href="{{ url_for('member_display', uid=member.uid) }}">
                     <i class="bi bi-person-fill"></i> Profile
                 </a>
                 {% else %}

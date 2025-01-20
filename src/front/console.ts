@@ -9,47 +9,6 @@ import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
 import QrScanner from "qr-scanner"
 
-interface EmptyFunction {
-    (): void
-}
-
-class ConfirmationModal {
-    modal_div: HTMLDivElement
-    modal: bootstrap.Modal
-    message: HTMLDivElement
-    callback: EmptyFunction
-    constructor(el: HTMLDivElement) {
-        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "confirmationModalLabel" }
-        )
-        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
-        const content = base.create_append(dialog, "div", ["modal-content"])
-        const header = base.create_append(content, "div", ["modal-header"])
-        const title = base.create_append(header, "h1", ["modal-title", "fs-5"], { id: "confirmationModalLabel" })
-        title.innerText = "Are you sure?"
-        base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        const body = base.create_append(content, "div", ["modal-body", "d-flex", "flex-column", "align-items-center"])
-        this.message = base.create_append(body, "div", ["d-flex", "flex-column", "align-items-center"])
-        const row = base.create_append(body, "div", ["mt-4", "d-flex", "flex-row", "align-items-center"])
-        const confirm = base.create_append(row, "button", ["btn", "btn-danger", "me-1", "mb-1"], { type: "button" })
-        confirm.innerText = "Confirm"
-        confirm.addEventListener("click", (ev) => this.confirm())
-        const cancel = base.create_append(row, "button", ["btn", "btn-secondary", "me-1", "mb-1"], { type: "button" })
-        cancel.innerText = "Cancel"
-        cancel.addEventListener("click", (ev) => this.modal.hide())
-        this.modal = new bootstrap.Modal(this.modal_div)
-    }
-
-    confirm() {
-        this.modal.hide()
-        this.callback()
-    }
-    show(message: string, callback: EmptyFunction) {
-        this.message.innerHTML = message
-        this.callback = callback
-        this.modal.show()
-    }
-}
 
 class PlayerSelectModal {
     modal_div: HTMLDivElement
@@ -356,7 +315,7 @@ class SanctionPlayerModal {
         base.remove_children(this.sanctions_accordion)
         this.sanction_idx = 0
         for (const sanction of this.member.sanctions ?? []) {
-            if (sanction.tournament_uid == this.console.tournament.uid) {
+            if (sanction.tournament?.uid == this.console.tournament.uid) {
                 continue
             }
             this.add_sanction_display(sanction)
@@ -423,14 +382,16 @@ class SanctionPlayerModal {
             "aria-controls": id,
         })
         // additional display for RegisteredSanction from previous tournaments
-        if (Object.hasOwn(sanction, "tournament_name")) {
+        if (Object.hasOwn(sanction, "tournament")) {
             const rsanction = sanction as d.RegisteredSanction
-            const timestamp = DateTime.fromFormat(
-                `${rsanction.tournament_start} ${rsanction.tournament_timezone}`,
-                "yyyy-MM-dd'T'HH:mm:ss z",
-                { setZone: true }
-            ).toLocal().toLocaleString(DateTime.DATE_SHORT)
-            button.innerText = `(${timestamp}: ${rsanction.tournament_name})`
+            if (rsanction.tournament) {
+                const timestamp = DateTime.fromFormat(
+                    `${rsanction.tournament?.start} ${rsanction.tournament?.timezone}`,
+                    "yyyy-MM-dd'T'HH:mm:ss z",
+                    { setZone: true }
+                ).toLocal().toLocaleString(DateTime.DATE_SHORT)
+                button.innerText = `(${timestamp}: ${rsanction.tournament?.name})`
+            }
         }
         const level_badge = base.create_append(button, "div", ["badge", "mx-1"])
         level_badge.innerText = sanction.level
@@ -1653,7 +1614,7 @@ class TournamentConsole {
     tabs_div: HTMLDivElement
     score_modal: ScoreModal
     tabs: Map<string, bootstrap.Tab>
-    confirmation: ConfirmationModal
+    confirmation: base.ConfirmationModal
     player_select: PlayerSelectModal
     add_member_modal: AddMemberModal
     sanction_player_modal: SanctionPlayerModal
@@ -1666,7 +1627,7 @@ class TournamentConsole {
         this.root = el
         this.token = token
         this.members_map = new member.MemberMap()
-        this.confirmation = new ConfirmationModal(el)
+        this.confirmation = new base.ConfirmationModal(el)
         this.score_modal = new ScoreModal(el, this)
         this.player_select = new PlayerSelectModal(el)
         this.add_member_modal = new AddMemberModal(el, this)
@@ -1928,7 +1889,7 @@ class TournamentConsole {
         const previous_sanctions = this.members_map.by_uid.get(player_uid)?.sanctions
         if (previous_sanctions) {
             for (const sanction of previous_sanctions) {
-                if (sanction.tournament_uid != this.tournament.uid) {
+                if (sanction.tournament?.uid && sanction.tournament?.uid != this.tournament.uid) {
                     return true
                 }
             }

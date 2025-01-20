@@ -92,5 +92,17 @@ def add_client(name: typing.Annotated[str, typer.Option(prompt=True)]):
     print(f'CLIENT_SECRET="{client_secret}"')
 
 
+async def async_recompute_ratings():
+    async with db.POOL:
+        async with db.operator() as op:
+            await op.recompute_all_ratings()
+
+
+@app.command()
+def recompute_ratings():
+    """Recompute all tournament ratings"""
+    asyncio.run(async_recompute_ratings())
+
+
 if __name__ == "__main__":
     app()

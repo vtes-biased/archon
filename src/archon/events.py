@@ -34,6 +34,7 @@ class SanctionLevel(enum.StrEnum):
     CAUTION = "Caution"
     WARNING = "Warning"
     DISQUALIFICATION = "Disqualification"
+    BAN = "Ban"
 
 
 class SanctionCategory(enum.StrEnum):
@@ -45,6 +46,7 @@ class SanctionCategory(enum.StrEnum):
     SLOW_PLAY = "Slow Play"
     UNSPORTSMANLIKE_CONDUCT = "Unsportsmanlike Conduct"
     CHEATING = "Cheating"
+    ETHICS = "Ethics"
 
 
 @dataclasses.dataclass(kw_only=True)

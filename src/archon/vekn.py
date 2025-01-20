@@ -399,7 +399,6 @@ def _member_from_vekn_data(data: dict[str, str]) -> models.Member:
         name=data["firstname"] + " " + data["lastname"],
         country=country.country if country else "",
         country_flag=country.flag if country else "",
-        state=data["statename"] or "",
         city=city.unique_name if city else "",
         roles=roles,
         prefix=prefix,

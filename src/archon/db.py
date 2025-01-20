@@ -1,4 +1,5 @@
 import base64
+import collections
 import contextlib
 import dataclasses
 import datetime
@@ -86,12 +87,6 @@ async def init():
                 "ON tournaments "
                 "USING GIN ((data->'players'))"
             )
-            # Index on tournaments start date (as text)
-            await cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_tournament_json_start "
-                "ON tournaments "
-                "USING BTREE ((data ->> 'start'))"
-            )
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
@@ -114,7 +109,7 @@ class IsDataclass(typing.Protocol):
 
 
 def jsonize(datacls: IsDataclass):
-    return psycopg.types.json.Json(dataclasses.asdict(datacls))
+    return psycopg.types.json.Jsonb(dataclasses.asdict(datacls))
 
 
 def reset(keep_members: bool = True):
@@ -222,6 +217,17 @@ class Operator:
             )
             if res.rowcount < 1:
                 raise KeyError(f"Tournament {uid} not found")
+            if tournament.state == models.TournamentState.FINISHED:
+                await cursor.executemany(
+                    """UPDATE members 
+                    SET data=jsonb_set(data, '{ratings:%s}', %s, true) 
+                    WHERE uid=%s
+                    """,
+                    [
+                        [jsonize(rating), tournament.uid, uuid.UUID(uid)]
+                        for uid, rating in engine.ratings(tournament)
+                    ],
+                )
             return str(uid)
 
     async def record_event(
@@ -302,7 +308,7 @@ class Operator:
         async with self.conn.cursor() as cursor:
             # insert new
             await cursor.execute(
-                "INSERT INTO members (uid, data) VALUES (%s, %s, %s)",
+                "INSERT INTO members (uid, data) VALUES (%s, %s)",
                 [uuid.UUID(member.uid), self._jsonize_member(member)],
             )
             if cursor.rowcount < 1:
@@ -320,35 +326,6 @@ class Operator:
             data = await res.fetchone()
             if data:
                 return self._instanciate_member(data[0])
-            return None
-
-    async def get_member_with_ratings(self, uid: str) -> models.Member | None:
-        """Get a member from their uid, with tournament results
-        For now, it's a live computation, but this will be updated by a cron
-        once this supersedes vekn.net ratings
-        """
-        async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT data FROM members WHERE uid=%s", [uuid.UUID(uid)]
-            )
-            data = await res.fetchone()
-            if data:
-                ret = self._instanciate_member(data[0])
-                res = await cursor.execute(
-                    "SELECT data FROM tournaments WHERE data->'players' ? %s", [uid]
-                )
-                for tournament_data in await res.fetchall():
-                    if tournament_data[0]["state"] != models.TournamentState.FINISHED:
-                        continue
-                    player = tournament_data[0]["players"][uid]
-                    if not player["rounds_played"]:
-                        continue
-                    tournament = models.Tournament(**tournament_data[0])
-
-                    ratings = engine.ratings(tournament)
-                    if uid in ratings:
-                        ret.ratings[tournament.uid] = ratings[uid]
-                return ret
             return None
 
     async def get_members(self) -> list[models.Member]:
@@ -402,12 +379,43 @@ class Operator:
     async def update_member(self, member: models.Member) -> models.Member:
         async with self.conn.cursor() as cursor:
             await cursor.execute(
-                "UPDATE members SET data=%s WHERE uid = %s",
+                "UPDATE members SET data=%s WHERE uid=%s",
                 [self._jsonize_member(member), member.uid],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to update member {member.uid}")
             return member
+
+    async def update_member_new_vekn(self, member: models.Member) -> models.Member:
+        """Use an atomic query with subquery to set a new VEKN
+
+        This avoid concurrency issues. Also update member data (usually set the sponsor)
+        """
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                """UPDATE members
+                SET vekn=next_vekn.n
+                FROM (
+                    SELECT n from generate_series(1000001, 9999999) as n
+                    WHERE n NOT IN (select vekn::int from members where vekn <> '')
+                    LIMIT 1
+                ) as next_vekn 
+                WHERE uid=%s
+                RETURNING vekn
+                """,
+                [uuid.UUID(member.uid)],
+            )
+            data = await res.fetchone()
+            if not data:
+                raise RuntimeError(f"Failed to assign a new VEKN to {member.uid}")
+            member.vekn = data[0]
+            await cursor.execute(
+                "UPDATE members SET data=%s WHERE uid=%s",
+                [self._jsonize_member(member), member.uid],
+            )
+            if cursor.rowcount < 1:
+                raise RuntimeError(f"Failed to update member {member.uid}")
+            return await self.update_member(member)
 
     async def claim_vekn(self, uid: str, vekn: str) -> models.Member | None:
         """Claim an existing vekn ID: returns a **new uid** for the member."""
@@ -489,10 +497,16 @@ class Operator:
             new_member = models.Member(**dataclasses.asdict(member))
             new_uid = uuid.uuid4()
             new_member.vekn = ""
+            new_member.roles = []
+            new_member.sanctions = []
+            new_member.ranking = models.Ranking()
+            new_member.ratings = {}
+            new_member.sponsor = ""
             new_member.uid = str(new_uid)
             member.discord = None
             member.nickname = None
             member.email = None
+            member.whatsapp = None
             member.verified = False
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid=%s",
@@ -507,14 +521,11 @@ class Operator:
                 new_member.nickname = nick
                 new_member.email = new_member.discord.email
                 new_member.verified = new_member.discord.verified
-                await cursor.execute(
-                    "INSERT INTO members (uid, data) VALUES (%s, %s)",
-                    [new_uid, self._jsonize_member(new_member)],
-                )
-                logger.warning("New member created: %s - %s", new_member.uid, data)
-            else:
-                logger.warning("No discord detected! %s", member)
-                return None
+            await cursor.execute(
+                "INSERT INTO members (uid, data) VALUES (%s, %s)",
+                [new_uid, self._jsonize_member(new_member)],
+            )
+            logger.warning("New member created: %s - %s", new_member.uid, data)
             return new_member
 
     async def set_sponsor_on_prefix(self, prefix: str, sponsor_uid: str):
@@ -531,6 +542,43 @@ class Operator:
             await cursor.executemany(
                 "UPDATE members SET data=%s WHERE uid=%s",
                 [[self._jsonize_member(m), uuid.UUID(m.uid)] for m in recruits],
+            )
+
+    async def recompute_all_ratings(self):
+        # that's how to compute cutoff: 18 months ago
+        # cutoff = datetime.datetime.now(datetime.timezone.utc)
+        # cutoff.year -= 1
+        # if cutoff.month > 6:
+        #     cutoff.month -= 6
+        # else:
+        #     cutoff.year -= 1
+        #     cutoff.month += 6
+        # that's how you'd check the cutoff to compute rankings
+        # tournament.start.replace(tzinfo=zoneinfo.ZoneInfo(tournament.timezone))
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                """SELECT data FROM tournaments
+                WHERE data->>'state' = %s
+                """,
+                [models.TournamentState.FINISHED],
+            )
+            all_ratings = collections.defaultdict(dict)
+            async for row in res:
+                tournament = models.Tournament(**row[0])
+                for uid, rating in engine.ratings(tournament).items():
+                    all_ratings[uid][tournament.uid] = dataclasses.asdict(rating)
+            await cursor.execute(
+                "UPDATE members SET data=jsonb_set(data, '{ratings}', '{}', true)"
+            )
+            await cursor.executemany(
+                """UPDATE members
+                SET data=jsonb_set(data, '{ratings}', %s, false)
+                WHERE uid=%s
+                """,
+                [
+                    [psycopg.types.json.Jsonb(ratings), uuid.UUID(uid)]
+                    for uid, ratings in all_ratings.items()
+                ],
             )
 
     def _jsonize_member(self, member: models.Member):

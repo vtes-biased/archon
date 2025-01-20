@@ -22,11 +22,16 @@ class MemberDisplay {
     countries: Map<string, d.Country>
     cities: Map<string, d.City>
     members_map: m.MemberMap
+    vekn_modal: m.ExistingVeknModal
     // form
+    name: HTMLInputElement
+    email: HTMLInputElement
+    whatsapp: HTMLInputElement
     country_select: HTMLSelectElement
     city_select: HTMLSelectElement
     constructor(root: HTMLDivElement, page_size: number = 100) {
         this.root = root
+        this.vekn_modal = new m.ExistingVeknModal(root, (opt) => this.vekn_change_callback(opt))
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
@@ -57,6 +62,7 @@ class MemberDisplay {
         if (this.target.country) {
             promises.push(this.load_cities())
         }
+        promises.push(this.vekn_modal.init(this.token, user_id, this.target.uid))
         await Promise.all(promises)
         this.display()
     }
@@ -68,36 +74,56 @@ class MemberDisplay {
             const vekn_badge = base.create_append(header, "span", ["badge", "ms-2", "fs-5", "text-bg-secondary"])
             base.create_append(vekn_badge, "i", ["bi", "bi-person-check"])
             vekn_badge.append(document.createTextNode(` ${this.target.vekn}`))
-            if (m.can_change_info(this.member, this.target)) {
-                const remove = base.create_append(vekn_badge, "button", ["btn", "ms-2", "btn-danger", "rounded-pill", "px-1", "py-0", "border-0"],
+            if (m.can_change_vekn(this.member, this.target)) {
+                const remove = base.create_append(vekn_badge, "button",
+                    ["btn", "ms-2", "btn-danger", "rounded-pill", "px-1", "py-0", "border-0"],
                     { role: "button" }
                 )
                 base.create_append(remove, "i", ["bi", "bi-x"])
+                remove.addEventListener("click", (ev) => this.remove_vekn())
             }
-        } else if (m.can_sponsor(this.member)) {
-            const sponsor = base.create_append(header, "button", ["btn", "ms-2", "btn-success"], { role: "button" })
-            base.create_append(sponsor, "i", ["bi", "bi-person-check"])
-            sponsor.append(document.createTextNode("Add VEKN#"))
+        } else {
+            if (m.can_organize(this.member)) {
+                const sponsor = base.create_append(header, "button", ["btn", "ms-2", "btn-success"], { role: "button" })
+                base.create_append(sponsor, "i", ["bi", "bi-person-check"])
+                sponsor.append(document.createTextNode(" New VEKN#"))
+                sponsor.addEventListener("click", (ev) => this.new_vekn())
+            }
+            if (m.can_change_vekn(this.member, this.target)) {
+                const assign = base.create_append(header, "button", ["btn", "ms-2", "btn-warning"], { role: "button" })
+                base.create_append(assign, "i", ["bi", "bi-person-check"])
+                assign.append(document.createTextNode(" Existing VEKN#"))
+                assign.addEventListener("click",
+                    (ev) => this.vekn_modal
+                        .init(this.token, this.member.uid, this.target.uid)
+                        .then(() => this.vekn_modal.show())
+                )
+            }
         }
+
         const badges_row = base.create_append(this.root, "div", ["d-md-flex", "align-items-center"])
         for (const role of this.target.roles) {
-            const role_badge = base.create_append(badges_row, "div", ["badge", "me-2", "mb-2", "d-flex", "align-items-center"])
-            if (m.can_edit_role(this.member, this.target, role)) {
+            const role_badge = base.create_append(badges_row, "div", ["badge", "me-2", "mb-2"])
+            var remove_button: HTMLButtonElement | undefined
+            if (m.can_change_role(this.member, this.target, role)) {
                 role_badge.append(document.createTextNode(`${role} `))
-                const remove = base.create_append(role_badge, "button",
+                remove_button = base.create_append(role_badge, "button",
                     ["btn", "ms-1", "p-0", "border-0"],
                     { role: "button" }
                 )
-                base.create_append(remove, "i", ["bi", "bi-x-circle-fill"])
+                base.create_append(remove_button, "i", ["bi", "bi-x-circle-fill"])
+                remove_button.addEventListener("click", (ev) => this.remove_role(role))
             } else {
                 role_badge.innerText = role
             }
             switch (role) {
                 case d.MemberRole.ADMIN:
                     role_badge.classList.add("text-bg-primary")
+                    if (remove_button) { remove_button.classList.add("text-light") }
                     break
                 case d.MemberRole.NC:
                     role_badge.classList.add("text-bg-success")
+                    if (remove_button) { remove_button.classList.add("text-light") }
                     break
                 case d.MemberRole.JUDGE:
                     role_badge.classList.add("text-bg-warning")
@@ -107,11 +133,12 @@ class MemberDisplay {
                     break
                 default:
                     role_badge.classList.add("text-bg-secondary")
+                    if (remove_button) { remove_button.classList.add("text-light") }
                     break
             }
         }
         const addable_roles = [...Object.values(d.MemberRole).filter(
-            r => !this.target.roles.includes(r) && m.can_edit_role(this.member, this.target, r))
+            r => !this.target.roles.includes(r) && m.can_change_role(this.member, this.target, r))
         ]
         if (addable_roles.length > 0) {
             const div = base.create_append(badges_row, "div", ["dropdown"])
@@ -122,22 +149,29 @@ class MemberDisplay {
             const list = base.create_append(div, "ul", ["dropdown-menu"])
             for (const role of addable_roles) {
                 const li = base.create_append(list, "li")
-                const action = base.create_append(li, "a", ["dropdown-item"], { href: "#" })
+                const action = base.create_append(li, "a", ["dropdown-item"], { href: "#", role: "button" })
+                action.addEventListener("click", (ev) => { ev.preventDefault(); this.add_role(role) })
                 action.innerText = role
             }
         }
         const form = base.create_append(this.root, "form")
+        const cci = m.can_change_info(this.member, this.target)
         // ________________________________________________________________________________________ Row 1: Personal info
         const row_1 = base.create_append(form, "div", ["d-md-flex"])
         // ________________________________________________________________________________________________________ Name
         {
             const div = base.create_append(row_1, "div", ["input-group", "form-floating", "me-2", "mb-2"])
-            const name = base.create_append(div, "input", ["form-control"],
+            this.name = base.create_append(div, "input", ["form-control"],
                 { type: "text", id: "memberFormName", name: "name", "aria-label": "Name", autocomplete: "name" }
             )
             base.create_append(div, "label", ["form-label"], { for: "memberFormName" }).innerText = "Name"
-            name.spellcheck = false
-            name.value = this.target.name
+            this.name.spellcheck = false
+            this.name.value = this.target.name
+            if (cci) {
+                this.name.addEventListener("change", base.debounce((ev) => this.change_info()))
+            } else {
+                this.name.disabled = true
+            }
         }
         // _____________________________________________________________________________________________________ Country
         {
@@ -156,10 +190,13 @@ class MemberDisplay {
                 this.country_select.options.add(option)
             }
             this.country_select.addEventListener("change", (ev) => {
-                this.target.country = this.country_select.value
-                this.target.city = undefined
                 this.load_cities().then(() => this.display())
             })
+            if (cci) {
+                this.country_select.addEventListener("change", base.debounce((ev) => this.change_info()))
+            } else {
+                this.country_select.disabled = true
+            }
         }
         // ________________________________________________________________________________________________________ City
         {
@@ -181,21 +218,28 @@ class MemberDisplay {
                 }
                 this.city_select.options.add(option)
             }
+            if (cci) {
+                this.city_select.addEventListener("change", base.debounce((ev) => this.change_info()))
+            } else {
+                this.city_select.disabled = true
+            }
         }
         // _________________________________________________________________________________________ Row 2: Contact info
         if (m.can_contact(this.member, this.target)) {
             const row_2 = base.create_append(form, "div", ["d-md-flex"])
             // __________________________________________________________________________________________________ E-mail
-            if (this.target.email) {
+            if (this.target.email || cci) {
                 const div = base.create_append(row_2, "div", ["input-group", "me-2", "mb-2"])
                 base.create_append(div, "span", ["input-group-text"]).innerHTML = '<i class="bi bi-envelope"></i>'
-                const email = base.create_append(div, "input", ["form-control"],
+                this.email = base.create_append(div, "input", ["form-control"],
                     { type: "text", placeholder: "Email", name: "email", "aria-label": "Email", autocomplete: "email" }
                 )
-                email.spellcheck = false
-                email.value = this.target.email
-                if (!m.can_change_info(this.member, this.target)) {
-                    email.disabled = true
+                this.email.spellcheck = false
+                this.email.value = this.target.email
+                if (cci) {
+                    this.email.addEventListener("change", base.debounce((ev) => this.change_info()))
+                } else {
+                    this.email.disabled = true
                 }
             }
             // _________________________________________________________________________________________________ Discord
@@ -217,19 +261,21 @@ class MemberDisplay {
                 discord.innerHTML = '<i class="bi bi-discord"></i> Discord'
             }
             // ________________________________________________________________________________________________ Whatsapp
-            if (this.member.uid == this.target.uid) {
+            if (cci) {
                 const div = base.create_append(row_2, "div", ["input-group", "me-2", "mb-2"])
                 base.create_append(div, "span", ["input-group-text"]).innerHTML = '<i class="bi bi-whatsapp"></i>'
-                const whatsapp = base.create_append(div, "input", ["form-control"], {
+                this.whatsapp = base.create_append(div, "input", ["form-control"], {
                     type: "text",
                     placeholder: "WhatsApp",
                     name: "whatsapp",
                     "aria-label": "Phone",
                     autocomplete: "mobile tel"
                 })
-                whatsapp.spellcheck = false
-                whatsapp.value = this.target.whatsapp ?? ""
+                this.whatsapp.spellcheck = false
+                this.whatsapp.value = this.target.whatsapp ?? ""
+                this.whatsapp.addEventListener("change", base.debounce((ev) => this.change_info()))
             } else if (this.target.whatsapp) {
+                this.whatsapp = undefined
                 const whatsapp = base.create_append(row_2, "a", ["btn", "btn-whatsapp", "me-2", "mb-2"],
                     { role: "button", target: "_blank", rel: "noopener noreferrer" }
                 )
@@ -238,11 +284,15 @@ class MemberDisplay {
             }
         }
         // ___________________________________________________________________________________________________ Sanctions
-        if (m.can_admin(this.member) || (this.target.sanctions && this.target.sanctions.length > 0)) {
+        var sanction_div: HTMLDivElement
+        if (m.can_sanction(this.member) || (this.target.sanctions && this.target.sanctions.length > 0)) {
             base.create_append(this.root, "h2", ["mt-4"]).innerText = "Sanctions"
+            sanction_div = base.create_append(this.root, "div", ["d-xl-flex", "gap-2"])
         }
         if (this.target.sanctions && this.target.sanctions.length > 0) {
-            const sanctions_accordion = base.create_append(this.root, "div", ["accordion"], { id: "sanctionAccordion" })
+            const sanctions_accordion = base.create_append(sanction_div, "div", ["accordion", "w-100", "mb-4"],
+                { id: "sanctionAccordion" }
+            )
             for (const [idx, sanction] of Object.entries(this.target.sanctions)) {
                 const id = `sanction-col-item-${idx}`
                 const head_id = `sanction-col-head-${idx}`
@@ -257,14 +307,14 @@ class MemberDisplay {
                     "aria-controls": id,
                 })
                 // additional display for RegisteredSanction from previous tournaments
-                if (Object.hasOwn(sanction, "tournament_name")) {
+                if (sanction.tournament) {
                     const rsanction = sanction as d.RegisteredSanction
                     const timestamp = DateTime.fromFormat(
-                        `${rsanction.tournament_start} ${rsanction.tournament_timezone}`,
+                        `${rsanction.tournament?.start} ${rsanction.tournament?.timezone}`,
                         "yyyy-MM-dd'T'HH:mm:ss z",
                         { setZone: true }
                     ).toLocal().toLocaleString(DateTime.DATE_SHORT)
-                    button.innerText = `(${timestamp}: ${rsanction.tournament_name})`
+                    button.innerText = `(${timestamp}: ${rsanction.tournament?.name})`
                 }
                 const level_badge = base.create_append(button, "div", ["badge", "mx-1"])
                 level_badge.innerText = sanction.level
@@ -297,19 +347,20 @@ class MemberDisplay {
                     const author = base.create_append(prefix, "div", ["me-2"])
                     author.innerText = `Issued by ${listed_judge.name}`
                 }
-                // Remove button only for current tournament sanctions
-                if (m.can_admin(this.member)) {
+                // Remove button only for members who can sanction
+                if (m.can_sanction(this.member)) {
                     const remove_button = base.create_append(prefix, "div", ["btn", "badge", "btn-danger"])
                     remove_button.innerHTML = '<i class="bi bi-trash"></i>'
+                    remove_button.addEventListener("click", (ev) => this.remove_sanction(sanction))
                 }
             }
         }
         // ___________________________________________________________________________________________ Add Sanction Form
-        if (m.can_admin(this.member)) {
+        if (m.can_sanction(this.member)) {
             // Add existing sanctions in display()
-            const form = base.create_append(this.root, "form")
-            const comment = base.create_append(form, "textarea", ["form-control", "my-2"],
-                { type: "text", autocomplete: "new-comment", rows: 3, maxlength: 500, name: "new-comment" }
+            const form = base.create_append(sanction_div, "form", ["w-100"])
+            const comment = base.create_append(form, "textarea", ["form-control", "mb-2"],
+                { type: "text", autocomplete: "none", rows: 3, maxlength: 500, name: "comment" }
             )
             comment.ariaAutoComplete = "none"
             comment.spellcheck = false
@@ -319,7 +370,7 @@ class MemberDisplay {
             {
                 const level_div = base.create_append(select_div, "div", ["form-floating"])
                 const level_select = base.create_append(level_div, "select", ["form-select", "my-2"],
-                    { id: "sanctionFormLevel" }
+                    { id: "sanctionFormLevel", name: "level" }
                 )
                 level_select.ariaLabel = "Level"
                 base.create_append(level_div, "label", [], { for: "sanctionFormLevel" }).innerText = "Level"
@@ -332,7 +383,7 @@ class MemberDisplay {
             {
                 const category_div = base.create_append(select_div, "div", ["form-floating"])
                 const category_select = base.create_append(category_div, "select", ["form-select", "my-2"],
-                    { id: "sanctionFormCategory" }
+                    { id: "sanctionFormCategory", name: "category" }
                 )
                 category_select.ariaLabel = "Category"
                 base.create_append(category_div, "label", [], { for: "sanctionFormCategory" }).innerText = "Category"
@@ -347,6 +398,7 @@ class MemberDisplay {
                 { type: "submit" }
             )
             submit_button.innerText = "Add Sanction"
+            form.addEventListener("submit", (ev) => { ev.preventDefault(); this.add_sanction(new FormData(form)) })
         }
         // _____________________________________________________________________________________________________ Results
         if (this.target.ratings && Object.keys(this.target.ratings).length > 0) {
@@ -378,6 +430,106 @@ class MemberDisplay {
     async load_cities() {
         const res = await base.do_fetch(`/api/vekn/country/${this.target.country}/city`, {})
         this.cities = new Map(Object.entries(await res.json()))
+    }
+    async reload_target(target: d.Member) {
+        this.target = target
+        if (this.target.country) {
+            await this.load_cities()
+        }
+        await this.vekn_modal.init(this.token, this.member.uid, this.target.uid)
+        this.display()
+    }
+    async reload_token(token: base.Token) {
+        // note this only happens when we're examining ourselves and messing with the vekn
+        this.token = token
+        const user_id = base.user_uid_from_token(this.token)
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${user_id}`, this.token, {})
+        this.member = await res.json()
+        await this.reload_target(this.member)
+    }
+    async vekn_change_callback(opt: m.VeknCallbackOptions) {
+        if (opt.token) {
+            await this.reload_token(opt.token)
+        } else {
+            await this.reload_target(opt.member)
+        }
+    }
+    async remove_vekn() {
+        if (this.member.uid == this.target.uid) {
+            const res = await base.do_fetch_with_token(`/api/vekn/abandon`, this.token, { method: "post" })
+            if (res) {
+                await this.reload_token(await res.json())
+            }
+        } else {
+            const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/vekn`, this.token,
+                { method: "delete" }
+            )
+            if (res) {
+                await this.reload_target(await res.json())
+            }
+        }
+    }
+    async new_vekn() {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/sponsor`, this.token,
+            { method: "post" }
+        )
+        if (res) {
+            await this.reload_target(await res.json())
+        }
+    }
+    async remove_role(role: d.MemberRole) {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/remove_role`, this.token,
+            { method: "post", body: JSON.stringify({ role: role }) }
+        )
+        if (res) {
+            await this.reload_target(await res.json())
+        }
+    }
+    async add_role(role: d.MemberRole) {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/add_role`, this.token,
+            { method: "post", body: JSON.stringify({ role: role }) }
+        )
+        if (res) {
+            await this.reload_target(await res.json())
+        }
+    }
+    async change_info() {
+        const info: d.MemberInfo = {
+            name: null,
+            country: null,
+            city: null,
+            nickname: null,
+            email: null,
+            whatsapp: null,
+        }
+        if (this.name.value != this.target.name) { info.name = this.name.value }
+        if (this.email.value != this.target.email) { info.email = this.email.value }
+        if (this.whatsapp.value != this.target.whatsapp) { info.whatsapp = this.whatsapp.value }
+        if (this.country_select.value != this.target.country) { info.country = this.country_select.value }
+        if (this.city_select.value != this.target.city) { info.city = this.city_select.value }
+        // TODO add the nickname field
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/info`, this.token,
+            { method: "post", body: JSON.stringify(info) }
+        )
+        if (res) {
+            await this.reload_target(await res.json())
+        }
+    }
+    async remove_sanction(sanction: d.Sanction) {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/sanction/${sanction.uid}`,
+            this.token, { method: "delete" }
+        )
+        if (res) {
+            await this.reload_target(await res.json())
+        }
+    }
+    async add_sanction(data: FormData) {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/sanction`,
+            this.token, { method: "post", body: JSON.stringify(Object.fromEntries(data.entries())) }
+        )
+        if (res) {
+            await this.reload_target(await res.json())
+        }
     }
 }
 

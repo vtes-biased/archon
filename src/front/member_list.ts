@@ -15,9 +15,12 @@ interface MemberSearchParams {
 
 class MemberListDisplay {
     root: HTMLDivElement
+    add_member_modal: m.AddMemberModal
     page_size: number
     filters_row: HTMLDivElement
     roles_row: HTMLDivElement
+    buttons_row: HTMLDivElement
+    pagination_row: HTMLDivElement
     members_table: HTMLTableElement
     token: base.Token
     member: d.Member | undefined
@@ -29,10 +32,14 @@ class MemberListDisplay {
     page: number
     constructor(root: HTMLDivElement, page_size: number = 100) {
         this.root = root
+        this.add_member_modal = new m.AddMemberModal(root, (member) => this.member_added(member))
         this.page_size = page_size
-        this.filters_row = base.create_append(root, "div", ["d-md-flex", "my-2"])
-        this.roles_row = base.create_append(root, "div", ["d-md-flex", "my-2"])
-        this.members_table = base.create_append(root, "table", ["my-2", "table", "table-striped", "table-hover"])
+        this.filters_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
+        this.roles_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
+        const controls_row = base.create_append(root, "div", ["d-lg-flex", "align-items-center", "justify-content-between"])
+        this.buttons_row = base.create_append(controls_row, "div", ["d-md-flex", "my-2", "align-items-center"])
+        this.pagination_row = base.create_append(controls_row, "div", ["d-md-flex", "my-2", "align-items-center", "justify-content-end"])
+        this.members_table = base.create_append(root, "table", ["table", "table-striped", "table-hover"])
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
@@ -43,6 +50,7 @@ class MemberListDisplay {
             const res = await base.do_fetch("/api/vekn/country", {})
             countries = await res.json() as d.Country[]
         }
+        await this.add_member_modal.init(this.token, countries)
         const user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
         this.member = this.members_map.by_uid.get(user_id)
         this.countries = new Map(countries.map(c => [c.country, c]))
@@ -86,14 +94,20 @@ class MemberListDisplay {
         if (m.can_playtest(this.member)) {
             this._add_role_checkbox(d.MemberRole.PLAYTESTER)
         }
-        if (m.can_sponsor(this.member)) {
+        if (m.can_organize(this.member)) {
             this._add_role_checkbox(d.MemberFilter.MY_RECRUITS)
-        }
-        if (m.can_make_prince(this.member)) {
             this._add_role_checkbox(d.MemberRole.ADMIN)
             this._add_role_checkbox(d.MemberFilter.NO_SPONSOR)
         }
+        const add_member_button = base.create_append(this.buttons_row, "button", ["btn", "btn-primary", "me-2", "mb-2"])
+        add_member_button.innerHTML = '<i class="bi bi-person-fill-add"></i> Add Member'
+        add_member_button.addEventListener("click", (ev) => this.add_member_modal.show())
+
         this.set_filters_from_url(url)
+        this.display()
+    }
+    member_added(member: d.Member) {
+        this.members_map.add([member])
         this.display()
     }
     _add_role_checkbox(role: d.MemberRole | d.MemberFilter) {
@@ -105,6 +119,7 @@ class MemberListDisplay {
         base.create_append(div, "label", ["form-check-label"], { for: `role${role}` }).innerText = role
     }
     display() {
+        base.remove_children(this.pagination_row)
         base.remove_children(this.members_table)
         const head = base.create_append(this.members_table, "thead")
         const row = base.create_append(head, "tr", ["align-middle"])
@@ -112,7 +127,18 @@ class MemberListDisplay {
             base.create_append(row, "th", [], { scope: "col" }).innerText = header
         }
         const body = base.create_append(this.members_table, "tbody")
-        for (const member of this.get_filtered_members()) {
+        var [total, skipped, displayed] = [0, 0, 0]
+        const [search_params, members] = this.get_filtered_members()
+        for (const member of members) {
+            total += 1
+            if (search_params.page && total <= search_params.page * this.page_size) {
+                skipped += 1
+                continue
+            }
+            if (total - ((search_params.page ?? 0) * this.page_size) > 100) {
+                continue
+            }
+            displayed += 1
             const row = base.create_append(body, "tr", ["align-middle"])
             row.addEventListener("click", (ev) => { window.location.assign(`/member/${member.uid}/display.html`) })
             base.create_append(row, "th", [], { scope: "row" }).innerText = member.vekn
@@ -148,8 +174,111 @@ class MemberListDisplay {
                 city.innerText = `${member.city}`
             }
         }
+        const count = base.create_append(this.pagination_row, "div", ["me-2"])
+        if (total > displayed) {
+            count.innerText = `${skipped + 1}-${skipped + displayed}/${total}`
+        } else {
+            count.innerText = total.toString()
+        }
+        const pages_total = Math.ceil(total / this.page_size)
+        var pages_to_display: Array<number> = []
+        // so let's make it nice :-)
+        // for a lot of pages, we want always 7 cells
+        // [first] [...] [page-1][page][page+1] [...] [last]
+        // so if there's 7 pages or less, we just display them all, no ellipsis
+        if (pages_total < 8) {
+            pages_to_display = [...Array(pages_total).keys()]
+
+        } else {
+            // always display the first page
+            pages_to_display = [0]
+            // compute how many pages we display left and right of the active page
+            // we always display the active page except if it's the first or last
+            var [add_left, add_right] = [0, 0]
+            // display page-1 if we're not the first two pages
+            if (this.page > 1) {
+                add_left += 1
+            }
+            // symmetric at the end: display page+1 if we're not the last two pages
+            if (this.page < pages_total - 2) {
+                add_right += 1
+            }
+            // if we're not at least 3 pages away (first page, ellipsis, page -1)
+            // we have less than 3 cells on the left, we need to compensate on the right
+            // that's possible because we know we have at least 8 pages
+            add_right += 3 - Math.min(3, this.page)
+            // symmetrically from the end
+            add_left += 3 - Math.min(3, pages_total - 1 - this.page)
+            // now the ellipsis exception: we do not use the ellipsis if we're just
+            // a single page away: in that exact case, the ellipsis is replaced
+            // by the real page number (page - 2)
+            if (this.page == 3) {
+                add_left += 1
+            }
+            if (this.page > 3) {
+                pages_to_display.push(NaN)
+            }
+            // display what we computed on the left
+            for (var i = add_left; i > 0; i--) {
+                pages_to_display.push(this.page - i)
+            }
+            // display the active page if it's not first or last
+            if (this.page > 0 && this.page < pages_total - 1) {
+                pages_to_display.push(this.page)
+            }
+            // ellipsis exception (symmetrically to the left side)
+            if (this.page == pages_total - 4) {
+                add_right += 1
+            }
+            // what we need on the right
+            for (var i = 1; i <= add_right; i++) {
+                pages_to_display.push(this.page + i)
+            }
+            if (this.page < pages_total - 4) {
+                pages_to_display.push(NaN)
+            }
+            // always display the last page
+            pages_to_display.push(pages_total - 1)
+        }
+        const nav = base.create_append(this.pagination_row, "nav", [], { "aria-label": "Page navigation" })
+        const ul = base.create_append(nav, "ul", ["pagination", "m-0"])
+        {
+            const li = base.create_append(ul, "li", ["page-item"])
+            const previous_button = base.create_append(li, "button", ["page-link"])
+            base.create_append(previous_button, "i", ["bi", "bi-chevron-left"])
+            if (this.page > 0) {
+                previous_button.addEventListener("click", (ev) => this.page_changed(this.page - 1))
+            } else {
+                li.classList.add("disabled")
+            }
+        }
+        const pad_size = pages_total.toString().length
+        for (const page_index of pages_to_display) {
+            const li = base.create_append(ul, "li", ["page-item"])
+            const button = base.create_append(li, "button", ["page-link"])
+            if (Number.isNaN(page_index)) {
+                base.create_append(button, "i", ["bi", "bi-three-dots"])
+                li.classList.add("disabled")
+                continue
+            }
+            button.innerText = (page_index + 1).toString().padStart(pad_size, "0")
+            button.addEventListener("click", (ev) => this.page_changed(page_index))
+            if (page_index == this.page) {
+                li.classList.add("active")
+            }
+        }
+        {
+            const li = base.create_append(ul, "li", ["page-item"])
+            const next_button = base.create_append(li, "button", ["page-link"])
+            base.create_append(next_button, "i", ["bi", "bi-chevron-right"])
+            if (this.page < pages_total - 1) {
+                next_button.addEventListener("click", (ev) => this.page_changed(this.page + 1))
+            } else {
+                li.classList.add("disabled")
+            }
+        }
     }
-    get_filtered_members(): IteratorObject<d.Member> {
+    get_filtered_members(): [MemberSearchParams, IteratorObject<d.Member>] {
         var members: ArrayIterator<d.Member> = this.members_map.by_uid.values()
         const search_params = this.get_search_params()
         if (search_params.name) {
@@ -177,12 +306,12 @@ class MemberListDisplay {
                         }
                         break
                     case d.MemberFilter.MY_RECRUITS:
-                        if (m.can_sponsor(this.member)) {
+                        if (m.can_organize(this.member)) {
                             members = members.filter(m => m.sponsor == this.member.uid)
                         }
                         break
                     case d.MemberFilter.NO_SPONSOR:
-                        if (m.can_make_prince(this.member)) {
+                        if (m.can_organize(this.member)) {
                             members = members.filter(m => !(m.sponsor && m.sponsor.length > 0 && this.members_map.by_uid.get(m.sponsor)))
                         }
                         break
@@ -195,10 +324,7 @@ class MemberListDisplay {
                 members = members.filter(m => m.roles.some(r => roles.has(r)))
             }
         }
-        if (search_params.page) {
-            members = members.drop(search_params.page * this.page_size)
-        }
-        return members.take(this.page_size)
+        return [search_params, members]
     }
     set_query_string() {
         const url = new URL(window.location.href)
@@ -250,10 +376,15 @@ class MemberListDisplay {
                 }
             }
         }
-        if (url.searchParams.has("page")) { this.page = parseInt(url.searchParams.get("country")) }
+        if (url.searchParams.has("page")) { this.page = parseInt(url.searchParams.get("page")) }
     }
     filters_changed() {
         this.page = 0
+        this.set_query_string()
+        this.display()
+    }
+    page_changed(page: number) {
+        this.page = page
         this.set_query_string()
         this.display()
     }

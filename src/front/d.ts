@@ -165,7 +165,6 @@ export interface LimitedFormat {
 export interface Sanction {
     uid: string,
     judge_uid: string,
-    player_uid: string,
     level: events.SanctionLevel
     category: events.SanctionCategory
     comment: string
@@ -208,10 +207,7 @@ export interface Tournament extends TournamentConfig {
 }
 
 export interface RegisteredSanction extends Sanction {
-    tournament_uid: string,
-    tournament_name: string
-    tournament_start: string,
-    tournament_timezone: string,
+    tournament: TournamentConfig,
 }
 
 export interface DiscordUser {
@@ -223,6 +219,7 @@ export interface DiscordUser {
 
 export interface TournamentRating {
     tournament: TournamentConfig,
+    size: number
     rounds_played: number,
     result: Score,
     rank: number,
@@ -240,7 +237,6 @@ export interface Member extends Person {
     nickname: string | undefined,  // player nickname
     email: string | undefined,  // the user's email
     verified: boolean | undefined,  // whether the email has been verified
-    state: string | undefined,  // state/region name
     sanctions: RegisteredSanction[] | undefined,  // previous sanctions delivered
     discord: DiscordUser | undefined,
     whatsapp: string | undefined,
@@ -249,6 +245,15 @@ export interface Member extends Person {
     roles: MemberRole[]
     ratings: Record<string, TournamentRating>
     // prefix: string | undefined // Do not use - temporary field will be removed
+}
+
+export interface MemberInfo {
+    name: string | null,
+    country: string | null,  // country name
+    city: string | null,  // city name
+    nickname: string | null,  // player nickname (on social, lackey, etc.)
+    email: string | null,  // the user's email
+    whatsapp: string | null,  // phone
 }
 
 export interface Country {
