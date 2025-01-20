@@ -30,7 +30,7 @@ class MemberDisplay {
     city_select: HTMLSelectElement
     constructor(root: HTMLDivElement, page_size: number = 100) {
         this.root = root
-        this.vekn_modal = new m.ExistingVeknModal(root, (opt) => this.vekn_change_callback(opt))
+        this.vekn_modal = new m.ExistingVeknModal(root, (member) => this.reload_target(member))
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
@@ -61,10 +61,12 @@ class MemberDisplay {
     }
     display() {
         base.remove_children(this.root)
-        const header = base.create_append(this.root, "h1", ["my-4", "d-flex", "align-items-center"])
-        header.append(document.createTextNode(`${this.target.name} `))
+        const header = base.create_append(this.root, "h1", ["mt-4", "mb-2", "d-md-flex", "align-items-center"])
+        base.create_append(header, "div", ["me-2", "mb-2"]).innerText = `${this.target.name}`
         if (this.target.vekn && this.target.vekn.length > 0) {
-            const vekn_badge = base.create_append(header, "span", ["badge", "ms-2", "fs-5", "text-bg-secondary"])
+            const vekn_badge = base.create_append(header, "span",
+                ["badge", "me-2", "mb-2", "fs-5", "align-text-top", "text-bg-secondary"]
+            )
             base.create_append(vekn_badge, "i", ["bi", "bi-person-check"])
             vekn_badge.append(document.createTextNode(` ${this.target.vekn}`))
             if (m.can_change_vekn(this.member, this.target)) {
@@ -77,13 +79,17 @@ class MemberDisplay {
             }
         } else {
             if (m.can_organize(this.member)) {
-                const sponsor = base.create_append(header, "button", ["btn", "ms-2", "btn-success"], { role: "button" })
+                const sponsor = base.create_append(header, "button", ["btn", "me-2", "mb-2", "btn-success"],
+                    { role: "button" }
+                )
                 base.create_append(sponsor, "i", ["bi", "bi-person-check"])
                 sponsor.append(document.createTextNode(" New VEKN#"))
                 sponsor.addEventListener("click", (ev) => this.new_vekn())
             }
             if (m.can_change_vekn(this.member, this.target)) {
-                const assign = base.create_append(header, "button", ["btn", "ms-2", "btn-warning"], { role: "button" })
+                const assign = base.create_append(header, "button", ["btn", "me-2", "mb-2", "btn-warning"],
+                    { role: "button" }
+                )
                 base.create_append(assign, "i", ["bi", "bi-person-check"])
                 assign.append(document.createTextNode(" Existing VEKN#"))
                 assign.addEventListener("click",
@@ -92,6 +98,13 @@ class MemberDisplay {
                         .then(() => this.vekn_modal.show())
                 )
             }
+        }
+        if (this.target.uid == this.member.uid) {
+            const logout = base.create_append(header, "a", ["btn", "me-2", "mb-2", "btn-secondary", "align-text-top"],
+                { role: "button", href: "/auth/logout/" }
+            )
+            base.create_append(logout, "i", ["bi", "bi-box-arrow-left"])
+            logout.append(document.createTextNode(" Logout"))
         }
 
         const badges_row = base.create_append(this.root, "div", ["d-md-flex", "align-items-center"])
@@ -438,27 +451,10 @@ class MemberDisplay {
         await this.vekn_modal.init(this.token, this.member.uid, this.target.uid)
         this.display()
     }
-    async reload_token(token: base.Token) {
-        // note this only happens when we're examining ourselves and messing with the vekn
-        this.token = token
-        const user_id = base.user_uid_from_token(this.token)
-        const res = await base.do_fetch_with_token(`/api/vekn/members/${user_id}`, this.token, {})
-        this.member = await res.json()
-        await this.reload_target(this.member)
-    }
-    async vekn_change_callback(opt: m.VeknCallbackOptions) {
-        if (opt.token) {
-            await this.reload_token(opt.token)
-        } else {
-            await this.reload_target(opt.member)
-        }
-    }
     async remove_vekn() {
         if (this.member.uid == this.target.uid) {
-            const res = await base.do_fetch_with_token(`/api/vekn/abandon`, this.token, { method: "post" })
-            if (res) {
-                await this.reload_token(await res.json())
-            }
+            // reload required, because we need to change the session's token
+            window.location.href = "/vekn/abandon"
         } else {
             const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/vekn`, this.token,
                 { method: "delete" }

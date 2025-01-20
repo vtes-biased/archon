@@ -507,11 +507,6 @@ export class AddMemberModal extends base.Modal {
     }
 }
 
-export interface VeknCallbackOptions {
-    token: base.Token | undefined,
-    member: d.Member | undefined,
-}
-
 export class ExistingVeknModal extends base.Modal {
     token: base.Token | undefined
     user_uid: string
@@ -519,8 +514,8 @@ export class ExistingVeknModal extends base.Modal {
     form: HTMLFormElement
     vekn_input: HTMLInputElement
     submit_button: HTMLButtonElement
-    callback: { (opt: VeknCallbackOptions): Promise<void> }
-    constructor(el: HTMLElement, callback: { (opt: VeknCallbackOptions): Promise<void> }) {
+    callback: { (member: d.Member): Promise<void> }
+    constructor(el: HTMLElement, callback: { (member: d.Member): Promise<void> }) {
         super(el)
         this.callback = callback
         this.form = base.create_append(this.modal_body, "form")
@@ -562,13 +557,15 @@ export class ExistingVeknModal extends base.Modal {
     }
     async submit(ev: SubmitEvent) {
         ev.preventDefault()
-        const options = { method: "post", body: JSON.stringify({ vekn: this.vekn_input.value }) }
         if (this.target_uid == this.user_uid) {
-            const res = await base.do_fetch_with_token("/api/vekn/claim", this.token, options)
-            this.callback({ token: await res.json(), member: undefined })
+            // reload required, because we need to change the session's token
+            const url = new URL("/vekn/claim", window.location.origin)
+            url.searchParams.set("vekn", this.vekn_input.value)
+            window.location.href = url.href
         } else {
+            const options = { method: "post", body: JSON.stringify({ vekn: this.vekn_input.value }) }
             const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target_uid}/vekn`, this.token, options)
-            this.callback({ token: undefined, member: await res.json() })
+            this.callback(await res.json())
         }
         this.modal.hide()
     }

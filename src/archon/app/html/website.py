@@ -134,7 +134,9 @@ async def html_vekn_claim(
         )
     dependencies.authenticated_session(request, new_member)
     dependencies.LOG.warning("uid is now %s", new_member.uid)
-    return fastapi.responses.RedirectResponse(request.url_for("profile"))
+    return fastapi.responses.RedirectResponse(
+        request.url_for("member_display", uid=new_member.uid)
+    )
 
 
 @router.get("/vekn/abandon", response_class=fastapi.responses.HTMLResponse)
@@ -151,7 +153,9 @@ async def html_vekn_abandon(
         )
     dependencies.authenticated_session(request, new_member)
     dependencies.LOG.warning("uid is now %s", new_member.uid)
-    return fastapi.responses.RedirectResponse(request.url_for("profile"))
+    return fastapi.responses.RedirectResponse(
+        request.url_for("member_display", uid=new_member.uid)
+    )
 
 
 @router.get("/")
