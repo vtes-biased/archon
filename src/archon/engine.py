@@ -988,8 +988,6 @@ def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]
         return {}
     participants = [p for p in tournament.players.values() if p.rounds_played > 0]
     size = len(participants)
-    if size < 10:
-        return {}
     ret = {}
     coef = math.log(size * size, 15) - 1
     if tournament.rank in [models.TournamentRank.NC, models.TournamentRank.GP]:
