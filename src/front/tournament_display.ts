@@ -674,9 +674,7 @@ export class TournamentDisplay {
                 this.set_alert(
                     "A VEKN ID# is required to register to this event: " +
                     "claim your VEKN ID#, if you have one, in your " +
-                    '<a class="btn btn-sm btn-secondary" href="/profile.html">' +
-                    '<i class="bi bi-person-fill"></i> Profile' +
-                    '</a><br>' +
+                    `<a class="alert-link" href="/member/${this.user.uid}/display.html">Profile</a><br>` +
                     "<em>If you hav no VEKN ID#, ask a Judge or an organizer to register you</em>"
                     , d.AlertLevel.WARNING
                 )
@@ -755,11 +753,21 @@ export class TournamentDisplay {
         // ______________________________________________________________________________________ Finished before finals
         if (player.state == d.PlayerState.FINISHED) {
             if (player.barriers.includes(d.Barrier.BANNED)) {
-                this.set_alert("You are banned from tournament play by the VEKN", d.AlertLevel.DANGER)
+                this.set_alert(
+                    "You are banned from tournament play by the VEKN <br>" +
+                    `<em>Check your <a class="alert-link" href="/member/${this.user.uid}/display.html">Profile</a> ` +
+                    "for more information</em>",
+                    d.AlertLevel.DANGER
+                )
                 return
             }
             if (player.barriers.includes(d.Barrier.DISQUALIFIED)) {
-                this.set_alert("You have been disqualified", d.AlertLevel.DANGER)
+                this.set_alert(
+                    "You have been disqualified <br>" +
+                    `<em>Check your <a class="alert-link" href="/member/${this.user.uid}/display.html">Profile</a> ` +
+                    "for more information</em>",
+                    d.AlertLevel.DANGER
+                )
                 return
             }
             this.set_alert(
