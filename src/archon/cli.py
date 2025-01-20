@@ -11,6 +11,12 @@ from . import vekn
 app = typer.Typer()
 
 
+async def async_reset_db(keep_members):
+    async with db.POOL:
+        await db.reset(keep_members)
+        await db.init()
+
+
 @app.command()
 def reset_db(
     confirm: typing.Annotated[bool, typer.Option(prompt=True)],
@@ -18,7 +24,7 @@ def reset_db(
 ):
     """⚠️  Reset the database ⚠️  Removes all data"""
     if confirm:
-        db.reset(keep_members)
+        asyncio.run(async_reset_db(keep_members))
 
 
 async def async_list() -> list[models.Tournament]:

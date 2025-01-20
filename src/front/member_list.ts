@@ -23,7 +23,7 @@ class MemberListDisplay {
     pagination_row: HTMLDivElement
     members_table: HTMLTableElement
     token: base.Token
-    member: d.Member | undefined
+    member: d.Person | undefined
     countries: Map<string, d.Country>
     members_map: m.MemberMap
     country_filter: HTMLSelectElement
@@ -106,7 +106,7 @@ class MemberListDisplay {
         this.set_filters_from_url(url)
         this.display()
     }
-    member_added(member: d.Member) {
+    member_added(member: d.Person) {
         this.members_map.add([member])
         this.display()
     }
@@ -278,8 +278,8 @@ class MemberListDisplay {
             }
         }
     }
-    get_filtered_members(): [MemberSearchParams, IteratorObject<d.Member>] {
-        var members: ArrayIterator<d.Member> = this.members_map.by_uid.values()
+    get_filtered_members(): [MemberSearchParams, IteratorObject<d.Person>] {
+        var members: ArrayIterator<d.Person> = this.members_map.by_uid.values()
         const search_params = this.get_search_params()
         if (search_params.name) {
             members = this.members_map.complete_name(search_params.name)[Symbol.iterator]()

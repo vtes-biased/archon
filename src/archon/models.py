@@ -9,6 +9,19 @@ from . import events
 from . import scoring
 
 
+class TournamentFormat(enum.StrEnum):
+    Standard = "Standard"
+    Limited = "Limited"
+    Draft = "Draft"
+
+
+class TournamentRank(enum.StrEnum):
+    BASIC = ""
+    NC = "National Championship"
+    CC = "Continental Championship"
+    GP = "Grand Prix"
+
+
 class TournamentState(enum.StrEnum):
     REGISTRATION = "Registration"
     WAITING = "Waiting"
@@ -49,6 +62,14 @@ class MemberRole(enum.StrEnum):
     ETHICS = "Ethics"  # Member of the Ethics Comitee
 
 
+@dataclasses.dataclass(kw_only=True)
+class Ranking:
+    constructed_onsite: int = 0
+    constructed_online: int = 0
+    limited_onsite: int = 0
+    limited_online: int = 0
+
+
 @dataclasses.dataclass
 class Person:
     name: str
@@ -57,6 +78,10 @@ class Person:
     country: str | None = ""  # country name
     country_flag: str | None = ""  # unicode flag char
     city: str | None = ""  # city name
+    roles: list[MemberRole] = pydantic.Field(default_factory=list)
+    sponsor: str | None = ""  # useful for organizers, to find their recruits
+    sanctions: list["RegisteredSanction"] = pydantic.Field(default_factory=list)
+    ranking: Ranking = pydantic.Field(default_factory=Ranking)
 
 
 @dataclasses.dataclass
@@ -131,7 +156,7 @@ class TableSeat:
 
 @dataclasses.dataclass
 class ScoreOverride:
-    judge_uid: str
+    judge: Person
     comment: str = ""
 
 
@@ -147,19 +172,6 @@ class Round:
     tables: list[Table]
 
 
-class TournamentFormat(enum.StrEnum):
-    Standard = "Standard"
-    Limited = "Limited"
-    Draft = "Draft"
-
-
-class TournamentRank(enum.StrEnum):
-    BASIC = ""
-    NC = "National Championship"
-    CC = "Continental Championship"
-    GP = "Grand Prix"
-
-
 @dataclasses.dataclass
 class LimitedFormat:
     mono_vampire: bool = False
@@ -171,7 +183,7 @@ class LimitedFormat:
 
 @dataclasses.dataclass
 class Sanction:
-    judge_uid: str | None = None  # not set on web interfaces, set before entering DB
+    judge: Person | None = None  # not set on web interfaces, set before entering DB
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     level: events.SanctionLevel = events.SanctionLevel.CAUTION
     category: events.SanctionCategory = events.SanctionCategory.NONE
@@ -185,7 +197,7 @@ class TournamentConfig:
     start: datetime.datetime
     timezone: str = "UTC"
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
-    judges: list[str] = pydantic.Field(default_factory=list)
+    judges: list[Person] = pydantic.Field(default_factory=list)
     rank: TournamentRank = TournamentRank.BASIC
     country: str | None = None
     venue: str = ""
@@ -290,14 +302,6 @@ class RegisteredSanction(Sanction):
     tournament: TournamentConfig | None = None
 
 
-@dataclasses.dataclass(kw_only=True)
-class Ranking:
-    constructed_onsite: int = 0
-    constructed_online: int = 0
-    limited_onsite: int = 0
-    limited_online: int = 0
-
-
 @dataclasses.dataclass
 class TournamentRating:
     tournament: TournamentConfig
@@ -325,10 +329,6 @@ class Member(Person):
     verified: bool | None = None  # whether the email has been verified
     discord: DiscordUser | None = None  # Discord data
     whatsapp: str | None = None  # phone
-    sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
-    ranking: Ranking = pydantic.Field(default_factory=Ranking)
-    sponsor: str | None = None  # Prince/NC who sponsored their VEKN membership
-    roles: list[MemberRole] = pydantic.Field(default_factory=list)
     ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
     prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
 

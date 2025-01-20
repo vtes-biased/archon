@@ -64,6 +64,12 @@ async def init():
                 "ON members "
                 "USING BTREE ((data -> 'discord' ->> 'id'))"
             )
+            # Index roles
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_member_roles "
+                "ON members "
+                "USING GIN ((data -> 'roles'))"
+            )
             # Trigram index for member names, for quick completion
             await cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
             await cursor.execute(
@@ -112,15 +118,15 @@ def jsonize(datacls: IsDataclass):
     return psycopg.types.json.Jsonb(dataclasses.asdict(datacls))
 
 
-def reset(keep_members: bool = True):
-    """Only called as a specific special-case CLI command, so not async"""
-    with psycopg.connect(CONNINFO) as conn:
-        with conn.cursor() as cursor:
+async def reset(keep_members: bool = True):
+    """ONLY FROM CLI - LOSES ALL DATA"""
+    async with POOL.connection() as conn:
+        async with conn.cursor() as cursor:
             logger.warning("Reset DB")
-            cursor.execute("DROP TABLE IF EXISTS tournament_events")
-            cursor.execute("DROP TABLE IF EXISTS tournaments")
+            await cursor.execute("DROP TABLE IF EXISTS tournament_events")
+            await cursor.execute("DROP TABLE IF EXISTS tournaments")
             if not keep_members:
-                cursor.execute("DROP TABLE IF EXISTS members")
+                await cursor.execute("DROP TABLE IF EXISTS members")
 
 
 T = typing.TypeVar("T", bound=models.Tournament)
@@ -315,7 +321,9 @@ class Operator:
                 raise RuntimeError("INSERT failed")
             return member
 
-    async def get_member(self, uid: str, for_update=False) -> models.Member:
+    async def get_member(
+        self, uid: str, for_update=False, cls: typing.Type[T] = models.Member
+    ) -> T:
         """Get a member from their uid"""
         async with self.conn.cursor() as cursor:
             if for_update:
@@ -328,11 +336,33 @@ class Operator:
                 return self._instanciate_member(data[0])
             return None
 
-    async def get_members(self) -> list[models.Member]:
+    async def get_members(self, uids: list[str] | None = None) -> list[models.Person]:
         """Get all members"""
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute("SELECT data FROM members")
-            return [self._instanciate_member(data[0]) for data in await res.fetchall()]
+            if uids:
+                res = await cursor.execute(
+                    "SELECT data FROM members WHERE uid = ANY(%s)", [uids]
+                )
+            else:
+                res = await cursor.execute("SELECT data FROM members")
+            return [
+                self._instanciate_member(data[0], models.Person)
+                for data in await res.fetchall()
+            ]
+
+    async def get_externally_visible_members(
+        self, user: models.Person
+    ) -> list[models.Person]:
+        """Get all members that can be contacted by non-vekn members"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM members WHERE data->'roles' ? 'NC' OR data->'roles' ? 'Prince' OR uid=%s",
+                [user.uid],
+            )
+            return [
+                self._instanciate_member(data[0], models.Person)
+                for data in await res.fetchall()
+            ]
 
     async def upsert_member_discord(self, user: models.DiscordUser) -> models.Member:
         """Get or create a member from their discord profile"""
@@ -433,7 +463,9 @@ class Operator:
                 #  no change
                 logger.warning("%s claiming %s but already has it", uid, vekn)
                 return member
-
+            if old_vekn:
+                logger.warning("%s claiming %s, previously had %s", uid, vekn, old_vekn)
+                raise RuntimeError("Cannot claim a VEKN: already has one")
             res = await cursor.execute(
                 "SELECT data FROM members WHERE vekn=%s FOR UPDATE", [vekn]
             )
@@ -448,27 +480,14 @@ class Operator:
                         "VEKN %s already owned by %s", vekn, vekn_member.discord.id
                     )
                     return None
-            # assign discord elements
+            # assign personal elements
             vekn_member.discord = member.discord
             vekn_member.nickname = member.nickname
             vekn_member.email = member.email
+            vekn_member.whatsapp = member.whatsapp
             vekn_member.verified = member.verified
-            if old_vekn:
-                logger.warning("%s claiming %s, previously had %s", uid, vekn, old_vekn)
-                # reset old vekn member
-                member.discord = None
-                vekn_member.nickname = None
-                vekn_member.email = None
-                vekn_member.verified = False
-                await cursor.execute(
-                    "UPDATE members SET data=%s WHERE uid=%s",
-                    [self._jsonize_member(vekn_member), uuid.UUID(uid)],
-                )
-                if cursor.rowcount < 1:
-                    raise RuntimeError(f"Failed to update Member {uid}")
-            else:
-                # delete initial (non-vekn) member
-                await cursor.execute("DELETE FROM members WHERE uid=%s", [uid])
+            # delete initial (non-vekn) member
+            await cursor.execute("DELETE FROM members WHERE uid=%s", [uid])
             # update the VEKN record
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE vekn=%s",
@@ -588,6 +607,8 @@ class Operator:
             data["country_flag"] = country.flag
             data["country_iso"] = country.iso
             data["country_geoname_id"] = country.geoname_id
+        else:
+            member.city = ""
         if member.city:
             data["city_geoname_id"] = geo.CITIES_BY_COUNTRY[member.country][
                 member.city

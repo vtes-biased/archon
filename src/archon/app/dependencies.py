@@ -131,6 +131,126 @@ def custom_openapi(app: fastapi.FastAPI):
     return get_openapi
 
 
+# ########################################################################## Permissions
+def check_can_change_role(
+    member: models.Person, target: models.Person, role: models.MemberRole
+) -> None:
+    initiator_roles = set(member.roles)
+    match role:
+        case (
+            models.MemberRole.ADMIN
+            | models.MemberRole.JUDGE
+            | models.MemberRole.ANC_JUDGE
+            | models.MemberRole.NEO_JUDGE
+            | models.MemberRole.ETHICS
+            | models.MemberRole.NC
+            | models.MemberRole.PTC
+        ):
+            if models.MemberRole.ADMIN not in initiator_roles:
+                raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+        case models.MemberRole.PRINCE:
+            if models.MemberRole.ADMIN in initiator_roles:
+                return
+            elif (
+                models.MemberRole.NC in initiator_roles
+                and member.country == target.country
+            ):
+                return
+            else:
+                raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+        case models.MemberRole.PLAYTESTER:
+            if models.MemberRole.ADMIN in initiator_roles:
+                return
+            elif models.MemberRole.PTC in initiator_roles:
+                return
+            else:
+                raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
+def check_organizer(member: models.Person) -> None:
+    if not set(member.roles) & {
+        models.MemberRole.ADMIN,
+        models.MemberRole.NC,
+        models.MemberRole.PRINCE,
+    }:
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
+def check_can_change_info(member: models.Person, target: models.Person):
+    # one can always modify oneself
+    if member.uid == target.uid:
+        return
+    member_roles = set(member.roles)
+    # admin can modify anything
+    if models.MemberRole.ADMIN in member_roles:
+        return
+    target_roles = set(target.roles)
+    # noone except admins can modify admin and NC
+    if target_roles & {models.MemberRole.ADMIN, models.MemberRole.NC}:
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    # only their NC can modify a Prince, PTC or Ethics Committee member
+    if target_roles & {
+        models.MemberRole.PRINCE,
+        models.MemberRole.PTC,
+        models.MemberRole.ETHICS,
+    }:
+        if models.MemberRole.NC in member_roles and member.country == target.country:
+            return
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    # NC, PTC and Ethic Committee members can modify anyone else
+    # Note we do not country limit: NCs need to be able to change players country
+    # PTC might need it if language or coordinator make the fields list at some point
+    # Ethics Comittee member might need it for data protection or something
+    if member_roles & {
+        models.MemberRole.NC,
+        models.MemberRole.PTC,
+        models.MemberRole.ETHICS,
+    }:
+        return
+    # Otherwise, only a Prince from the same country can modify the info
+    if member.country == target.country and models.MemberRole.PRINCE in member_roles:
+        return
+    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
+def check_can_sanction(member: models.Person):
+    member_roles = set(member.roles)
+    if member_roles & {
+        models.MemberRole.ADMIN,
+        models.MemberRole.JUDGE,
+        models.MemberRole.ETHICS,
+    }:
+        return
+    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
+def check_can_change_vekn(member: models.Person, target: models.Person):
+    if member.uid == target.uid:
+        return
+    member_roles = set(member.roles)
+    if models.MemberRole.ADMIN in member_roles:
+        return
+    if models.MemberRole.NC in member_roles and member.country == target.country:
+        return
+    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
+def check_can_contact(member: models.Person, target: models.Person):
+    if member.uid == target.uid or models.MemberRole.ADMIN in member.roles:
+        return
+    if models.MemberRole.NC in target.roles:
+        return
+    if models.MemberRole.PRINCE in target.roles:
+        return
+    if member.country == target.country and (
+        models.MemberRole.PRINCE in member.roles or models.MemberRole.NC in member.roles
+    ):
+        return
+    if models.MemberRole.NC in member.roles and models.MemberRole.ADMIN in target.roles:
+        return
+    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
 # #################################################################### Security: Session
 def hash_state(state: str):
     """URL-safe signed hash of the state"""
@@ -191,8 +311,8 @@ MemberUidFromSession = typing.Annotated[
 
 async def get_member_from_session(
     request: fastapi.Request, member_uid: MemberUidFromSession, op: DbOperator
-):
-    member = await op.get_member(member_uid)
+) -> models.Person:
+    member = await op.get_member(member_uid, cls=models.Person)
     # Valid user_id in session, but member not in DB
     if not member:
         anonymous_session(request)
@@ -201,8 +321,8 @@ async def get_member_from_session(
 
 
 #: Check we're in an authenticated session and return the member data from DB
-MemberFromSession = typing.Annotated[
-    models.Member, fastapi.Depends(get_member_from_session)
+PersonFromSession = typing.Annotated[
+    models.Person, fastapi.Depends(get_member_from_session)
 ]
 
 
@@ -345,11 +465,11 @@ def get_member_uid_from_token(
 MemberUidFromToken = typing.Annotated[str, fastapi.Depends(get_member_uid_from_token)]
 
 
-async def get_member_from_token(
+async def get_person_from_token(
     member_uid: MemberUidFromToken,
     op: DbOperator,
-) -> models.Member:
-    member = await op.get_member(member_uid)
+) -> models.Person:
+    member = await op.get_member(member_uid, cls=models.Person)
     if member is None:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
@@ -359,6 +479,6 @@ async def get_member_from_token(
     return member
 
 
-MemberFromToken = typing.Annotated[
-    models.Member, fastapi.Depends(get_member_from_token)
+PersonFromToken = typing.Annotated[
+    models.Person, fastapi.Depends(get_person_from_token)
 ]

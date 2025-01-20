@@ -218,7 +218,7 @@ class SanctionPlayerModal {
     cancel_button: HTMLButtonElement
     modal: bootstrap.Modal
     console: TournamentConsole
-    member: d.Member | null
+    member: d.Person | null
     round: number | undefined
     seat: d.TableSeat | undefined
     constructor(el: HTMLElement, console: TournamentConsole) {
@@ -419,10 +419,9 @@ class SanctionPlayerModal {
         const prefix = base.create_prepend(body, "div",
             ["border-top", "border-bottom", "border-info", "bg-info", "bg-opacity-10", "d-flex", "p-1", "mb-2"]
         )
-        const listed_judge = this.console.members_map.by_uid.get(sanction.judge_uid)
-        if (listed_judge) {
+        if (sanction.judge) {
             const author = base.create_append(prefix, "div", ["me-2"])
-            author.innerText = `Issued by ${listed_judge.name}`
+            author.innerText = `Issued by ${sanction.judge.name}`
         }
         // Remove button only for current tournament sanctions
         if (!Object.hasOwn(sanction, "tournament_name")) {
@@ -655,7 +654,7 @@ class Registration {
     toast_container: HTMLDivElement
     action_row: HTMLDivElement
     self_checkin: HTMLInputElement
-    register_element: member.PersonLookup<d.Member>
+    register_element: member.PersonLookup<d.Person>
     filter_switch: HTMLInputElement
     filter_label: HTMLLabelElement
     players_count: HTMLDivElement
@@ -678,7 +677,7 @@ class Registration {
         this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
         this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-4"])
         const registration_controls = base.create_append(this.panel, "div", ["d-md-flex", "my-2"])
-        this.register_element = new member.PersonLookup<d.Member>(
+        this.register_element = new member.PersonLookup<d.Person>(
             this.console.members_map, registration_controls, "Register", true
         )
         this.register_element.form.addEventListener("submit", (ev) => { this.add_player(ev) })
@@ -1945,7 +1944,7 @@ class TournamentConsole {
         return
     }
 
-    async register_player(member: d.Member) {
+    async register_player(member: d.Person) {
         const event: events.Register = {
             type: events.EventType.REGISTER,
             uid: uuid.v4(),

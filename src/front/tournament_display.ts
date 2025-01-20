@@ -359,7 +359,7 @@ export class TournamentDisplay {
     checkin_modal: CheckInModal | undefined
     countries: d.Country[]
     token: base.Token
-    user_id: string
+    user: d.Person
     members_map: member.MemberMap
     alert: HTMLDivElement
     // form inputs
@@ -382,7 +382,7 @@ export class TournamentDisplay {
     finish: HTMLInputElement
     timezone: HTMLSelectElement
     description: HTMLTextAreaElement
-    judges: Set<string>
+    judges: d.Person[]
     constructor(root: HTMLDivElement, display_callback: TournamentDisplayCallback | undefined = undefined) {
         this.root = base.create_append(root, "div")
         this.display_callback = display_callback
@@ -398,9 +398,9 @@ export class TournamentDisplay {
         countries: d.Country[] | undefined = undefined,
     ) {
         this.token = token
+        var user_id: string
         if (this.token) {
-            this.user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
-            this.judges = new Set([this.user_id])
+            user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
         }
         if (countries) {
             this.countries = countries
@@ -410,9 +410,13 @@ export class TournamentDisplay {
         }
         if (members_map) {
             this.members_map = members_map
-        } else if (this.user_id) {
+        } else if (user_id) {
             this.members_map = new member.MemberMap()
             await this.members_map.init(token)
+        }
+        if (user_id) {
+            this.user = this.members_map.by_uid.get(user_id)
+            this.judges = [this.user]
         }
     }
     set_alert(message: string, level: d.AlertLevel) {
@@ -441,7 +445,7 @@ export class TournamentDisplay {
         if (!this.display_callback) {
             this.alert = base.create_append(this.root, "div", ["alert"], { role: "alert" })
         }
-        this.judges = new Set(tournament.judges)
+        this.judges = tournament.judges
         // ------------------------------------------------------------------------------------------------------- Title
         if (!this.display_callback) {
             base.create_append(this.root, "h1", ["mb-2"]).innerText = tournament.name
@@ -567,7 +571,7 @@ export class TournamentDisplay {
             base.create_append(datetime_div, "div", ["me-2"]).innerText = finish_string
         }
         // ----------------------------------------------------------------------------------------------- User Commands
-        if (!this.display_callback && this.user_id) {
+        if (!this.display_callback && this.user) {
             this.display_user_info(tournament)
         }
         // ------------------------------------------------------------------------------------------------------- Venue
@@ -590,7 +594,7 @@ export class TournamentDisplay {
             }
         }
         // ------------------------------------------------------------------------------------------------------ Judges
-        if (this.user_id) {
+        if (this.user) {
             const table = base.create_append(this.root, "table", ["table", "table-striped", "my-2"])
             const head = base.create_append(table, "thead")
             const row = base.create_append(head, "tr", ["align-middle"])
@@ -600,9 +604,8 @@ export class TournamentDisplay {
             }
 
             const body = base.create_append(table, "tbody")
-            for (const judge_uid of this.judges.values()) {
-                const member = this.members_map.by_uid.get(judge_uid)
-                body.append(this.create_judge_row(member, false))
+            for (const judge of this.judges.values()) {
+                body.append(this.create_judge_row(judge, false))
             }
         }
         // ------------------------------------------------------------------------------------------------- Description
@@ -620,7 +623,7 @@ export class TournamentDisplay {
             )
         }
         // --------------------------------------------------------------------------------------------------- Standings
-        if (this.user_id &&
+        if (this.user &&
             (tournament.state == d.TournamentState.FINALS || tournament.state == d.TournamentState.FINISHED)
         ) {
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
@@ -635,7 +638,7 @@ export class TournamentDisplay {
                 const classes = ["text-nowrap"]
                 if (rank == 1 && tournament.state == d.TournamentState.FINISHED) {
                     classes.push("bg-warning-subtle")
-                } else if (player.uid == this.user_id) {
+                } else if (player.uid == this.user.uid) {
                     classes.push("bg-primary-subtle")
                 }
                 base.create_append(tr, "th", classes, { scope: "row" }).innerText = rank.toString()
@@ -648,19 +651,18 @@ export class TournamentDisplay {
         }
     }
     display_user_info(tournament: d.Tournament) {
-        if (!this.user_id) { return }
-        const member = this.members_map.by_uid.get(this.user_id)
+        if (!this.user) { return }
         const current_round = tournament.rounds.length
         const started = current_round > 0
         const first_round_checkin = (tournament.state == d.TournamentState.WAITING && !started)
         const buttons_div = base.create_append(this.root, "div", ["align-items-center", "my-2"])
-        if (tournament.judges.includes(this.user_id)) {
+        if (tournament.judges.some(j => j.uid == this.user.uid)) {
             base.create_append(buttons_div, "a", ["btn", "btn-warning", "text-nowrap", "me-2", "mb-2"],
                 { href: `/tournament/${tournament.uid}/console.html` }
             ).innerText = "Tournament Manager"
         }
         // _________________________________________________________________________________________ User not registered
-        if (!Object.hasOwn(tournament.players, this.user_id)) {
+        if (!Object.hasOwn(tournament.players, this.user.uid)) {
             if (tournament.state == d.TournamentState.FINISHED) {
                 return
             }
@@ -668,7 +670,7 @@ export class TournamentDisplay {
                 this.set_alert("Finals in progress: you are not participating", d.AlertLevel.INFO)
                 return
             }
-            if (!member || member.vekn.length < 1) {
+            if (!this.user.vekn || this.user.vekn.length < 1) {
                 this.set_alert(
                     "A VEKN ID# is required to register to this event: " +
                     "claim your VEKN ID#, if you have one, in your " +
@@ -682,7 +684,7 @@ export class TournamentDisplay {
             }
             if (tournament.state == d.TournamentState.REGISTRATION || first_round_checkin) {
                 this.set_alert("You can register to this tournament", d.AlertLevel.INFO)
-                this.display_user_register(tournament, buttons_div, member)
+                this.display_user_register(tournament, buttons_div)
                 return
             }
             this.set_alert(
@@ -690,12 +692,12 @@ export class TournamentDisplay {
                 "<em>Either ask a Judge to check you in, or register for next round</em>",
                 d.AlertLevel.WARNING
             )
-            this.display_user_register(tournament, buttons_div, member)
+            this.display_user_register(tournament, buttons_div)
             return
         }
         // _______________________________________________________________________________________________ ADD: Decklist
         // in all cases, even after the tournament's finished, allow players to upload their decklist
-        const player = tournament.players[this.user_id]
+        const player = tournament.players[this.user.uid]
         if (!tournament.multideck || tournament.rounds.length > 0) {
             this.display_user_set_deck(tournament, buttons_div)
         }
@@ -769,7 +771,7 @@ export class TournamentDisplay {
                 ["btn", "btn-success", "me-2", "mb-2"]
             )
             register_button.innerText = "Register back"
-            register_button.addEventListener("click", (ev) => this.register(tournament, member))
+            register_button.addEventListener("click", (ev) => this.register(tournament))
             return
         }
         // ____________________________________________________________________________________________ ADD: Drop button
@@ -854,16 +856,16 @@ export class TournamentDisplay {
         }
         return
     }
-    display_user_register(tournament: d.Tournament, buttons_div: HTMLDivElement, member: d.Member) {
+    display_user_register(tournament: d.Tournament, buttons_div: HTMLDivElement) {
         const register_button = base.create_append(buttons_div, "button",
             ["btn", "btn-success", "text-nowrap", "me-2", "mb-2"]
         )
         register_button.innerText = "Register"
-        register_button.addEventListener("click", (ev) => this.register(tournament, member))
+        register_button.addEventListener("click", (ev) => this.register(tournament))
     }
     display_user_set_deck(tournament: d.Tournament, buttons_div: HTMLDivElement) {
         const current_round = tournament.rounds.length
-        const player = tournament.players[this.user_id]
+        const player = tournament.players[this.user.uid]
         const tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
         const upload_deck_button = base.create_append(tooltip_span, "button",
             ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"]
@@ -1026,15 +1028,15 @@ export class TournamentDisplay {
             base.create_append(alert, "button", ["btn-close"], { "data-bs-dismiss": "alert", "aria-label": "Close" })
         }
     }
-    async register(tournament: d.Tournament, member: d.Member) {
+    async register(tournament: d.Tournament) {
         const tev = {
             uid: uuid.v4(),
             type: events.EventType.REGISTER,
-            name: member.name,
-            vekn: member.vekn,
-            player_uid: member.uid,
-            country: member.country,
-            city: member.city,
+            name: this.user.name,
+            vekn: this.user.vekn,
+            player_uid: this.user.uid,
+            country: this.user.country,
+            city: this.user.city,
         } as events.Register
         await this.handle_tournament_event(tournament.uid, tev)
     }
@@ -1369,9 +1371,8 @@ export class TournamentDisplay {
             }
 
             const body = base.create_append(table, "tbody")
-            for (const judge_uid of this.judges.values()) {
-                const member = this.members_map.by_uid.get(judge_uid)
-                body.append(this.create_judge_row(member, true))
+            for (const judge of this.judges.values()) {
+                body.append(this.create_judge_row(judge, true))
             }
             const lookup_row = base.create_append(body, "tr", ["align-middle"])
             const lookup_cell = base.create_append(body, "td", [], { colspan: "3" })
@@ -1380,8 +1381,8 @@ export class TournamentDisplay {
                 ev.preventDefault()
                 const person = lookup.person
                 lookup.reset()
-                if (this.judges.has(person.uid)) { return }
-                this.judges.add(person.uid)
+                if (this.judges.some(j => j.uid == person.uid)) { return }
+                this.judges.push(person)
                 body.insertBefore(this.create_judge_row(person, true), lookup_row)
             })
         }
@@ -1401,18 +1402,18 @@ export class TournamentDisplay {
         }
     }
 
-    create_judge_row(member: d.Member, edit: boolean) {
+    create_judge_row(member: d.Person, edit: boolean) {
         const row = base.create_element("tr")
         base.create_append(row, "th", [], { scope: "row" }).innerText = member.vekn
         base.create_append(row, "td", ["w-100"]).innerText = member.name
         const actions = base.create_append(row, "td")
-        if (edit && this.user_id != member.uid) {
+        if (edit && this.user.uid != member.uid) {
             const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-danger", "me-2"])
             button.innerHTML = '<i class="bi bi-x-circle-fill"></i>'
             const tip = base.add_tooltip(button, "Remove")
             button.addEventListener("click", (ev) => {
-                tip.dispose();
-                this.judges.delete(member.uid);
+                tip.dispose()
+                this.judges = [...this.judges.filter(j => j.uid != member.uid)]
                 row.remove()
             })
         }

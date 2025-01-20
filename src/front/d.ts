@@ -58,6 +58,13 @@ export interface Score {
     tp: number,
 }
 
+export interface Ranking {
+    constructed_onsite: number,
+    constructed_online: number,
+    limited_onsite: number,
+    limited_online: number,
+}
+
 export interface Person {
     name: string,
     vekn: string,
@@ -65,6 +72,10 @@ export interface Person {
     country: string | undefined,  // country name
     country_flag: string | undefined,  // unicode flag char
     city: string | undefined,  // city name
+    roles: MemberRole[] | undefined,  // city name
+    sponsor: string | undefined,
+    sanctions: RegisteredSanction[],
+    ranking: Ranking,
 }
 
 export interface KrcgCard {
@@ -127,7 +138,7 @@ export interface TableSeat {
 }
 
 export interface ScoreOverride {
-    judge_uid: string,
+    judge: Person,
     comment: string,
 }
 
@@ -164,7 +175,7 @@ export interface LimitedFormat {
 
 export interface Sanction {
     uid: string,
-    judge_uid: string,
+    judge: Person,
     level: events.SanctionLevel
     category: events.SanctionCategory
     comment: string
@@ -189,7 +200,7 @@ export interface TournamentConfig {
     decklist_required?: boolean,
     finish?: string,
     description?: string,
-    judges?: string[],
+    judges?: Person[],
 }
 
 export interface Tournament extends TournamentConfig {
@@ -226,23 +237,12 @@ export interface TournamentRating {
     rating_points: number,
 }
 
-export interface Ranking {
-    constructed_onsite: number,
-    constructed_online: number,
-    limited_onsite: number,
-    limited_online: number,
-}
-
 export interface Member extends Person {
     nickname: string | undefined,  // player nickname
     email: string | undefined,  // the user's email
     verified: boolean | undefined,  // whether the email has been verified
-    sanctions: RegisteredSanction[] | undefined,  // previous sanctions delivered
     discord: DiscordUser | undefined,
     whatsapp: string | undefined,
-    ranking: Ranking,
-    sponsor: string | undefined  // UUID of the Prince/NC who sponsored membership
-    roles: MemberRole[]
     ratings: Record<string, TournamentRating>
     // prefix: string | undefined // Do not use - temporary field will be removed
 }

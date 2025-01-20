@@ -78,7 +78,7 @@ export class PersonMap<Type extends d.Person> {
     }
 }
 
-export class MemberMap extends PersonMap<d.Member> {
+export class MemberMap extends PersonMap<d.Person> {
     async init(token: base.Token) {
         const res = await base.do_fetch("/api/vekn/members", {
             method: "get",
@@ -291,7 +291,7 @@ export class PersonLookup<Type extends d.Person> {
     }
 }
 
-export function can_change_role(member: d.Member, target: d.Member, role: d.MemberRole): boolean {
+export function can_change_role(member: d.Person, target: d.Person, role: d.MemberRole): boolean {
     if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
     switch (role) {
         case d.MemberRole.PRINCE:
@@ -307,14 +307,14 @@ export function can_change_role(member: d.Member, target: d.Member, role: d.Memb
     }
 }
 
-export function can_organize(member: d.Member): boolean {
+export function can_organize(member: d.Person): boolean {
     if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
     if (member.roles.includes(d.MemberRole.NC)) { return true }
     if (member.roles.includes(d.MemberRole.PRINCE)) { return true }
     return false
 }
 
-export function can_change_info(member: d.Member, target: d.Member): boolean {
+export function can_change_info(member: d.Person, target: d.Person): boolean {
     if (member.uid == target.uid) { return true }
     const member_roles = new Set(member.roles)
     if (member_roles.has(d.MemberRole.ADMIN)) { return true }
@@ -343,21 +343,21 @@ export function can_change_info(member: d.Member, target: d.Member): boolean {
     return false
 }
 
-export function can_sanction(member: d.Member): boolean {
+export function can_sanction(member: d.Person): boolean {
     if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
     if (member.roles.includes(d.MemberRole.JUDGE)) { return true }
     if (member.roles.includes(d.MemberRole.ETHICS)) { return true }
     return false
 }
 
-export function can_change_vekn(member: d.Member, target: d.Member): boolean {
+export function can_change_vekn(member: d.Person, target: d.Person): boolean {
     if (member.uid == target.uid) { return true }
     if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
     if (member.roles.includes(d.MemberRole.NC) && member.country == target.country) { return true }
     return false
 }
 
-export function can_playtest(member: d.Member): boolean {
+export function can_playtest(member: d.Person): boolean {
     if (member && member.roles && (
         member.roles.includes(d.MemberRole.ADMIN) ||
         member.roles.includes(d.MemberRole.PTC) ||
@@ -368,7 +368,7 @@ export function can_playtest(member: d.Member): boolean {
     return false
 }
 
-export function can_contact(member: d.Member, target: d.Member): boolean {
+export function can_contact(member: d.Person, target: d.Person): boolean {
     if (!(member && member.roles && target)) {
         return false
     }
@@ -402,8 +402,8 @@ export class AddMemberModal extends base.Modal {
     city: HTMLSelectElement
     email: HTMLInputElement
     submit_button: HTMLButtonElement
-    callback: { (member: d.Member): void }
-    constructor(el: HTMLElement, callback: { (member: d.Member): void }) {
+    callback: { (member: d.Person): void }
+    constructor(el: HTMLElement, callback: { (member: d.Person): void }) {
         super(el)
         this.callback = callback
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],

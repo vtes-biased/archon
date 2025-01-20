@@ -22,47 +22,52 @@ class TournamentManager(models.Tournament):
     incremental changes.
     """
 
-    def handle_event(self, ev: events.TournamentEvent, member_uid: str) -> None:
+    def handle_event(self, ev: events.TournamentEvent, member: models.Person) -> None:
         LOG.debug("Handling event: %s", ev)
         match ev.type:
             case events.EventType.REGISTER:
-                self.register(ev, member_uid)
+                self.register(ev, member)
             case events.EventType.OPEN_CHECKIN:
-                self.open_checkin(ev, member_uid)
+                self.open_checkin(ev, member)
             case events.EventType.CHECK_IN:
-                self.check_in(ev, member_uid)
+                self.check_in(ev, member)
             case events.EventType.CHECK_EVERYONE_IN:
-                self.check_everyone_in(ev, member_uid)
+                self.check_everyone_in(ev, member)
             case events.EventType.CHECK_OUT:
-                self.check_out(ev, member_uid)
+                self.check_out(ev, member)
             case events.EventType.ROUND_START:
-                self.round_start(ev, member_uid)
+                self.round_start(ev, member)
             case events.EventType.ROUND_ALTER:
-                self.round_alter(ev, member_uid)
+                self.round_alter(ev, member)
             case events.EventType.ROUND_FINISH:
-                self.round_finish(ev, member_uid)
+                self.round_finish(ev, member)
             case events.EventType.ROUND_CANCEL:
-                self.round_cancel(ev, member_uid)
+                self.round_cancel(ev, member)
             case events.EventType.SET_RESULT:
-                self.set_result(ev, member_uid)
+                self.set_result(ev, member)
             case events.EventType.SET_DECK:
-                self.set_deck(ev, member_uid)
+                self.set_deck(ev, member)
             case events.EventType.DROP:
-                self.drop(ev, member_uid)
+                self.drop(ev, member)
             case events.EventType.SANCTION:
-                self.sanction(ev, member_uid)
+                self.sanction(ev, member)
             case events.EventType.UNSANCTION:
-                self.unsanction(ev, member_uid)
+                self.unsanction(ev, member)
             case events.EventType.OVERRIDE:
-                self.override(ev, member_uid)
+                self.override(ev, member)
             case events.EventType.SEED_FINALS:
-                self.seed_finals(ev, member_uid)
+                self.seed_finals(ev, member)
             case events.EventType.SEAT_FINALS:
-                self.seat_finals(ev, member_uid)
+                self.seat_finals(ev, member)
             case events.EventType.FINISH_TOURNAMENT:
-                self.finish_tournament(ev, member_uid)
+                self.finish_tournament(ev, member)
 
-    def register(self, ev: events.Register, member_uid: str) -> None:
+    def is_judge(self, member) -> bool:
+        if member.uid in [j.uid for j in self.judges]:
+            return True
+        return False
+
+    def register(self, ev: events.Register, member: models.Person) -> None:
         # note players are not necessary VEKN members (they may not even exist in DB)
         # this is allowed on purpose: you can use the engine without the VEKN members DB
         # if player is already registered, only change his state if he has dropped
@@ -112,13 +117,15 @@ class TournamentManager(models.Tournament):
         if self.decklist_required:
             self.players[ev.player_uid].barriers.append(models.Barrier.MISSING_DECK)
 
-    def open_checkin(self, ev: events.OpenCheckin, member_uid: str) -> None:
+    def open_checkin(self, ev: events.OpenCheckin, member: models.Person) -> None:
         self.state = models.TournamentState.WAITING
 
-    def check_in(self, ev: events.CheckIn, member_uid: str) -> None:
+    def check_in(self, ev: events.CheckIn, member: models.Person) -> None:
         self.players[ev.player_uid].state = models.PlayerState.CHECKED_IN
 
-    def check_everyone_in(self, ev: events.CheckEveryoneIn, member_uid: str) -> None:
+    def check_everyone_in(
+        self, ev: events.CheckEveryoneIn, member: models.Person
+    ) -> None:
         for player in self.players.values():
             if player.state != models.PlayerState.REGISTERED:
                 continue
@@ -126,10 +133,10 @@ class TournamentManager(models.Tournament):
                 continue
             player.state = models.PlayerState.CHECKED_IN
 
-    def check_out(self, ev: events.CheckIn, member_uid: str) -> None:
+    def check_out(self, ev: events.CheckIn, member: models.Person) -> None:
         self.players[ev.player_uid].state = models.PlayerState.REGISTERED
 
-    def round_start(self, ev: events.RoundStart, member_uid: str) -> None:
+    def round_start(self, ev: events.RoundStart, member: models.Person) -> None:
         self.state = models.TournamentState.PLAYING
         self.rounds.append(self._event_seating_to_round(ev.seating))
         self._set_players_statuses_from_current_round()
@@ -151,7 +158,7 @@ class TournamentManager(models.Tournament):
                 if player.state != models.PlayerState.FINISHED:
                     player.state = models.PlayerState.REGISTERED
 
-    def round_alter(self, ev: events.RoundAlter, member_uid: str) -> None:
+    def round_alter(self, ev: events.RoundAlter, member: models.Person) -> None:
         """Keep players results, decks and table overrides."""
         old_tables = self.rounds[ev.round - 1].tables
         results = {
@@ -183,7 +190,7 @@ class TournamentManager(models.Tournament):
         for uid, (result, _) in results.items():
             self.players[uid].result -= result
 
-    def round_finish(self, ev: events.RoundFinish, member_uid: str) -> None:
+    def round_finish(self, ev: events.RoundFinish, member: models.Person) -> None:
         self.state = models.TournamentState.REGISTRATION
         for player in self.players.values():
             player.table = 0
@@ -202,7 +209,7 @@ class TournamentManager(models.Tournament):
                 if self.decklist_required and not player.deck:
                     player.barriers.append(models.Barrier.MISSING_DECK)
 
-    def round_cancel(self, ev: events.RoundCancel, member_uid: str) -> None:
+    def round_cancel(self, ev: events.RoundCancel, member: models.Person) -> None:
         for table in self.rounds[-1].tables:
             for seat in table.seating:
                 self.players[seat.player_uid].result -= seat.result
@@ -232,7 +239,7 @@ class TournamentManager(models.Tournament):
             ]
         )
 
-    def set_result(self, ev: events.SetResult, member_uid: str) -> None:
+    def set_result(self, ev: events.SetResult, member: models.Person) -> None:
         player = self.players[ev.player_uid]
         round_ = self.rounds[ev.round - 1]
         player_table = None
@@ -249,8 +256,9 @@ class TournamentManager(models.Tournament):
             raise ValueError(f"player {ev.player_uid} not in round {ev.round}")
         player.result -= player_seat.result
         player_seat.result = scoring.Score(vp=ev.vps)
-        if member_uid in self.judges:
-            player_seat.judge_uid = member_uid
+        if self.is_judge(member):
+            for seat in player_table.seating:
+                seat.judge_uid = member.uid
         player.result += player_seat.result
         finals = False
         if self.state in [
@@ -287,7 +295,7 @@ class TournamentManager(models.Tournament):
         else:
             table.state = models.TableState.FINISHED
 
-    def set_deck(self, ev: events.SetDeck, member_uid: str, check=False) -> None:
+    def set_deck(self, ev: events.SetDeck, member: models.Person, check=False) -> None:
         if ev.deck.startswith("https://"):
             deck = krcg.deck.Deck.from_url(ev.deck)
         else:
@@ -336,16 +344,15 @@ class TournamentManager(models.Tournament):
         if any(banned):
             raise BannedCards(ev, banned)
 
-    def drop(self, ev: events.Drop, member_uid: str) -> None:
+    def drop(self, ev: events.Drop, member: models.Person) -> None:
         self.players[ev.player_uid].state = models.PlayerState.FINISHED
 
-    def sanction(self, ev: events.Sanction, member_uid: str) -> None:
+    def sanction(self, ev: events.Sanction, member: models.Person) -> None:
         self.sanctions.setdefault(ev.player_uid, [])
         self.sanctions[ev.player_uid].append(
             models.Sanction(
                 uid=ev.sanction_uid,
-                player_uid=ev.player_uid,
-                judge_uid=member_uid,
+                judge=member,
                 level=ev.level,
                 category=ev.category,
                 comment=ev.comment,
@@ -357,7 +364,7 @@ class TournamentManager(models.Tournament):
             if models.Barrier.DISQUALIFIED not in player.barriers:
                 player.barriers.append(models.Barrier.DISQUALIFIED)
 
-    def unsanction(self, ev: events.Unsanction, member_uid: str) -> None:
+    def unsanction(self, ev: events.Unsanction, member: models.Person) -> None:
         sanctions = self.sanctions.get(ev.player_uid, [])
         to_delete = [
             i for i, sanction in enumerate(sanctions) if sanction.uid == ev.sanction_uid
@@ -370,12 +377,12 @@ class TournamentManager(models.Tournament):
             except ValueError:
                 pass
 
-    def override(self, ev: events.Override, member_uid: str) -> None:
+    def override(self, ev: events.Override, member: models.Person) -> None:
         table = self.rounds[ev.round - 1].tables[ev.table - 1]
-        table.override = models.ScoreOverride(judge_uid=member_uid, comment=ev.comment)
+        table.override = models.ScoreOverride(judge=member, comment=ev.comment)
         self._compute_table_state(table)
 
-    def seed_finals(self, ev: events.SeedFinals, member_uid: str) -> None:
+    def seed_finals(self, ev: events.SeedFinals, member: models.Person) -> None:
         self.state = models.TournamentState.FINALS
         self.finals_seeds = ev.seeds[:]
         self.rounds.append(self._event_seating_to_round([self.finals_seeds[:]]))
@@ -393,13 +400,15 @@ class TournamentManager(models.Tournament):
             self.players[uid].seed = i
             self.players[uid].state = models.PlayerState.PLAYING
 
-    def seat_finals(self, ev: events.SeatFinals, member_uid: str) -> None:
+    def seat_finals(self, ev: events.SeatFinals, member: models.Person) -> None:
         self.rounds[-1] = self._event_seating_to_round([ev.seating])
         for player in self.players.values():
             if player.uid not in ev.seating:
                 player.state = models.PlayerState.FINISHED
 
-    def finish_tournament(self, ev: events.FinishTournament, member_uid: str) -> None:
+    def finish_tournament(
+        self, ev: events.FinishTournament, member: models.Person
+    ) -> None:
         finals_table = self.rounds[-1].tables[0]
         self._compute_table_score(finals_table, finals=True)
         self._compute_table_state(finals_table)
@@ -618,13 +627,13 @@ class BannedCards(DeckIssue):
 class TournamentOrchestrator(TournamentManager):
     """Implements all input checks and raise meaningful errors"""
 
-    def handle_event(self, ev: events.TournamentEvent, member_uid: str) -> None:
-        super().handle_event(ev, member_uid)
-
-    def update_config(self, config: models.TournamentConfig, member_uid: str) -> None:
-        if member_uid not in self.judges:
-            raise NotJudge()
+    def update_config(
+        self, config: models.TournamentConfig, member: models.Person
+    ) -> None:
+        self._check_judge(None, member)
         LOG.info("Updating tournament config: %s", config)
+        if not config.judges:
+            raise ConfigError("A tournament must have at least one judge")
         if (
             config.format != models.TournamentFormat.Standard
             and config.rank != models.TournamentRank.BASIC
@@ -660,7 +669,7 @@ class TournamentOrchestrator(TournamentManager):
                 if player.rounds_played >= self.max_rounds:
                     player.barriers.append(models.Barrier.MAX_ROUNDS)
 
-    def register(self, ev: events.Register, member_uid: str) -> None:
+    def register(self, ev: events.Register, member: models.Person) -> None:
         if any(
             s.level == events.SanctionLevel.DISQUALIFICATION
             for s in self.sanctions.get(ev.player_uid, [])
@@ -670,8 +679,8 @@ class TournamentOrchestrator(TournamentManager):
             raise UnnamedPlayer(ev)
         if not ev.vekn:
             # only a judge can register a player without VEKN
-            self._check_judge(ev, member_uid)
-        super().register(ev, member_uid)
+            self._check_judge(ev, member)
+        super().register(ev, member)
 
     def _check_not_playing(self, ev: events.TournamentEvent):
         if self.state == models.TournamentState.FINALS:
@@ -681,22 +690,27 @@ class TournamentOrchestrator(TournamentManager):
         if self.state == models.TournamentState.FINISHED:
             raise TournamentFinished(ev)
 
-    def _check_judge(self, ev: events.TournamentEvent, member_uid: str) -> None:
-        if member_uid not in self.judges:
-            raise NotJudge(ev)
+    def _check_judge(self, ev: events.TournamentEvent, member: models.Person) -> None:
+        if models.MemberRole.ADMIN in member.roles:
+            return
+        if models.MemberRole.NC in member.roles and self.country == member.country:
+            return
+        if member.uid in [j.uid for j in self.judges]:
+            return
+        raise NotJudge(ev)
 
-    def open_checkin(self, ev: events.OpenCheckin, member_uid: str) -> None:
+    def open_checkin(self, ev: events.OpenCheckin, member: models.Person) -> None:
         self._check_not_playing(ev)
-        self._check_judge(ev, member_uid)
-        super().open_checkin(ev, member_uid)
+        self._check_judge(ev, member)
+        super().open_checkin(ev, member)
 
-    def check_in(self, ev: events.CheckIn, member_uid: str) -> None:
+    def check_in(self, ev: events.CheckIn, member: models.Person) -> None:
         self._check_not_playing(ev)
         if ev.code:
             if ev.code != self.checkin_code:
                 raise InvalidCheckInCode(ev)
         else:
-            self._check_judge(ev, member_uid)
+            self._check_judge(ev, member)
         if self.state != models.TournamentState.WAITING:
             raise CheckinClosed(ev)
         if ev.player_uid not in self.players:
@@ -704,40 +718,42 @@ class TournamentOrchestrator(TournamentManager):
         player = self.players[ev.player_uid]
         if player.barriers:  # maybe judges should be allowed to?
             raise CheckinBarrier(ev, player.barriers)
-        super().check_in(ev, member_uid)
+        super().check_in(ev, member)
 
-    def check_everyone_in(self, ev: events.CheckEveryoneIn, member_uid: str) -> None:
+    def check_everyone_in(
+        self, ev: events.CheckEveryoneIn, member: models.Person
+    ) -> None:
         self._check_not_playing(ev)
-        self._check_judge(ev, member_uid)
+        self._check_judge(ev, member)
         if self.state != models.TournamentState.WAITING:
             raise CheckinClosed(ev)
-        super().check_everyone_in(ev, member_uid)
+        super().check_everyone_in(ev, member)
 
-    def check_out(self, ev: events.CheckIn, member_uid: str) -> None:
+    def check_out(self, ev: events.CheckIn, member: models.Person) -> None:
         self._check_not_playing(ev)
         if self.state != models.TournamentState.WAITING:
             raise CheckinClosed(ev)
         if ev.player_uid not in self.players:
             raise UnregisteredPlayers(ev)
-        super().check_out(ev, member_uid)
+        super().check_out(ev, member)
 
-    def round_start(self, ev: events.RoundStart, member_uid: str) -> None:
+    def round_start(self, ev: events.RoundStart, member: models.Person) -> None:
         self._check_not_playing(ev)
-        self._check_judge(ev, member_uid)
+        self._check_judge(ev, member)
         self._check_seating(ev, ev.seating)
         self._check_pp_relationships(ev, ev.seating)
-        super().round_start(ev, member_uid)
+        super().round_start(ev, member)
 
-    def round_alter(self, ev: events.RoundAlter, member_uid: str) -> None:
+    def round_alter(self, ev: events.RoundAlter, member: models.Person) -> None:
         if ev.round < 1 or ev.round > len(self.rounds):
             raise BadRoundNumber(ev)
-        self._check_judge(ev, member_uid)
+        self._check_judge(ev, member)
         self._check_seating(ev, ev.seating)
         self._check_pp_relationships(ev, ev.seating, ignore=ev.round)
-        super().round_alter(ev, member_uid)
+        super().round_alter(ev, member)
 
-    def round_finish(self, ev: events.RoundFinish, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def round_finish(self, ev: events.RoundFinish, member: models.Person) -> None:
+        self._check_judge(ev, member)
         if self.state == models.TournamentState.FINISHED:
             raise TournamentFinished(ev)
         if self.state in [
@@ -754,17 +770,17 @@ class TournamentOrchestrator(TournamentManager):
         ]
         if invalid_tables:
             raise InvalidTables(ev, invalid_tables)
-        super().round_finish(ev, member_uid)
+        super().round_finish(ev, member)
 
-    def round_cancel(self, ev: events.RoundCancel, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def round_cancel(self, ev: events.RoundCancel, member: models.Person) -> None:
+        self._check_judge(ev, member)
         if any(
             seat.result.vp != 0
             for table in self.rounds[-1].tables
             for seat in table.seating
         ):
             raise RoundInProgress(ev)
-        super().round_cancel(ev, member_uid)
+        super().round_cancel(ev, member)
 
     def _check_seating(self, ev, seating: list[list[str]]) -> None:
         """Check all are registered, no duplicates, and tables have 5 players max
@@ -827,61 +843,61 @@ class TournamentOrchestrator(TournamentManager):
                     return table, seat
         raise PlayerAbsent(ev)
 
-    def set_result(self, ev: events.SetResult, member_uid: str) -> None:
+    def set_result(self, ev: events.SetResult, member: models.Person) -> None:
         if ev.player_uid not in self.players:
             raise UnregisteredPlayers(ev)
         table, seat = self._get_player_table_seat(ev, ev.round, ev.player_uid)
-        if ev.player_uid != member_uid:
+        if ev.player_uid != member.uid:
             if (
                 ev.round != len(self.rounds)
-                or member_uid not in [s.player_uid for s in table.seating]
+                or member.uid not in [s.player_uid for s in table.seating]
                 or seat.judge_uid
             ):
                 # current round players are allowed to set their opponents results
-                self._check_judge(ev, member_uid)
-        super().set_result(ev, member_uid)
+                self._check_judge(ev, member)
+        super().set_result(ev, member)
 
-    def set_deck(self, ev: events.SetResult, member_uid: str) -> None:
+    def set_deck(self, ev: events.SetResult, member: models.Person) -> None:
         if ev.player_uid not in self.players:
             raise UnregisteredPlayers(ev)
         if ev.round:
             self._get_player_table_seat(ev, ev.round, ev.player_uid)
         if ev.round and not self.multideck:
             raise SingleDeckEvent(ev)
-        if ev.round or ev.player_uid != member_uid:
-            self._check_judge(ev, member_uid)
-        super().set_deck(ev, member_uid, check=(ev.player_uid == member_uid))
+        if ev.round or ev.player_uid != member.uid:
+            self._check_judge(ev, member)
+        super().set_deck(ev, member, check=(ev.player_uid == member.uid))
 
-    def drop(self, ev: events.Drop, member_uid: str) -> None:
+    def drop(self, ev: events.Drop, member: models.Person) -> None:
         if ev.player_uid not in self.players:
             raise UnregisteredPlayers(ev)
-        if member_uid != ev.player_uid:
-            self._check_judge(ev, member_uid)
-        super().drop(ev, member_uid)
+        if member.uid != ev.player_uid:
+            self._check_judge(ev, member)
+        super().drop(ev, member)
 
-    def sanction(self, ev: events.Sanction, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def sanction(self, ev: events.Sanction, member: models.Person) -> None:
+        self._check_judge(ev, member)
         if ev.player_uid not in self.players:
             raise UnregisteredPlayers(ev)
-        super().sanction(ev, member_uid)
+        super().sanction(ev, member)
 
-    def unsanction(self, ev: events.Unsanction, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def unsanction(self, ev: events.Unsanction, member: models.Person) -> None:
+        self._check_judge(ev, member)
         if ev.player_uid not in self.players:
             raise UnregisteredPlayers(ev)
-        super().unsanction(ev, member_uid)
+        super().unsanction(ev, member)
 
-    def override(self, ev: events.Override, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def override(self, ev: events.Override, member: models.Person) -> None:
+        self._check_judge(ev, member)
         if ev.round < 1 or ev.round > len(self.rounds):
             raise BadRoundNumber(ev)
         round_ = self.rounds[ev.round - 1]
         if ev.table < 1 or ev.table > len(round_.tables):
             raise BadTableNumber(ev)
-        super().override(ev, member_uid)
+        super().override(ev, member)
 
-    def seed_finals(self, ev: events.SeedFinals, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def seed_finals(self, ev: events.SeedFinals, member: models.Person) -> None:
+        self._check_judge(ev, member)
         self._check_not_playing(ev)
         if self.state == models.TournamentState.FINISHED:
             raise TournamentFinished(ev)
@@ -892,10 +908,10 @@ class TournamentOrchestrator(TournamentManager):
             raise UnregisteredPlayers(ev, unregistered)
         if len(ev.seeds) < 4 or len(ev.seeds) > 5:
             raise BadSeeding(ev)
-        super().seed_finals(ev, member_uid)
+        super().seed_finals(ev, member)
 
-    def seat_finals(self, ev: events.SeatFinals, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def seat_finals(self, ev: events.SeatFinals, member: models.Person) -> None:
+        self._check_judge(ev, member)
         if self.state not in [
             models.TournamentState.FINALS,
             models.TournamentState.FINISHED,
@@ -912,16 +928,18 @@ class TournamentOrchestrator(TournamentManager):
         # for a finals, you really need at least 3
         if len(ev.seating) < 4 or len(ev.seating) > 5:
             raise BadSeating(ev)
-        super().seat_finals(ev, member_uid)
+        super().seat_finals(ev, member)
 
-    def finish_tournament(self, ev: events.FinishTournament, member_uid: str) -> None:
-        self._check_judge(ev, member_uid)
+    def finish_tournament(
+        self, ev: events.FinishTournament, member: models.Person
+    ) -> None:
+        self._check_judge(ev, member)
         if self.state != models.TournamentState.FINALS:
             raise FinalsNotSeeded(ev)
         final_table = self.rounds[-1].tables[0]
         if final_table.state != models.TableState.FINISHED:
             raise InvalidTables(ev, [1])
-        super().finish_tournament(ev, member_uid)
+        super().finish_tournament(ev, member)
 
 
 # ################################################################ Convenience functions

@@ -166,7 +166,7 @@ async def index(
     op: dependencies.DbOperator,
 ):
     request.session["next"] = str(request.url_for("index"))
-    members: list[models.Member] = await op.get_members()
+    members: list[models.Person] = await op.get_members()
     members.sort(key=lambda x: -x.ranking.constructed_onsite)
     members = [m for m in members[:1000] if m.ranking.constructed_onsite > 0]
     if "member" not in context:
@@ -188,18 +188,6 @@ async def login(
         request.session["next"] = next
     return TEMPLATES.TemplateResponse(
         request=request, name="login.html.j2", context=context
-    )
-
-
-@router.get("/profile.html")
-async def profile(
-    request: fastapi.Request,
-    context: dependencies.SessionContext,
-    _: dependencies.MemberUidFromSession,
-):
-    request.session["next"] = str(request.url_for("profile"))
-    return TEMPLATES.TemplateResponse(
-        request=request, name="profile.html.j2", context=context
     )
 
 
@@ -274,15 +262,21 @@ async def tournament_console(
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
     op: dependencies.DbOperator,
-    member_uid: dependencies.MemberUidFromSession,
+    member: dependencies.PersonFromSession,
 ):
-    if member_uid not in tournament.judges:
+    if not (
+        models.MemberRole.ADMIN in member.roles
+        or (
+            models.MemberRole.NC in member.roles
+            and tournament.country == member.country
+        )
+        or member.uid in [j.uid for j in tournament.judges]
+    ):
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_403_FORBIDDEN,
             detail="A judge is required",
         )
     context["tournament"] = tournament
-    context["members"] = await op.get_members()
     return TEMPLATES.TemplateResponse(
         request=request,
         name="tournament/console.html.j2",
@@ -376,7 +370,7 @@ async def document_code_of_ethics(
 async def member_list(
     request: fastapi.Request,
     context: dependencies.SessionContext,
-    member: dependencies.MemberFromSession,
+    member: dependencies.PersonFromSession,
 ):
     return TEMPLATES.TemplateResponse(
         request=request,
@@ -389,8 +383,13 @@ async def member_list(
 async def member_display(
     request: fastapi.Request,
     context: dependencies.SessionContext,
-    member: dependencies.MemberFromSession,
+    member: dependencies.PersonFromSession,
+    op: dependencies.DbOperator,
+    uid: typing.Annotated[str, fastapi.Path()],
 ):
+    if member.uid != uid and not member.vekn:
+        target = await op.get_member(uid)
+        dependencies.check_can_contact(member, target)
     return TEMPLATES.TemplateResponse(
         request=request,
         name="member/display.html.j2",

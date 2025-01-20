@@ -21,7 +21,6 @@ class MemberDisplay {
     target: d.Member | undefined
     countries: Map<string, d.Country>
     cities: Map<string, d.City>
-    members_map: m.MemberMap
     vekn_modal: m.ExistingVeknModal
     // form
     name: HTMLInputElement
@@ -35,35 +34,29 @@ class MemberDisplay {
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
-        this.members_map = new m.MemberMap()
-        const promises = []
-        promises.push(this.members_map.init(this.token))
         if (countries) {
             this.countries = new Map(countries.map(c => [c.country, c]))
         } else {
-            promises.push(base.do_fetch("/api/vekn/country", {}).then(
-                r => r.json().then(
-                    countries => this.countries = new Map(countries.map(c => [c.country, c]))
-                )
-            ))
+            const res = await base.do_fetch("/api/vekn/country", {})
+            const countries = await res.json() as d.Country[]
+            this.countries = new Map(countries.map(c => [c.country, c]))
         }
         const user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
-        const member_fetch = base.do_fetch_with_token(`/api/vekn/members/${user_id}`, token, {}).then(
-            r => r.json().then(d => this.member = d)
-        )
+        const member_fetch = await base.do_fetch_with_token(`/api/vekn/members/${user_id}`, token, {})
+        this.member = await member_fetch.json()
         if (url.pathname.endsWith("display.html")) {
             const uid = url.pathname.split("/")[2]
             const res = await base.do_fetch_with_token(`/api/vekn/members/${uid}`, token, {})
             this.target = await res.json()
         } else {
-            await member_fetch
             this.target = this.member
         }
         if (this.target.country) {
-            promises.push(this.load_cities())
+            await this.load_cities()
+        } else {
+            this.cities = new Map<string, d.City>()
         }
-        promises.push(this.vekn_modal.init(this.token, user_id, this.target.uid))
-        await Promise.all(promises)
+        await this.vekn_modal.init(this.token, user_id, this.target.uid)
         this.display()
     }
     display() {
@@ -180,6 +173,10 @@ class MemberDisplay {
                 { name: "country", id: "selectCountry", "aria-label": "Country", autocomplete: "country-name" }
             )
             base.create_append(div, "label", ["form-label"], { for: "selectCountry" }).innerText = "Country"
+            const option = base.create_element("option")
+            option.value = ""
+            option.label = ""
+            this.country_select.options.add(option)
             for (const country of this.countries.values()) {
                 const option = base.create_element("option")
                 option.value = country.country
@@ -189,9 +186,6 @@ class MemberDisplay {
                 }
                 this.country_select.options.add(option)
             }
-            this.country_select.addEventListener("change", (ev) => {
-                this.load_cities().then(() => this.display())
-            })
             if (cci) {
                 this.country_select.addEventListener("change", base.debounce((ev) => this.change_info()))
             } else {
@@ -218,7 +212,7 @@ class MemberDisplay {
                 }
                 this.city_select.options.add(option)
             }
-            if (cci) {
+            if (cci && this.cities.size > 0) {
                 this.city_select.addEventListener("change", base.debounce((ev) => this.change_info()))
             } else {
                 this.city_select.disabled = true
@@ -342,10 +336,9 @@ class MemberDisplay {
                 const prefix = base.create_prepend(body, "div",
                     ["border-top", "border-bottom", "border-info", "bg-info", "bg-opacity-10", "d-flex", "p-1", "mb-2"]
                 )
-                const listed_judge = this.members_map.by_uid.get(sanction.judge_uid)
-                if (listed_judge) {
+                if (sanction.judge) {
                     const author = base.create_append(prefix, "div", ["me-2"])
-                    author.innerText = `Issued by ${listed_judge.name}`
+                    author.innerText = `Issued by ${sanction.judge.name}`
                 }
                 // Remove button only for members who can sanction
                 if (m.can_sanction(this.member)) {
@@ -428,14 +421,16 @@ class MemberDisplay {
         }
     }
     async load_cities() {
+        if (!this.target.country || this.target.country.length < 1) {
+            this.cities = new Map()
+            return
+        }
         const res = await base.do_fetch(`/api/vekn/country/${this.target.country}/city`, {})
         this.cities = new Map(Object.entries(await res.json()))
     }
     async reload_target(target: d.Member) {
         this.target = target
-        if (this.target.country) {
-            await this.load_cities()
-        }
+        await this.load_cities()
         await this.vekn_modal.init(this.token, this.member.uid, this.target.uid)
         this.display()
     }
@@ -505,7 +500,8 @@ class MemberDisplay {
         if (this.name.value != this.target.name) { info.name = this.name.value }
         if (this.email.value != this.target.email) { info.email = this.email.value }
         if (this.whatsapp.value != this.target.whatsapp) { info.whatsapp = this.whatsapp.value }
-        if (this.country_select.value != this.target.country) { info.country = this.country_select.value }
+        const selected_country = this.country_select.options[this.country_select.selectedIndex].value
+        if (selected_country != this.target.country) { info.country = selected_country }
         if (this.city_select.value != this.target.city) { info.city = this.city_select.value }
         // TODO add the nickname field
         const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/info`, this.token,

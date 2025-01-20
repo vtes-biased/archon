@@ -82,6 +82,13 @@
             </div>
         </div>
     </div>
+    {% if member and not member.vekn %}
+    <div class="alert alert-info" role="alert">
+        You have no VEKN ID# on record. If have an existing VEKN#, you can claim it in your
+        <a class="alert-link" href="{{ url_for('member_display', uid=member.uid) }}">Profile</a>.<br>
+        Otherwise, reach out to a Prince or National Coordinator in your country.
+    </div>
+    {% endif %}
     <div class="container" id="contentContainer">
         {% block content %}{% endblock %}
     </div>
