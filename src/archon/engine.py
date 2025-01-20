@@ -140,6 +140,10 @@ class TournamentManager(models.Tournament):
         self.state = models.TournamentState.PLAYING
         self.rounds.append(self._event_seating_to_round(ev.seating))
         self._set_players_statuses_from_current_round()
+        # reset the toss if we mistakenly tossed for finals then canceled it
+        # before starting this new round
+        for player in self.players.values():
+            player.toss = 0
 
     def _set_players_statuses_from_current_round(self) -> None:
         players = {
@@ -159,33 +163,35 @@ class TournamentManager(models.Tournament):
                     player.state = models.PlayerState.REGISTERED
 
     def round_alter(self, ev: events.RoundAlter, member: models.Person) -> None:
+        self._alter_round(ev.round, ev.seating)
+
+    def _alter_round(self, round: int, seating: list[list[str]]):
         """Keep players results, decks and table overrides."""
-        old_tables = self.rounds[ev.round - 1].tables
+        old_tables = self.rounds[round - 1].tables
         results = {
             seat.player_uid: (seat.result, seat.deck)
             for table in old_tables
             for seat in table.seating
         }
         overrides = {i: table.override for i, table in enumerate(old_tables)}
-        self.rounds[ev.round - 1] = self._event_seating_to_round(ev.seating)
+        self.rounds[round - 1] = self._event_seating_to_round(seating)
         # if this is the current round, change players statuses accordingly
-        if ev.round == len(self.rounds):
+        finals = False
+        if round == len(self.rounds):
+            if self.state in [
+                models.TournamentState.FINALS,
+                models.TournamentState.FINISHED,
+            ]:
+                finals = True
             self._set_players_statuses_from_current_round()
         # restore overrides and results
-        for i, table in enumerate(self.rounds[ev.round - 1].tables):
+        for i, table in enumerate(self.rounds[round - 1].tables):
             table.override = overrides.pop(i, None)
             for seat in table.seating:
                 seat.result, seat.deck = results.pop(
                     seat.player_uid, (scoring.Score(), None)
                 )
-            finals = False
-            if self.state in [
-                models.TournamentState.FINALS,
-                models.TournamentState.FINISHED,
-            ] and ev.round == len(self.rounds):
-                finals = True
-            self._compute_table_score(table, finals=finals)
-            self._compute_table_state(table)
+            self._compute_table_score_and_state(table, finals=finals)
         # remove previous result for players who are removed from the new seating
         for uid, (result, _) in results.items():
             self.players[uid].result -= result
@@ -266,14 +272,23 @@ class TournamentManager(models.Tournament):
             models.TournamentState.FINISHED,
         ] and ev.round == len(self.rounds):
             finals = True
-        self._compute_table_score(player_table, finals=finals)
-        self._compute_table_state(player_table)
+        self._compute_table_score_and_state(player_table, finals=finals)
 
-    def _compute_table_score(self, table: models.Table, finals=False):
+    def _compute_table_score_and_state(self, table: models.Table, finals=False):
         for s in table.seating:
             self.players[s.player_uid].result -= s.result
         max_vps = scoring.compute_table_scores([s.result for s in table.seating])
-        if finals:
+        if table.override:
+            table.state = models.TableState.FINISHED
+        else:
+            err = scoring.check_table_vps([s.result for s in table.seating])
+            if isinstance(err, scoring.InsufficientTotal):
+                table.state = models.TableState.IN_PROGRESS
+            elif err:
+                table.state = models.TableState.INVALID
+            else:
+                table.state = models.TableState.FINISHED
+        if finals and table.state == models.TableState.FINISHED:
             # winning the finals counts as a GW even with less than 2 VPs
             # cf. VEKN Ratings system
             top_seats = [s for s in table.seating if s.result.vp >= max_vps]
@@ -282,18 +297,6 @@ class TournamentManager(models.Tournament):
             self.winner = top_seats[0].player_uid
         for s in table.seating:
             self.players[s.player_uid].result += s.result
-
-    def _compute_table_state(self, table: models.Table):
-        if table.override:
-            table.state = models.TableState.FINISHED
-            return
-        err = scoring.check_table_vps([s.result for s in table.seating])
-        if isinstance(err, scoring.InsufficientTotal):
-            table.state = models.TableState.IN_PROGRESS
-        elif err:
-            table.state = models.TableState.INVALID
-        else:
-            table.state = models.TableState.FINISHED
 
     def set_deck(self, ev: events.SetDeck, member: models.Person, check=False) -> None:
         if ev.deck.startswith("https://"):
@@ -380,16 +383,23 @@ class TournamentManager(models.Tournament):
     def override(self, ev: events.Override, member: models.Person) -> None:
         table = self.rounds[ev.round - 1].tables[ev.table - 1]
         table.override = models.ScoreOverride(judge=member, comment=ev.comment)
-        self._compute_table_state(table)
+        finals = False
+        if self.state in [
+            models.TournamentState.FINALS,
+            models.TournamentState.FINISHED,
+        ] and ev.round == len(self.rounds):
+            finals = True
+        self._compute_table_score_and_state(table, finals)
 
     def seed_finals(self, ev: events.SeedFinals, member: models.Person) -> None:
         self.state = models.TournamentState.FINALS
-        self.finals_seeds = ev.seeds[:]
+        self.finals_seeds = ev.seeds[:5]
         self.rounds.append(self._event_seating_to_round([self.finals_seeds[:]]))
         seeds = set(ev.seeds)
         for player in self.players.values():
             if player.uid not in seeds:
-                player.state = models.PlayerState.FINISHED
+                if player.state != models.PlayerState.FINISHED:
+                    player.state = models.PlayerState.REGISTERED
                 player.table = 0
                 player.toss = 0
                 player.seed = 0
@@ -401,17 +411,13 @@ class TournamentManager(models.Tournament):
             self.players[uid].state = models.PlayerState.PLAYING
 
     def seat_finals(self, ev: events.SeatFinals, member: models.Person) -> None:
-        self.rounds[-1] = self._event_seating_to_round([ev.seating])
-        for player in self.players.values():
-            if player.uid not in ev.seating:
-                player.state = models.PlayerState.FINISHED
+        self._alter_round(len(self.rounds), [ev.seating])
 
     def finish_tournament(
         self, ev: events.FinishTournament, member: models.Person
     ) -> None:
         finals_table = self.rounds[-1].tables[0]
-        self._compute_table_score(finals_table, finals=True)
-        self._compute_table_state(finals_table)
+        self._compute_table_score_and_state(finals_table, finals=True)
         for player in self.players.values():
             player.state = models.PlayerState.FINISHED
         self.state = models.TournamentState.FINISHED
