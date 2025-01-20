@@ -407,12 +407,16 @@ class MemberDisplay {
             const body = base.create_append(results_table, "tbody")
             for (const rating of Object.values(this.target.ratings)) {
                 const row = base.create_append(body, "tr", ["align-middle"])
-                base.create_append(row, "th", [], { scope: "row" }).innerText = rating.tournament.name
+                const name = base.create_append(row, "th", [], { scope: "row" })
+                const link = base.create_append(name, "a", [],
+                    { href: `/tournament/${rating.tournament.uid}/display.html` }
+                )
+                link.innerText = rating.tournament.name
                 const start = DateTime.fromFormat(
                     `${rating.tournament.start} ${rating.tournament.timezone}`,
                     "yyyy-MM-dd'T'HH:mm:ss z",
                     { setZone: true }
-                ).toLocal().toLocal().toLocaleString()
+                ).toLocal().toLocal().toISODate()
                 base.create_append(row, "td").innerText = start
                 base.create_append(row, "td").innerText = rating.tournament.rank
                 base.create_append(row, "td").innerHTML = tournament_result_string(rating)
