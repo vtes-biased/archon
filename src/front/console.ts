@@ -1711,7 +1711,7 @@ class TournamentConsole {
             this.tabs.get(`Finals`).show()
         } else if (this.tournament.state == d.TournamentState.PLAYING) {
             this.tabs.get(`Round ${this.rounds.length}`).show()
-        } else if (this.rounds.length || this.tournament.state == d.TournamentState.WAITING) {
+        } else if (this.tournament.state == d.TournamentState.WAITING) {
             this.tabs.get("Registration").show()
         } else {
             this.tabs.get("Info").show()
