@@ -64,7 +64,7 @@ async def api_tournament_put(
 
 @router.get("/{uid}", summary="Get tournament information")
 async def api_tournament_get(
-    tournament: dependencies.Tournament, member_uid: dependencies.MemberUidFromToken
+    tournament: dependencies.Tournament, _: dependencies.MemberUidFromToken
 ) -> models.Tournament:
     """Get tournament information
 
@@ -73,13 +73,35 @@ async def api_tournament_get(
     return tournament
 
 
+@router.delete("/{uid}", summary="Delete tournament")
+async def api_tournament_delete(
+    tournament: dependencies.Tournament,
+    actor: dependencies.PersonFromToken,
+    op: dependencies.DbOperator,
+) -> None:
+    """Delete tournament
+
+    - **uid**: The tournament unique ID
+    """
+    if models.MemberRole.ADMIN not in actor.roles:
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    for player_uid in tournament.players:
+        member: models.Member = await op.get_member(player_uid, True)
+        for i, sanction in enumerate(member.sanctions):
+            if sanction.tournament and sanction.tournament.uid == tournament.uid:
+                member.sanctions.pop(i)
+        member.ratings.pop(tournament.uid, None)
+        await op.update_member(member)
+    await op.delete_tournament(tournament.uid)
+
+
 @router.post("/{uid}/event", summary="Add tournament event")
 async def api_tournament_event_post(
     orchestrator: dependencies.TournamentOrchestrator,
     event: typing.Annotated[
         events.TournamentEvent, fastapi.Body(openapi_examples=events.OPENAPI_EXAMPLES)
     ],
-    initiator: dependencies.PersonFromToken,
+    actor: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
 ) -> models.Tournament:
     """Send a new event for this tournament.
@@ -88,8 +110,8 @@ async def api_tournament_event_post(
 
     - **uid**: The tournament unique ID
     """
-    orchestrator.handle_event(event, initiator)
-    await op.record_event(orchestrator.uid, initiator.uid, event)
+    orchestrator.handle_event(event, actor)
+    await op.record_event(orchestrator.uid, actor.uid, event)
     await op.update_tournament(orchestrator)
     # TODO: we might want to move this in a "VEKN member orchestrator" of sorts
     if (
@@ -101,7 +123,7 @@ async def api_tournament_event_post(
             models.RegisteredSanction(
                 tournament=models.TournamentConfig(**dataclasses.asdict(orchestrator)),
                 uid=event.sanction_uid,
-                judge=initiator,
+                judge=actor,
                 level=event.level,
                 category=event.category,
                 comment=event.comment,

@@ -354,6 +354,7 @@ interface TournamentDisplayCallback {
 export class TournamentDisplay {
     root: HTMLDivElement
     display_callback: TournamentDisplayCallback
+    confirmation_modal: base.ConfirmationModal
     score_modal: ScoreModal | undefined
     deck_modal: DeckModal | undefined
     checkin_modal: CheckInModal | undefined
@@ -386,6 +387,7 @@ export class TournamentDisplay {
     constructor(root: HTMLDivElement, display_callback: TournamentDisplayCallback | undefined = undefined) {
         this.root = base.create_append(root, "div")
         this.display_callback = display_callback
+        this.confirmation_modal = new base.ConfirmationModal(root)
         if (!display_callback) {
             this.score_modal = new ScoreModal(root, this)
             this.deck_modal = new DeckModal(root, this)
@@ -456,13 +458,27 @@ export class TournamentDisplay {
             const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
             edit_button.innerText = "Edit"
             edit_button.addEventListener("click", (ev) => this.display_form(tournament))
-            const download_button = base.create_append(buttons_div, "a",
-                ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"],
-                { role: "button" }
-            )
-            download_button.innerHTML = '<i class="bi bi-download"></i> Download'
-            download_button.href = "data:application/yaml;charset=utf-8;base64," + Base64.encode(stringify(tournament))
-            download_button.download = `${tournament.name}.txt`
+            if (this.user.roles.includes(d.MemberRole.ADMIN)) {
+                const download_button = base.create_append(buttons_div, "a",
+                    ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"],
+                    { role: "button" }
+                )
+                download_button.innerHTML = '<i class="bi bi-download"></i> Download'
+                download_button.href = "data:application/yaml;charset=utf-8;base64," + Base64.encode(
+                    stringify(tournament)
+                )
+                download_button.download = `${tournament.name}.txt`
+                const delete_button = base.create_append(buttons_div, "a",
+                    ["btn", "btn-danger", "text-nowrap", "me-2", "mb-2"],
+                    { role: "button" }
+                )
+                delete_button.innerHTML = '<i class="bi bi-trash"></i> Delete'
+                delete_button.addEventListener("click", (ev) => this.confirmation_modal.show(
+                    "This will permanently and officially delete this tournament data<br>" +
+                    "<em>Only do this if this tournament is invalid or has not taken place</em>",
+                    () => this.delete_tournament(tournament)
+                ))
+            }
         }
         // ------------------------------------------------------------------------------------------------------ Badges
         const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
@@ -1047,6 +1063,11 @@ export class TournamentDisplay {
             city: this.user.city,
         } as events.Register
         await this.handle_tournament_event(tournament.uid, tev)
+    }
+    async delete_tournament(tournament: d.Tournament) {
+        const res = await base.do_fetch_with_token(`/api/tournaments/${tournament.uid}`, this.token, { method: "delete" })
+        if (!res) { return }
+        window.location.href = "/tournament/list.html"
     }
     async display_form(tournament: d.Tournament | undefined) {
         base.remove_children(this.root)

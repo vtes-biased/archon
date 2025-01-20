@@ -236,6 +236,15 @@ class Operator:
                 )
             return str(uid)
 
+    async def delete_tournament(self, uid: str) -> None:
+        """Delete a tournament"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "DELETE FROM tournaments WHERE uid=%s", [uuid.UUID(uid)]
+            )
+            if res.rowcount < 1:
+                raise KeyError(f"Tournament {uid} not found")
+
     async def record_event(
         self, tournament_uid: str, member_uid: str, event: events.TournamentEvent
     ) -> None:
