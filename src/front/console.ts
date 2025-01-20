@@ -1713,7 +1713,10 @@ class TournamentConsole {
             this.tabs.get(`Round ${this.rounds.length}`).show()
         } else if (this.tournament.state == d.TournamentState.WAITING) {
             this.tabs.get("Registration").show()
-        } else {
+        } else if (this.tournament.state != d.TournamentState.FINISHED && this.tournament.rounds.length > 0) {
+            this.tabs.get("Registration").show()
+        }
+        else {
             this.tabs.get("Info").show()
         }
     }
@@ -1935,7 +1938,7 @@ class TournamentConsole {
         return response
     }
 
-    async add_member(member: d.Member) {
+    async add_member(member: d.Person) {
         // TODO figure out what to do in offline mode
         const res = await base.do_fetch("/api/vekn/members", {
             method: "post",
@@ -1948,9 +1951,19 @@ class TournamentConsole {
         })
         if (res) {
             member = await res.json()
-            this.register_player(member)
+            member = (await this.assign_vekn(member)) || member
+            await this.register_player(member)
         }
         return
+    }
+
+    async assign_vekn(member: d.Person): Promise<d.Person | void> {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${member.uid}/sponsor`, this.token,
+            { method: "post" }
+        )
+        if (res) {
+            return await res.json()
+        }
     }
 
     async register_player(member: d.Person) {
