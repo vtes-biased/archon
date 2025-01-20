@@ -1066,6 +1066,15 @@ class PlayerDrag {
         // including hovering many other rows, must as if we just swap the origin and the target
         // so we record our target to swap it back (first part of this method) if we change target later in the drag
         else {
+            // if landing on an empty cell, target the first empty cell in the table
+            while (
+                this.is_empty(target) &&
+                target.previousElementSibling &&
+                target.previousElementSibling.tagName == "TR" &&
+                this.is_empty(target.previousElementSibling as HTMLTableRowElement)
+            ) {
+                target = target.previousElementSibling as HTMLTableRowElement
+            }
             this.previous_switch = target
             this.previous_switch.classList.add("dragged")
             target.parentElement.insertBefore(this.dragging, target)
