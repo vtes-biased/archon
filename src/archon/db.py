@@ -225,13 +225,13 @@ class Operator:
                 raise KeyError(f"Tournament {uid} not found")
             if tournament.state == models.TournamentState.FINISHED:
                 await cursor.executemany(
-                    """UPDATE members 
-                    SET data=jsonb_set(data, '{ratings:%s}', %s, true) 
+                    f"""UPDATE members 
+                    SET data=jsonb_set(data, '{{ratings,{tournament.uid}}}', %s, true) 
                     WHERE uid=%s
                     """,
                     [
-                        [jsonize(rating), tournament.uid, uuid.UUID(uid)]
-                        for uid, rating in engine.ratings(tournament)
+                        [jsonize(rating), uuid.UUID(uid)]
+                        for uid, rating in engine.ratings(tournament).items()
                     ],
                 )
             return str(uid)
