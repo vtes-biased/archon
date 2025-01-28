@@ -6,22 +6,19 @@
         <div class="sticky-top z-1">
             <h3>Contents</h3>
             <ul class="navbar-nav navbar-nav-scroll">
-                <li class="fw-bold"><a class="nav-link" href="#members-and-profile">
-                        Members and profile
-                    </a></li>
-                <li><a class="nav-link" href="#vekn-id-number">
-                        VEKN ID Number
-                    </a></li>
-                <li><a class="nav-link" href="#member-roles">
-                        Member Roles
-                    </a></li>
-                <li><a class="nav-link" href="#personal-information">
-                        Personal Information
-                    </a></li>
+                <li class="fw-bold"><a class="nav-link" href="#members-and-profile">Members and profile</a></li>
+                <li><a class="nav-link" href="#vekn-id-number">VEKN ID Number</a></li>
+                <li><a class="nav-link" href="#member-roles">Member Roles</a></li>
+                <li><a class="nav-link" href="#personal-information">Personal Information</a></li>
+                <li class="fw-bold"><a class="nav-link" href="#tournaments">Tournaments</a></li>
+                <li><a class="nav-link" href="#configuration">Configuration</a></li>
+                <li><a class="nav-link" href="#registration-check-in">Registration & Check-In</a></li>
+                <li><a class="nav-link" href="#round-management">Round management</a></li>
+                <li><a class="nav-link" href="#finals">Finals</a></li>
+                <li><a class="nav-link" href="#sanctions">Sanctions</a></li>
             </ul>
         </div>
     </nav>
-
     <article class="col" data-bs-spy="scroll" data-bs-target="#contentNav">
         <h1>Archon Help
             <a class="link-secondary" rel="bookmark" href="#Hjudges-guide"><i class="bi bi-link-45deg"></i></a>
@@ -276,21 +273,169 @@
             <a class="link-secondary" rel="bookmark" href="#registration-check-in"><i class="bi bi-link-45deg"></i></a>
         </h3>
         <p>
+            VEKN members can register to a tournament from the moment it is published until it is finished.
+            This allows organizers to estimate the number of attendees prior to the event.
+            Registration stays open throughout an event because some organizers might want to add players
+            while an event is running, for example still welcome late comers for the second round.
+        </p>
+        <p>
+            Players can also drop, or be dropped, from the players list at any time. They still appear
+            in the list of players for the event to avoid bugs and complications, and ensure proper tracking.
+            However, they will not score any rating nor contribute to the tournament players count
+            if they have not played at least one round.
+        </p>
+        <p>
+            To participate in a round, a player needs not only be registered,
+            but also to <strong>check in</strong>, or be checked-in by the organizers, just before the round begins.
+        </p>
+        <h4>Check-In and Barriers</h4>
+        <p>
+            A player need to be checked-in to participate in an upcoming round. However, there are cases where the
+            Archon will not allow for a player to check in:
+        </p>
+        <ul>
+            <li>
+                If the tournament <strong>requires a decklist</strong> and the player has not uploaded one.
+                In that case, organizers need to either ask them to upload their decklist, or relax the requirement
+                in the tournament configuration (Info tab).
+            </li>
+            <li>If the player was <strong>banned</strong> by the VEKN or <strong>disqualified</strong> from the event
+            </li>
+        </ul>
+        <h4>Players self-check-in with QR code</h4>
+        <p>
+            In smaller events, the organizers can operate the check-in directly as players come in,
+            and even use the <em>Check everyone in</em> button after they've reviewed the list of registered players
+            and dropped any absentee.
+        </p>
+        <p>
+            In bigger events, though, the check-in desk operation is a time-consuming step that organizers might want
+            to accelerate. In that case, they can use the <strong>check-in QR code</strong> to allow players
+            to check-in by themselves. The QR code can be displayed as a separate (printable) page before the tournament
+            starts, or organizers can simply present this QR code on their own mobile device, for players to scan.
+            Players can only scan this QR code from the tournament page: this is not a link, they need to be logged
+            in the Archon and have a VEKN#.
+        </p>
+        <p>
+            After the first round is played, the Archon still asks for a check-in on each following round.
+            This is a step that should be expedited by clicking the <em>Check everyone in</em> if the round
+            is taking place the same day. Organizer should make sure that if any player has left
+            the tournament, they have been dropped before proceeding.
         </p>
         <h3 id="round-management">Round management
             <a class="link-secondary" rel="bookmark" href="#round-management"><i class="bi bi-link-45deg"></i></a>
         </h3>
         <p>
+            Once a round starts, players are assigned tables and seat and can start a game.
+            The round seating can be modified by organizers if needed, for example to add a late joiner
+            or remove an absentee. When they are done, players can record their table results.
+        </p>
+        <h4>Round seating</h4>
+        <p>
+            The Archon optimizes a round seating in accordance to these VEKN guidelines for preliminary rounds seatings:
+        </p>
+        <ul class="list-group-numbered">
+            <li class="list-group-item">
+                No pair of players repeat their predator-prey relationship. This is mandatory, by the
+                <a href="/document/tournament-rules.html#H3-1-2-preliminary-rounds-seating">VEKN Tournament rules</a>.
+            </li>
+            <li class="list-group-item">No pair of players share a table through all rounds.</li>
+            <li class="list-group-item">Available VPs are equitably distributed.</li>
+            <li class="list-group-item">No pair of players share a table more often than necessary.</li>
+            <li class="list-group-item">A player does not sit in the fifth seat more than once.</li>
+            <li class="list-group-item">No pair of players repeat the same relative position<sup>*</sup>.</li>
+            <li class="list-group-item">A player does not play in the same seat position.</li>
+            <li class="list-group-item">Starting transfers are equitably distributed.</li>
+            <li class="list-group-item">No pair of players repeat the same relative position group<sup>**</sup>.</li>
+        </ul>
+        <ul>
+            <li class="list-group-item"><strong>* Relative position: </strong> prey, predator, cross-table (4 players),
+                grand-prey,
+                grand-predator.</li>
+            <li class="list-group-item"><strong>** Relative position group: </strong> Adjacent or non-adjacent.</li>
+        </ul>
+        <p>
+            When modifying a round seating, organizers will see a display of rules violations, so they can try and
+            keep their modifications optimal. Seatings violating rule 1. will not be accepted.
+        </p>
+        <h4>Results reports</h4>
+        <p>
+            Players can report their table results on the tournament page by themselves, while the round is ongoing.
+            Organizers and judges can also input and change tables results at any time, after which
+            they cannot be modified by players anymore.
+        </p>
+        <p>
+            The Archon validates that the result are consistent with the seating and number of players,
+            and will not allow a round to finish with incomplete or invalid results.
+            Judges can, however, override this check in case they are faced with an odd situation: for example
+            if they award no VP or only half a VP after a player's urgent departure in the middle of a round.
         </p>
         <h3 id="finals">Finals
             <a class="link-secondary" rel="bookmark" href="#finals"><i class="bi bi-link-45deg"></i></a>
         </h3>
         <p>
+            After two preliminary rounds, organizers can either proceed with more rounds, or with a finals.
+            The finals will select the top five players in terms of Game win (GW), Victory Points (VP),
+            and Tournament Points (TP), as per the
+            <a href="/document/tournament-rules.html#H3-7-determining-a-game-winner">VEKN tournament rules</a>.
+        </p>
+        <p>
+            Organizers should make sure all top players are available for the finals, and drop those who cannot attend
+            prior to launching the finals in the Archon, so those players can be ignored.
+        </p>
+        <h4>Toss for finals</h4>
+        <p>
+            In case of a tie for the top five seats, a random method must be used to break the tie.
+            The Archon provides a button to do just that, but the organizers can opt for any other method they see fit,
+            and input the results in plain numbers (1, 2, 3, etc.), the lower number being the better score.
+        </p>
+        <h4>Seating</h4>
+        <p>
+            Finals follow a specific seating procedure, indicated in the
+            <a href="/document/tournament-rules.html#H3-1-3-final-round-seating">VEKN tournament rules</a>.
+            Organizers and judges should alter the table seating to reflect the actual seating after this procedure
+            has taken place.
+        </p>
+        <h4>Results and Winner</h4>
+        <p>
+            Once the finals have been played, organizers can input the results as usual,
+            declare a tournament winner, and finish the tournament. Note that winning the tournament finals,
+            even with less than 2 Victory Points, counts as a Game Win. All other finalists rank as second,
+            regardless of their results.
         </p>
         <h3 id="sanctions">Sanctions
             <a class="link-secondary" rel="bookmark" href="#sanctions"><i class="bi bi-link-45deg"></i></a>
         </h3>
         <p>
+            Throughout an event, organizers and judges can sanction players in case of any issue, whether
+            they fail to follow the game rules, tournament rules, or ethical requirements of the VEKN.
+            Sanctions can be added by clicking the <i class="bi bi-info-circle-fill"></i> button next to
+            a players' name anywhere in the console.
+        </p>
+        <ul>
+            <li>
+                <strong>Caution:</strong> Cautions are only tracked during the event.
+                They are especially useful during big events so judges can keep a track record of what has been going
+                down
+                on each table and for each player, even if different judges intervene at different times.
+            </li>
+            <li>
+                <strong>Warning:</strong> Warnings are recorded for the event, but also on a player's profile,
+                and will be displayed to organizers during future events the player participate in.
+                Repeated offenses, even at different events, should be examined by organizers.
+            </li>
+            <li>
+                <strong>Disqualification:</strong> Disqualifications immediately drop the player from the tournament
+                and prevent them from checking in in further rounds. The attending judge should make sure their table
+                result is set to zero for the round, if any round is ongoing. As for warnings, a disqualification
+                is recorded on a player's profile and displayed to future events organizers.
+            </li>
+        </ul>
+        <p>
+            Although the tournament rules make provisions for a <em>Game Loss</em> penalty, this penalty has been
+            deemed too disruptive and impractical to be included in the Archon platform. In practice, organizers are
+            advised to opt for a Warning or a Disqualification instead.
+            A player should not be barred from a single game, then allowed to play a further round.
         </p>
     </article>
 </div>
