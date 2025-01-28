@@ -1,0 +1,297 @@
+{% extends "layout.html.j2" %}
+
+{% block content %}
+<div class="row">
+    <nav id="contentNav" class="navbar d-block col-xl-3">
+        <div class="sticky-top z-1">
+            <h3>Contents</h3>
+            <ul class="navbar-nav navbar-nav-scroll">
+                <li class="fw-bold"><a class="nav-link" href="#members-and-profile">
+                        Members and profile
+                    </a></li>
+                <li><a class="nav-link" href="#vekn-id-number">
+                        VEKN ID Number
+                    </a></li>
+                <li><a class="nav-link" href="#member-roles">
+                        Member Roles
+                    </a></li>
+                <li><a class="nav-link" href="#personal-information">
+                        Personal Information
+                    </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <article class="col" data-bs-spy="scroll" data-bs-target="#contentNav">
+        <h1>Archon Help
+            <a class="link-secondary" rel="bookmark" href="#Hjudges-guide"><i class="bi bi-link-45deg"></i></a>
+        </h1>
+        <p>
+            The Archon is the platform managing both members of the VTES players association, and VTES events
+            throughout the world. Vampire: The Eternal Struggle (VTES) is a card game
+            produced by Black Chantry Productions (BCP). The VTES players association is known as the VEKN
+            (Vampire Elder Kindred Network).
+        </p>
+        <h2 id="members-and-profile">Members and profile
+            <a class="link-secondary" rel="bookmark" href="#members-and-profile"><i class="bi bi-link-45deg"></i></a>
+        </h2>
+        <p>
+            Users who create an account on the Archon have access to limited information: the list of upcoming
+            VTES events and a very limited list of VEKN representatives known as National Coordinators (NC) and Princes,
+            together with their contact information.
+        </p>
+        <p>
+            To be become VEKN member, a user must be sponsored by a VEKN representative so, if you desire to join,
+            please reach out to the nearest Prince or NC. VEKN membership is free.
+        </p>
+        <h3 id="vekn-id-number">VEKN ID Number
+            <a class="link-secondary" rel="bookmark" href="#vekn-id-number"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            Members of the VEKN are attributed a 7-digit VEKN identification number (VEKN# in short) when they join in.
+            This number does not change throughout their membership. You'll need a VEKN# to participate to official VEKN
+            events, like most VTES tournaments.
+        </p>
+        <p>
+            <strong>New Members</strong> must be sponsored by a Prince or NC, who can attribute them a VEKN#
+            after having checked their information and, usually, met them in person.
+            Most members simply get sponsored when they join their first event.
+        </p>
+        <p>
+            <strong>Existing Members</strong> logging in on the Archon for the first time need to <em>“claim”</em>
+            their VEKN#. Just click on the “<i class="bi bi-person-check"></i>Existing VEKN#” button in your profile,
+            and provide your number.
+        </p>
+        <h3 id="member-roles">Member roles
+            <a class="link-secondary" rel="bookmark" href="#member-roles"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            The VEKN has set up different roles in the organization to support players around the world.
+            All roles are occupied by voluntary VEKN members of at least 16 years of age.</p>
+        <ul>
+            <li><span class="badge me-1 text-bg-primary">Admin</span> are the Inner Circle of the VEKN, in charge
+                of promoting VTES as a whole by supporting and caring for the VEKN. They designate all other roles.
+            </li>
+            <li>
+                <span class="badge me-1 text-bg-success">NC</span> National Coordinators support organized play
+                at national level, and appoint Princes.
+            </li>
+            <li>
+                <span class="badge me-1 text-bg-info">Prince</span> Princes support VTES in their locality.
+                They organize regular gaming sessions at a store or public location, demos, and tournaments.
+            </li>
+            <li>
+                <span class="badge me-1 text-bg-warning">Judge</span> Elder Judges maintain cards rulings and advise
+                the Inner Circle on rules changes and Judges designation
+            </li>
+            <li>
+                <span class="badge me-1 text-bg-secondary">Anc. Judge</span>
+                <span class="badge me-1 text-bg-secondary">Neo. Judge</span> Ancilla and Neonate Judges answer players
+                questions about the rules, and arbitrate issues during organized events.
+            </li>
+            <li>
+                <span class="badge me-1 text-bg-secondary">PTC</span> Playtest Coordinators advise the Inner Circle on
+                playtest procedures, and Playtesters appointments.
+            </li>
+            <li>
+                <span class="badge me-1 text-bg-secondary">Playtester</span> Playtesters advise the Inner Circle on new
+                cards design by testing candidate cards in actual play, under NDA.
+            </li>
+            <li>
+                <span class="badge me-1 text-bg-secondary">Ethics</span> Members of the Ethics Committe are responsible
+                for upholding VEKN's Code of Ethics.
+            </li>
+        </ul>
+        <h4>Inner Circle (IC / Admin)</h4>
+        The Inner Circle is the administrative board of the VEKN, and consists of distinct roles
+        determined an appointed by the Chairman. The current Inner Circle is:
+        <ul>
+            <li><strong>Chairman: </strong> Hugh Angseesing</li>
+            <li><strong>Community & Social: </strong> Henrik Klippström</li>
+            <li><strong>Rules & Ratings: </strong> Vincent Ripoll</li>
+            <li><strong>Website: </strong> Ginés Quiñonero</li>
+            <li><strong>Organized Play: </strong> Orian Gissler</li>
+            <li><strong>Playtest: </strong> Norman Brown</li>
+        </ul>
+        <h4>National Coordinator (NC)</h4>
+        <p>
+            Some places are just so big that they need someone who is devoted to thinking about "National" concerns.
+            While princes devote their time to local events, National Coordinators are primarily concerned with
+            National Events. They promote the game and are a resource to princes in their geographic area.
+        </p>
+        <p>
+            National coordinators represent their players at an international level.
+            Each country should have one National Coordinator. If a country does not have a National Coordinator yet,
+            Princes in that country advise the Inner Circle on the appointment.
+        </p>
+        <p>Responsibilities of a National Coordinator include:</p>
+        <ul>
+            <li>Representing their players and Princes, and being available to them as their representative</li>
+            <li>Maintaining a national communications platform for VTES players in their country</li>
+            <li>Organizing national tournaments and qualifiers, as well as continental championships</li>
+            <li>Advising the Inner Circle on organized play</li>
+            <li>Translating rules and advertisements</li>
+            <li>Appointing Princes</li>
+            <li>Making promotional items available to Princes for demos and tournaments</li>
+            <li>Promoting VTES to retailers and supporting a good relationship between distributors and retailers</li>
+            <li>Sponsoring new VEKN members, registering and protecting their personal information</li>
+        </ul>
+        <p>
+            They can enlist help from their Princes to care for these Responsibilities as they sit fit,
+            with their Princes' accord.
+        </p>
+        <h4>Prince</h4>
+        <p>
+            Princes are active VTES players in charge of promoting VTES. They organize regular play in their domain,
+            be it weekly gaming events at a store or a public place, or regular online sessions or leagues.
+            They actively promote VTES through public demos and tournaments, and coopt new VEKN members.
+            They uphold the VEKN tournament rules and rating system, as well as the VEKN Code of Ethics.
+        </p>
+        <p>A Prince responsibilities include:</p>
+        <li>
+            Being a contact new players can reach out to when in search for other players, cards to trade,
+            or information about VTES.
+        </li>
+        <li>Representing their players, and being available to them as their representative</li>
+        <li>Maintaining an open and welcoming community of VTES players in their area</li>
+        <li>Organizing regular open sessions</li>
+        <li>Organizing public demos and tournaments in their area, at stores, conventions, or in public places.</li>
+        <li>Maintaining and improving relationship with local retailers</li>
+        <li>Promoting VTES in every way possible</li>
+        <li>Sponsoring new VEKN members, registering and protecting their personal information</li>
+        <p>
+            A Prince is appointed by the National Coordinator of their country, or a member of the Inner Circle.
+            They can enlist voluntary players in their area to support them in their efforts.
+        </p>
+        <p>
+            Princes have access to exclusive communication channels with other Princes, National Coordinators,
+            and the Inner Circle. Their efforts in promoting the game through regular play, demos and tournaments
+            constitute the essential core of the VEKN, and what keep the game running and growing.
+            They can count on their National Coordinator's help and mentoring in doing so, and can apply for promotional
+            support, in the form of cards, bundles and accessories.
+        </p>
+        <h4>Judges</h4>
+        <p>
+            Official VEKN Judges are VTES players recognized for their knowledge of the game rules, tournament rules,
+            Judges guidelines, and cards rulings. They should be preferred as Judges in VEKN sanctionned tournaments,
+            although <em>for now</em>, there is no obligation for a tournament judge to be an official VEKN judge.
+            Official Judges make themselves available to events organizers (Princes and NCs) to act as
+            tournament judges when needed.
+        </p>
+        <p>
+            VEKN Judges have successfully passed the relevant exam. The period of Judge
+            accreditation is valid for three years, or until the release of a new rulebook, whichever comes first.
+            Upon completion of this term, accreditation is automatically renewed provided the Judge continues to judge
+            and/or play at VEKN-sanctioned tournament events regularily.
+        </p>
+        <p>
+            There are two types of Judge exams: the <strong>Elder Judge exam</strong> has 100 questions, 35 easy,
+            35 medium and 30 hard. The <strong>Ancilla Judge exam</strong> has 50 question, 35 easy, 10 medium,
+            and 5 hard.
+        </p>
+        <ul>
+            <li>
+                <strong>Neonate Judges</strong> have reached a 60% score on the Ancilla exam, or 50% on the Elder exam.
+            </li>
+            <li>
+                <strong>Ancilla Judges</strong> have reached an 80% score on the Ancilla exam, or 60% on the Elder exam,
+                and they have been appointed judge at at least one sanctionned VEKN tournament.
+            </li>
+            <li>
+                <strong>(Elder) Judges</strong> are appointed by the VEKN Inner Circle. They should have reach an 80%
+                score on the Elder exam and have been appointed judge at multiple sanctionned VEKN tournaments.
+            </li>
+        </ul>
+        <p>
+            Elder judges have additional responsibilities:
+        </p>
+        <ul>
+            <li>Maintaining and improving the judges exams</li>
+            <li>Maintaining and improving the <a href="https://rulings.krcg.org">cards rulings database</a></li>
+            <li>Advising the Inner Circle on VTES rules, tournament rules and Judges guide evolutions.</li>
+        </ul>
+        </p>
+        <h4>Ethics Commitee</h4>
+        <p>
+            The VEKN Ethics Committee is appointed by the VEKN Chairman. Its responsibilities and procedures are
+            detailed in the <a href="{{ url_for('document_code_of_ethics') }}">VEKN Code of Ethics</a>.
+        </p>
+        <h3 id="personal-information">Personal Information
+            <a class="link-secondary" rel="bookmark" href="#personal-information"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            Users of the Archon can register their personal information, like their Name, Email,
+            and various social networks identifiers, as well as the deck lists they use in tournaments.
+            This information is made available to VEKN members under conditions detailed below, and users have a right
+            to access, modify and delete it as they wish.
+        </p>
+        <p>
+            Their <strong>Name</strong> can be displayed to any Archon user.
+            Their rating at official VEKN tournament, specifcally, is public information.
+        </p>
+        <p>
+            Their <strong>Contact information</strong> like their Email and social networks identifiers,
+            is only accessible to Princes and NCs in their country, except if they're a Prince or NC themselves,
+            in which case their contact information is made publicy available as part of their responsibilities.
+        </p>
+        <p>
+            The <strong>deck lists</strong> of VEKN members, when provided and recorded for an event,
+            can be made available to archiving projects and initiatives selected by the
+            Inner Circle and run by VEKN members.
+        </p>
+        <h2 id="tournaments">Tournaments
+            <a class="link-secondary" rel="bookmark" href="#tournaments"><i class="bi bi-link-45deg"></i></a>
+        </h2>
+        <p>
+            The primary goal of the Archon platform is to allow for easy tournament organization and reporting.
+        </p>
+        <h3 id="configuration">Configuration
+            <a class="link-secondary" rel="bookmark" href="#configuration"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+            Only Princes, NCs and Admins can create a Tournament.
+        </p>
+        <ul>
+            <li><strong>Format:</strong> Whether it's a <em>Standard</em>, <em>Limited</em> or <em>Draft</em>
+                tournament.</li>
+            <li><strong>Rank:</strong> Only for <em>Standard</em> tournaments, whether it has a National or Continental
+                rank.</li>
+            <li><strong>Proxies:</strong> Only allowed for unranked tournaments, it means players can use proxies in
+                their decks.</li>
+            <li><strong>Multideck:</strong> Only allowed for unranked tournaments, it means players can change deck
+                between rounds.</li>
+            <li><strong>Decklist required:</strong> Requires players to upload their decklist before they can check-in
+                to participate in any round (see below).</li>
+            <li><strong>Online:</strong> Indicate the tournament is an online event: the Venue URL is the meeting place.
+            </li>
+            <li><strong>Venue:</strong> Provides information about the venue.</li>
+            <li><strong>Start:</strong> The start date & time is mandatory and used for ordering and displaying events,
+                the finish is facultative.</li>
+            <li><strong>Description:</strong> Markdown can be used to make a good-looking appealing description for the
+                event.</li>
+            <li><strong>Judges:</strong> List of judges and organizers who will have access to the Tournament Management
+                console.</li>
+        </ul>
+        <h3 id="registration-check-in">Registration & Check-In
+            <a class="link-secondary" rel="bookmark" href="#registration-check-in"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+        </p>
+        <h3 id="round-management">Round management
+            <a class="link-secondary" rel="bookmark" href="#round-management"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+        </p>
+        <h3 id="finals">Finals
+            <a class="link-secondary" rel="bookmark" href="#finals"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+        </p>
+        <h3 id="sanctions">Sanctions
+            <a class="link-secondary" rel="bookmark" href="#sanctions"><i class="bi bi-link-45deg"></i></a>
+        </h3>
+        <p>
+        </p>
+    </article>
+</div>
+{% endblock %}

@@ -1801,7 +1801,7 @@ class TournamentConsole {
         } else if (this.tournament.state == d.TournamentState.FINALS) {
             this.help_message(
                 "Finals have been seeded — Perform the " +
-                '<a href="/document/tournament_rules.html#H3-1-3-final-round-seating" target="_blank">' +
+                '<a href="/document/tournament-rules.html#H3-1-3-final-round-seating" target="_blank">' +
                 'seating procedure' +
                 '</a>' +
                 " and use " +

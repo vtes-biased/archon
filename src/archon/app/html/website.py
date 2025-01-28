@@ -337,13 +337,24 @@ async def tournament_print_seating(
     )
 
 
-@router.get("/document/tournament_rules.html")
+@router.get("/document/archon-help.html")
+async def document_archon_help(
+    request: fastapi.Request, context: dependencies.SessionContext
+):
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="document/archon-help.html.j2",
+        context=context,
+    )
+
+
+@router.get("/document/tournament-rules.html")
 async def document_tournament_rules(
     request: fastapi.Request, context: dependencies.SessionContext
 ):
     return TEMPLATES.TemplateResponse(
         request=request,
-        name="document/tournament_rules.html.j2",
+        name="document/tournament-rules.html.j2",
         context=context,
     )
 
@@ -354,7 +365,7 @@ async def document_judges_guide(
 ):
     return TEMPLATES.TemplateResponse(
         request=request,
-        name="document/judges_guide.html.j2",
+        name="document/judges-guide.html.j2",
         context=context,
     )
 
@@ -365,7 +376,7 @@ async def document_code_of_ethics(
 ):
     return TEMPLATES.TemplateResponse(
         request=request,
-        name="document/code_of_ethics.html.j2",
+        name="document/code-of-ethics.html.j2",
         context=context,
     )
 
