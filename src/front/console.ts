@@ -869,7 +869,9 @@ class Registration {
             const tooltip = base.add_tooltip(button, "Start listing present players")
             button.addEventListener("click", (ev) => { tooltip.hide(); this.console.open_checkin() })
         }
-        else if (this.console.tournament.state == d.TournamentState.WAITING) {
+        if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
+            this.console.tournament.state == d.TournamentState.WAITING
+        ) {
             const checkin_code = base.create_append(this.action_row, "a",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"]
             )
@@ -883,6 +885,8 @@ class Registration {
             checkin_button.innerText = "Check everyone in"
             const tooltip = base.add_tooltip(checkin_button, "Check all Registered players in. Drop absentees first.")
             checkin_button.addEventListener("click", (ev) => { tooltip.hide(); this.check_everyone_in() })
+        }
+        if (this.console.tournament.state == d.TournamentState.WAITING) {
             const seat_span = base.create_append(this.action_row, "span", [], { tabindex: "0" })
             const seat_button = base.create_append(seat_span, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
@@ -906,7 +910,8 @@ class Registration {
             seat_button.addEventListener("click", (ev) => { tooltip2.hide(); this.console.start_round() })
         }
         if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
-            this.console.tournament.state == d.TournamentState.WAITING) {
+            this.console.tournament.state == d.TournamentState.WAITING
+        ) {
             if (this.console.tournament.rounds.length > 1) {
                 const finals_button = base.create_append(this.action_row, "button",
                     ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
