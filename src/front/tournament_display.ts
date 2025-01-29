@@ -715,6 +715,65 @@ export class TournamentDisplay {
         if (!tournament.multideck || tournament.rounds.length > 0) {
             this.display_user_set_deck(tournament, buttons_div)
         }
+        // display past rounds seating and results
+        if (tournament.rounds.length > 0) {
+            var max_round = tournament.rounds.length
+            if (tournament.state == d.TournamentState.PLAYING) {
+                max_round -= 1
+            }
+            if (tournament.state == d.TournamentState.FINALS || tournament.state == d.TournamentState.FINISHED) {
+                max_round -= 1
+            }
+            if (max_round > 0) {
+                const accordion = base.create_append(this.root, "div", ["accordion"], { id: "pastRoundsAccordion" })
+                for (var idx = 0; idx < max_round; idx++) {
+                    const round = tournament.rounds[idx]
+                    var player_table: d.Table
+                    var player_seat: d.TableSeat
+                    for (const table of round.tables) {
+                        for (const seat of table.seating) {
+                            if (seat.player_uid == player.uid) {
+                                player_table = table
+                                player_seat = seat
+                                break
+                            }
+                            if (player_seat) {
+                                break
+                            }
+                        }
+                    }
+                    const id = `prev-round-col-item-${idx}`
+                    const head_id = `prev-round-col-head-${idx}`
+                    const item = base.create_append(accordion, "div", ["accordion-item"])
+                    const header = base.create_append(item, "h2", ["accordion-header"], { id: head_id })
+                    const button = base.create_append(header, "button", ["accordion-button", "collapsed"], {
+                        type: "button",
+                        "data-bs-toggle": "collapse",
+                        "data-bs-target": `#${id}`,
+                        "aria-expanded": "false",
+                        "aria-controls": id,
+                    })
+                    button.innerText = `Round ${idx + 1}`
+                    if (player_seat) {
+                        const badge = base.create_append(button, "div", ["badge", "ms-2", "text-bg-secondary"])
+                        badge.innerText = score_string(player_seat.result)
+                    } else {
+                        const badge = base.create_append(button, "div", ["badge", "ms-2", "text-bg-danger"])
+                        badge.innerText = "No play"
+                    }
+                    const collapse = base.create_append(item, "div", ["accordion-collapse", "collapse"], {
+                        "aria-labelledby": head_id, "data-bs-parent": "#pastRoundsAccordion"
+                    })
+                    collapse.id = id
+                    const body = base.create_append(collapse, "div", ["accordion-body"])
+                    if (!player_table) { continue }
+                    this.display_user_table(tournament, player, body, player_table)
+                }
+                [].slice.call(accordion.querySelectorAll(".collapse")).map(
+                    (el: HTMLDivElement) => new bootstrap.Collapse(el, { toggle: false, parent: accordion })
+                )
+            }
+        }
         // _________________________________________________________________________________________ Tournament Finished
         if (tournament.state == d.TournamentState.FINISHED) {
             if (tournament.winner == player.uid) {
@@ -758,7 +817,7 @@ export class TournamentDisplay {
         if (tournament.state == d.TournamentState.FINALS) {
             if (player.state == d.PlayerState.PLAYING) {
                 this.set_alert("You play the finals", d.AlertLevel.SUCCESS)
-                this.display_user_table(tournament, player)
+                this.display_current_user_table(tournament, player)
             } else {
                 this.set_alert("Finals in progress: you are not participating", d.AlertLevel.INFO)
                 // TODO: it would be nice to be able to link live streams here
@@ -828,7 +887,7 @@ export class TournamentDisplay {
                 return
             }
             this.set_alert(`You are playing on table ${player.table}, seat ${player.seat}`, d.AlertLevel.SUCCESS)
-            this.display_user_table(tournament, player)
+            this.display_current_user_table(tournament, player)
             return
         }
         // ____________________________________________________________________________________________________ Check-In
@@ -930,30 +989,39 @@ export class TournamentDisplay {
             this.deck_modal.show(tournament, player)
         })
     }
-    display_user_table(tournament: d.Tournament, player: d.Player) {
+    display_current_user_table(tournament: d.Tournament, player: d.Player) {
         const current_round = tournament.rounds.length
         const player_table = tournament.rounds[current_round - 1].tables[player.table - 1]
-        const table_div = base.create_append(this.root, "div")
-        const table = base.create_append(table_div, "table", ["table"])
+        this.display_user_table(tournament, player, this.root, player_table, true)
+    }
+    display_user_table(
+        tournament: d.Tournament,
+        player: d.Player,
+        el: HTMLElement,
+        player_table: d.Table,
+        current: boolean = false
+    ) {
+        const table_div = base.create_append(el, "div")
+        const table = base.create_append(table_div, "table", ["table", "table-sm", "table-responsive"])
         const head = base.create_append(table, "thead")
-        const tr = base.create_append(head, "tr", ["align-middle"])
-        var headers = ["Seat", "VEKN#", "Name", "Score", ""]
-        if (tournament.state == d.TournamentState.FINALS) {
-            headers = ["Seed", "VEKN#", "Name", "Score"]
+        const tr = base.create_append(head, "tr", ["align-middle", "smaller-font"])
+        var headers: Array<string>
+        if (current && tournament.state != d.TournamentState.FINALS) {
+            headers = ["Seat", "VEKN#", "Name", "Score", ""]
+        } else {
+            headers = ["Seat", "VEKN#", "Name", "Score"]
         }
         for (const label of headers) {
             const th = base.create_append(tr, "th", [], { scope: "col" })
             th.innerText = label
         }
         const body = base.create_append(table, "tbody")
-        var player_seat: d.TableSeat
         for (const [idx, seat] of player_table.seating.entries()) {
             const seat_player = tournament.players[seat.player_uid]
             const row = base.create_append(body, "tr", ["align-middle"])
             var cell_cls = ["text-nowrap"]
-            var name_cls = ["w-100"]
+            var name_cls = ["w-100", "smaller-font"]
             if (player.uid == seat_player.uid) {
-                player_seat = seat
                 cell_cls.push("bg-primary-subtle")
                 name_cls.push("bg-primary-subtle")
             }
@@ -965,8 +1033,8 @@ export class TournamentDisplay {
                 base.create_append(row, "td", cell_cls).innerText = seat_player.vekn
             }
             base.create_append(row, "td", name_cls).innerText = seat_player.name
-            if (seat) {
-                base.create_append(row, "td", cell_cls).innerText = score_string(seat.result)
+            base.create_append(row, "td", cell_cls).innerText = score_string(seat.result)
+            if (current && tournament.state != d.TournamentState.FINALS) {
                 const actions = base.create_append(row, "td", cell_cls)
                 const changeButton = base.create_append(actions, "button",
                     ["me-2", "mb-2", "btn", "btn-sm", "btn-primary"]
@@ -976,7 +1044,7 @@ export class TournamentDisplay {
                     this.score_modal.show(
                         tournament,
                         seat_player,
-                        current_round,
+                        tournament.rounds.length,
                         player_table.seating.length,
                         seat.result.vp
                     )

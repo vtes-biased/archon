@@ -10,7 +10,7 @@
 {%endif%}
 <table class="table table-striped">
     <thead>
-        <tr class="align-middle">
+        <tr class="align-middle smaller-font">
             <th scope="col">Rank</th>
             <th scope="col">VEKN</th>
             <th scope="col">Name</th>
@@ -22,9 +22,9 @@
         {% for m in members %}
         <tr>
             <th scope="row">{{ loop.index }}</th>
-            <td>{{ m.vekn }}</td>
-            <td>{{ m.name }}</td>
-            <td>{{ m.country | country_with_flag }}</td>
+            <td class="smaller-font">{{ m.vekn }}</td>
+            <td class="smaller-font">{{ m.name }}</td>
+            <td class="smaller-font">{{ m.country | country_with_flag }}</td>
             <td>{{ m.ranking.constructed_onsite }}</td>
         </tr>
         {% endfor %}

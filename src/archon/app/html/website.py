@@ -247,7 +247,7 @@ async def tournament_edit(
     tournament: dependencies.TournamentConfig,
     member_uid: dependencies.MemberUidFromSession,
 ):
-    if member_uid not in tournament.judges:
+    if member_uid not in [j.uid for j in tournament.judges]:
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_403_FORBIDDEN,
             detail="A judge is required",
@@ -295,7 +295,7 @@ async def tournament_display(
     tournament: dependencies.Tournament,
     member_uid: dependencies.MemberUidFromSession,
 ):
-    if member_uid not in tournament.judges:
+    if member_uid not in [j.uid for j in tournament.judges]:
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
     context["name"] = tournament.name
     context["code"] = tournament.checkin_code

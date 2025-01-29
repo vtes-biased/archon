@@ -255,7 +255,7 @@ class SanctionPlayerModal {
             this.qr_scanner.start()
         })
         this.sanctions_accordion = base.create_append(this.body, "div", ["accordion"], { id: "sanctionAccordion" })
-        // Add existing sanctions in display()
+        // Add existing sanctions in show()
         this.form = base.create_append(this.body, "form")
         this.comment = base.create_append(this.form, "textarea", ["form-control", "my-2"],
             { type: "text", autocomplete: "new-comment", rows: 3, maxlength: 500, name: "new-comment" }
@@ -716,9 +716,9 @@ class Registration {
         this.filter_label.innerText = "All players"
         this.filter_switch.addEventListener("change", (ev) => this.toggle_filter())
         this.players_count = base.create_append(table_controls, "div")
-        this.players_table = base.create_append(table_div, "table", ["table", "table-striped"])
+        this.players_table = base.create_append(table_div, "table", ["table", "table-striped", "table-sm", "table-responsive"])
         const head = base.create_append(this.players_table, "thead")
-        const row = base.create_append(head, "tr", ["align-middle"])
+        const row = base.create_append(head, "tr", ["align-middle", "smaller-font"])
         for (const label of ["VEKN #", "Name", "Rank", "Status", ""]) {
             const cel = base.create_append(row, "th", [], { scope: "col" })
             cel.innerText = label
@@ -790,13 +790,13 @@ class Registration {
         ).innerText = `${finished_count} finished`
         for (const [rank, player] of players) {
             const row = base.create_append(this.players_table_body, "tr", ["align-middle"])
-            const head = base.create_append(row, "th", ["text-nowrap"], { scope: "row" })
+            const head = base.create_append(row, "th", ["text-nowrap", "smaller-font"], { scope: "row" })
             head.innerText = player.vekn
-            const name = base.create_append(row, "td", ["w-100"])
+            const name = base.create_append(row, "td", ["w-100", "smaller-font"])
             name.innerText = player.name
-            const score = base.create_append(row, "td", ["text-nowrap"])
+            const score = base.create_append(row, "td", ["text-nowrap", "smaller-font"])
             score.innerHTML = full_score_string(player, rank)
-            const state = base.create_append(row, "td", ["text-nowrap"])
+            const state = base.create_append(row, "td", ["text-nowrap", "smaller-font"])
             var color_cls: string
             switch (player.state) {
                 case d.PlayerState.CHECKED_IN:
@@ -1211,9 +1211,9 @@ class RoundTab {
         } else {
             title.innerText = `Table ${table_index}`
         }
-        const table = base.create_append(div, "table", ["table"])
+        const table = base.create_append(div, "table", ["table", "table-sm"])
         const head = base.create_append(table, "thead")
-        const tr = base.create_append(head, "tr", ["align-middle"])
+        const tr = base.create_append(head, "tr", ["align-middle", "smaller-font"])
         var headers = ["VEKN#", "Name", "Score", ""]
         if (this.finals) {
             headers = ["Seed", "VEKN#", "Name", "Score", ""]
@@ -1290,11 +1290,9 @@ class RoundTab {
         if (this.finals) {
             const score_cell = base.create_append(row, "td", ["text-nowrap"])
             score_cell.innerHTML = full_score_string(player)
-            base.create_append(row, "td", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
-        } else {
-            base.create_append(row, "th", ["text-nowrap"], { scope: "row" }).innerText = player.vekn
         }
-        base.create_append(row, "td", ["w-100"]).innerText = player.name
+        base.create_append(row, "th", ["text-nowrap", "smaller-font"], { scope: "row" }).innerText = player.vekn
+        base.create_append(row, "td", ["w-100", "smaller-font"]).innerText = player.name
         if (seat) {
             base.create_append(row, "td", ["text-nowrap"]).innerText = score_string(seat.result)
         } else {

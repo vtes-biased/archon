@@ -75,3 +75,14 @@ tr.dragged>td,
 tr.dragged>th {
     background-color: var(--bs-primary-bg-subtle);
 }
+
+@media (max-width: 576px) {
+    .smaller-font {
+        font-size: 0.75em !important;
+    }
+
+    .sm-hide {
+        visibility: hidden;
+        display: none;
+    }
+}

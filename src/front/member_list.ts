@@ -37,9 +37,9 @@ class MemberListDisplay {
         this.filters_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
         this.roles_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
         const controls_row = base.create_append(root, "div", ["d-lg-flex", "align-items-center", "justify-content-between"])
-        this.buttons_row = base.create_append(controls_row, "div", ["d-md-flex", "my-2", "align-items-center"])
-        this.pagination_row = base.create_append(controls_row, "div", ["d-md-flex", "my-2", "align-items-center", "justify-content-end"])
-        this.members_table = base.create_append(root, "table", ["table", "table-striped", "table-hover"])
+        this.buttons_row = base.create_append(controls_row, "div", ["d-lg-flex", "my-2", "align-items-center"])
+        this.pagination_row = base.create_append(controls_row, "div", ["d-lg-flex", "my-2", "align-items-center", "justify-content-end"])
+        this.members_table = base.create_append(root, "table", ["table", "table-striped", "table-hover", "table-responsive"])
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
@@ -108,7 +108,8 @@ class MemberListDisplay {
     }
     member_added(member: d.Person) {
         this.members_map.add([member])
-        this.display()
+        const url = new URL(`/member/${member.uid}/display.html`, window.location.origin)
+        window.location.href = url.href
     }
     _add_role_checkbox(role: d.MemberRole | d.MemberFilter) {
         const div = base.create_append(this.roles_row, "div", ["form-check", "form-check-inline"])
@@ -122,10 +123,11 @@ class MemberListDisplay {
         base.remove_children(this.pagination_row)
         base.remove_children(this.members_table)
         const head = base.create_append(this.members_table, "thead")
-        const row = base.create_append(head, "tr", ["align-middle"])
-        for (const header of ["VEKN#", "Name", "Roles", "Country", "City"]) {
+        const row = base.create_append(head, "tr", ["align-middle", "smaller-font"])
+        for (const header of ["VEKN#", "Name", "Roles", "Country"]) {
             base.create_append(row, "th", [], { scope: "col" }).innerText = header
         }
+        base.create_append(row, "th", ["sm-hide"], { scope: "col" }).innerText = "City"
         const body = base.create_append(this.members_table, "tbody")
         var [total, skipped, displayed] = [0, 0, 0]
         const [search_params, members] = this.get_filtered_members()
@@ -141,9 +143,9 @@ class MemberListDisplay {
             displayed += 1
             const row = base.create_append(body, "tr", ["align-middle"])
             row.addEventListener("click", (ev) => { window.location.assign(`/member/${member.uid}/display.html`) })
-            base.create_append(row, "th", [], { scope: "row" }).innerText = member.vekn
-            base.create_append(row, "td").innerText = member.name
-            const roles = base.create_append(row, "td")
+            base.create_append(row, "th", ["smaller-font"], { scope: "row" }).innerText = member.vekn
+            base.create_append(row, "td", ["smaller-font"]).innerText = member.name
+            const roles = base.create_append(row, "td", ["smaller-font"])
             for (const role of member.roles) {
                 const role_badge = base.create_append(roles, "span", ["badge", "me-1"])
                 role_badge.innerText = role
@@ -165,11 +167,11 @@ class MemberListDisplay {
                         break
                 }
             }
-            const country = base.create_append(row, "td")
+            const country = base.create_append(row, "td", ["text-nowrap", "smaller-font"])
             if (member.country) {
                 country.innerText = `${member.country_flag} ${member.country}`
             }
-            const city = base.create_append(row, "td")
+            const city = base.create_append(row, "td", ["sm-hide"])
             if (member.city) {
                 city.innerText = `${member.city}`
             }
@@ -244,7 +246,7 @@ class MemberListDisplay {
         const ul = base.create_append(nav, "ul", ["pagination", "m-0"])
         {
             const li = base.create_append(ul, "li", ["page-item"])
-            const previous_button = base.create_append(li, "button", ["page-link"])
+            const previous_button = base.create_append(li, "button", ["page-link", "smaller-font"])
             base.create_append(previous_button, "i", ["bi", "bi-chevron-left"])
             if (this.page > 0) {
                 previous_button.addEventListener("click", (ev) => this.page_changed(this.page - 1))
@@ -255,7 +257,7 @@ class MemberListDisplay {
         const pad_size = pages_total.toString().length
         for (const page_index of pages_to_display) {
             const li = base.create_append(ul, "li", ["page-item"])
-            const button = base.create_append(li, "button", ["page-link"])
+            const button = base.create_append(li, "button", ["page-link", "smaller-font"])
             if (Number.isNaN(page_index)) {
                 base.create_append(button, "i", ["bi", "bi-three-dots"])
                 li.classList.add("disabled")
@@ -269,7 +271,7 @@ class MemberListDisplay {
         }
         {
             const li = base.create_append(ul, "li", ["page-item"])
-            const next_button = base.create_append(li, "button", ["page-link"])
+            const next_button = base.create_append(li, "button", ["page-link", "smaller-font"])
             base.create_append(next_button, "i", ["bi", "bi-chevron-right"])
             if (this.page < pages_total - 1) {
                 next_button.addEventListener("click", (ev) => this.page_changed(this.page + 1))
