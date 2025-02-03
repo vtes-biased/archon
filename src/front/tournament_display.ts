@@ -1139,23 +1139,29 @@ export class TournamentDisplay {
     }
     async display_form(tournament: d.Tournament | undefined) {
         base.remove_children(this.root)
-        const form = base.create_append(this.root, "form", ["row", "g-3", "mt-3"])
+        const form = base.create_append(this.root, "form", ["row", "g-3", "mt-3", "needs-validation"])
+        form.noValidate = true
         form.addEventListener("submit", (ev) => this.submit_tournament(ev, tournament))
         // ------------------------------------------------------------------------------------------------------ line 1
         { // name
             const div = base.create_append(form, "div", ["col-md-6"])
-            this.name = base.create_append(div, "input", ["form-control"],
-                { type: "text", name: "name", placeholder: "Tournament Name", autocomplete: "off", spellcheck: "false" }
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
+            this.name = base.create_append(group, "input", ["form-control", "z-1"],
+                { id: "tournamentName", type: "text", name: "name", autocomplete: "off", spellcheck: "false" }
             )
             if (tournament?.name && tournament.name.length > 0) {
                 this.name.value = tournament.name
             }
             this.name.ariaAutoComplete = "none"
             this.name.required = true
+            this.name.addEventListener("change", (ev) => { this.name.form.classList.add("was-validated") })
+            base.create_append(group, "div", ["invalid-feedback"]).innerText = "Choose a name for your tournament"
+            base.create_append(group, "label", ["form-label"], { for: "tournamentName" }).innerText = "Tournament name"
         }
         { // format
             const div = base.create_append(form, "div", ["col-md-3"])
-            this.format = base.create_append(div, "select", ["form-select"], { name: "format" })
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
+            this.format = base.create_append(group, "select", ["form-select", "z-1"], { name: "format" })
             this.format.required = true
             for (const value of Object.values(d.TournamentFormat)) {
                 const option = base.create_append(this.format, "option")
@@ -1168,10 +1174,12 @@ export class TournamentDisplay {
                 this.format.value = d.TournamentFormat.Standard
             }
             this.format.addEventListener("change", (ev) => this.select_format())
+            base.create_append(group, "label", ["form-label"], { for: "tournamentName" }).innerText = "Format"
         }
         { // rank
             const div = base.create_append(form, "div", ["col-md-3"])
-            this.rank = base.create_append(div, "select", ["form-select"], { name: "rank" })
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
+            this.rank = base.create_append(group, "select", ["form-select", "z-1"], { name: "rank" })
             for (const value of Object.values(d.TournamentRank)) {
                 const option = base.create_append(this.rank, "option")
                 option.innerText = value
@@ -1192,6 +1200,7 @@ export class TournamentDisplay {
                 this.rank.disabled = true
             }
             this.rank.addEventListener("change", (ev) => this.select_rank())
+            base.create_append(group, "label", ["form-label"], { for: "tournamentName" }).innerText = "Rank"
         }
         // ------------------------------------------------------------------------------------------------------ line 2
         { // proxies
@@ -1302,6 +1311,7 @@ export class TournamentDisplay {
             } else {
                 this.country.required = true
             }
+            base.create_append(div, "div", ["invalid-feedback"]).innerText = "If not online, a country is required"
         }
         // ------------------------------------------------------------------------------------------------------ line 4
         { // venue_url
@@ -1358,10 +1368,10 @@ export class TournamentDisplay {
         }
         { // start
             const div = base.create_append(form, "div", ["col-md-4"])
-            const group = base.create_append(div, "div", ["input-group", "form-floating"], { id: "pickerStart" })
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"], { id: "pickerStart" })
             group.dataset.tdTargetInput = "nearest"
             group.dataset.tdTargetToggle = "nearest"
-            this.start = base.create_append(group, "input", ["form-control"], {
+            this.start = base.create_append(group, "input", ["form-control", "z-1"], {
                 id: "tournamentStart",
                 type: "text",
                 name: "start",
@@ -1371,6 +1381,8 @@ export class TournamentDisplay {
             this.start.ariaLabel = "Start"
             this.start.ariaAutoComplete = "none"
             this.start.dataset.tdTarget = "#pickerStart"
+            this.start.required = true
+            this.start.pattern = /\d{4}\-\d{2}\-\d{2}\s\d{2}:\d{2}/.source
             base.create_append(group, "label", ["form-label"], { for: "tournamentStart" }).innerText = "Start"
             const span = base.create_append(group, "span", ["input-group-text"])
             span.dataset.tdTarget = "#pickerStart"
@@ -1385,13 +1397,14 @@ export class TournamentDisplay {
                 stepping: 15,
                 promptTimeOnDateChange: true
             })
+            base.create_append(group, "div", ["invalid-feedback"]).innerText = "A start date is required"
         }
         { // finish
             const div = base.create_append(form, "div", ["col-md-4"])
-            const group = base.create_append(div, "div", ["input-group", "form-floating"], { id: "pickerFinish" })
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"], { id: "pickerFinish" })
             group.dataset.tdTargetInput = "nearest"
             group.dataset.tdTargetToggle = "nearest"
-            this.finish = base.create_append(group, "input", ["form-control"], {
+            this.finish = base.create_append(group, "input", ["form-control", "z-1"], {
                 id: "tournamentFinish",
                 type: "text",
                 name: "finish",
@@ -1401,6 +1414,7 @@ export class TournamentDisplay {
             this.finish.ariaLabel = "Finish"
             this.finish.ariaAutoComplete = "none"
             this.finish.dataset.tdTarget = "#pickerFinish"
+            this.finish.pattern = /\d{4}\-\d{2}\-\d{2}\s\d{2}:\d{2}/.source
             base.create_append(group, "label", ["form-label"], { for: "tournamentFinish" }).innerText = "Finish"
             const span = base.create_append(group, "span", ["input-group-text"])
             span.dataset.tdTarget = "#pickerFinish"
@@ -1415,6 +1429,7 @@ export class TournamentDisplay {
                 stepping: 15,
                 promptTimeOnDateChange: true
             })
+            base.create_append(group, "div", ["valid-feedback"]).innerText = "Optional finish date/time"
         }
         { // timezone
             const div = base.create_append(form, "div", ["col-md-4"])
@@ -1423,6 +1438,7 @@ export class TournamentDisplay {
                 { id: "timezoneSelect", name: "timezone" }
             )
             this.timezone.ariaLabel = "Timezone"
+            this.timezone.required = true
             base.create_append(group, "label", ["form-label"], { for: "timezoneSelect" }).innerText = "Timezone"
             const browser_timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
             for (const tz of Intl.supportedValuesOf('timeZone')) {
@@ -1586,6 +1602,14 @@ export class TournamentDisplay {
     async submit_tournament(ev: Event, tournament: d.Tournament | undefined) {
         // create or update tournament
         ev.preventDefault()
+        const form = ev.currentTarget as HTMLFormElement
+        if (!form.checkValidity()) {
+            ev.preventDefault()
+            ev.stopPropagation()
+            form.classList.add('was-validated')
+            return
+        }
+        form.classList.add('was-validated')
         console.log("submitting")
         const tournamentForm = ev.currentTarget as HTMLFormElement
         const data = new FormData(tournamentForm)

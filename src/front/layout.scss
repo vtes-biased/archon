@@ -86,3 +86,8 @@ tr.dragged>th {
         display: none;
     }
 }
+
+// fix form floating labels z-index so they display on top of validation & focus
+label.form-label {
+    z-index: 6 !important;
+}
