@@ -614,11 +614,7 @@ export class TournamentDisplay {
             const table = base.create_append(this.root, "table", ["table", "table-striped", "my-2"])
             const head = base.create_append(table, "thead")
             const row = base.create_append(head, "tr", ["align-middle"])
-            for (const label of ["Judges", "", ""]) {
-                const cel = base.create_append(row, "th", [], { scope: "col" })
-                cel.innerText = label
-            }
-
+            base.create_append(row, "th", [], { scope: "col", colspan: "3" }).innerText = "Judges & Organizers"
             const body = base.create_append(table, "tbody")
             for (const judge of this.judges.values()) {
                 body.append(this.create_judge_row(judge, false))
@@ -1478,11 +1474,7 @@ export class TournamentDisplay {
             const table = base.create_append(form, "table", ["table", "table-striped", "my-2"])
             const head = base.create_append(table, "thead")
             const row = base.create_append(head, "tr", ["align-middle"])
-            for (const label of ["Judges", "", ""]) {
-                const cel = base.create_append(row, "th", [], { scope: "col" })
-                cel.innerText = label
-            }
-
+            base.create_append(row, "th", [], { scope: "col", colspan: "3" }).innerText = "Judges & Organizers"
             const body = base.create_append(table, "tbody")
             for (const judge of this.judges.values()) {
                 body.append(this.create_judge_row(judge, true))
