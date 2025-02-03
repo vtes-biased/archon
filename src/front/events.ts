@@ -15,6 +15,7 @@ export enum EventType {
     SANCTION = "SANCTION",
     UNSANCTION = "UNSANCTION",
     OVERRIDE = "OVERRIDE",
+    UNOVERRIDE = "UNOVERRIDE",
     SEED_FINALS = "SEED_FINALS",
     SEAT_FINALS = "SEAT_FINALS",
     FINISH_TOURNAMENT = "FINISH_TOURNAMENT",
@@ -137,6 +138,12 @@ export interface Override extends Event {
     comment: string,
 }
 
+export interface Unoverride extends Event {
+    type: EventType.UNOVERRIDE,
+    round: number,
+    table: number,
+}
+
 export interface SeedFinals extends Event {
     type: EventType.SEED_FINALS,
     toss: Record<string, number>  // {player_uid: toss} (lower is first)
@@ -168,6 +175,7 @@ export type TournamentEvent = (
     Sanction |
     Unsanction |
     Override |
+    Unoverride |
     SeedFinals |
     SeatFinals |
     FinishTournament

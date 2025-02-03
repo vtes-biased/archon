@@ -25,6 +25,7 @@ class EventType(enum.StrEnum):
     SANCTION = "SANCTION"
     UNSANCTION = "UNSANCTION"
     OVERRIDE = "OVERRIDE"
+    UNOVERRIDE = "UNOVERRIDE"
     SEED_FINALS = "SEED_FINALS"
     SEAT_FINALS = "SEAT_FINALS"
     FINISH_TOURNAMENT = "FINISH_TOURNAMENT"
@@ -159,6 +160,13 @@ class Override(Event):
 
 
 @dataclasses.dataclass(kw_only=True)
+class Unoverride(Event):
+    type: typing.Literal[EventType.UNOVERRIDE]
+    round: int
+    table: int
+
+
+@dataclasses.dataclass(kw_only=True)
 class SeedFinals(Event):
     type: typing.Literal[EventType.SEED_FINALS]
     toss: dict[str, int]  # {player_uid; toss}
@@ -192,6 +200,7 @@ TournamentEvent = typing.Union[
     Sanction,
     Unsanction,
     Override,
+    Unoverride,
     SeedFinals,
     SeatFinals,
     FinishTournament,

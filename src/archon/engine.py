@@ -55,6 +55,8 @@ class TournamentManager(models.Tournament):
                 self.unsanction(ev, member)
             case events.EventType.OVERRIDE:
                 self.override(ev, member)
+            case events.EventType.UNOVERRIDE:
+                self.unoverride(ev, member)
             case events.EventType.SEED_FINALS:
                 self.seed_finals(ev, member)
             case events.EventType.SEAT_FINALS:
@@ -383,6 +385,17 @@ class TournamentManager(models.Tournament):
     def override(self, ev: events.Override, member: models.Person) -> None:
         table = self.rounds[ev.round - 1].tables[ev.table - 1]
         table.override = models.ScoreOverride(judge=member, comment=ev.comment)
+        finals = False
+        if self.state in [
+            models.TournamentState.FINALS,
+            models.TournamentState.FINISHED,
+        ] and ev.round == len(self.rounds):
+            finals = True
+        self._compute_table_score_and_state(table, finals)
+
+    def unoverride(self, ev: events.Unoverride, member: models.Person) -> None:
+        table = self.rounds[ev.round - 1].tables[ev.table - 1]
+        table.override = None
         finals = False
         if self.state in [
             models.TournamentState.FINALS,
@@ -901,6 +914,15 @@ class TournamentOrchestrator(TournamentManager):
         if ev.table < 1 or ev.table > len(round_.tables):
             raise BadTableNumber(ev)
         super().override(ev, member)
+
+    def unoverride(self, ev: events.Unoverride, member: models.Person) -> None:
+        self._check_judge(ev, member)
+        if ev.round < 1 or ev.round > len(self.rounds):
+            raise BadRoundNumber(ev)
+        round_ = self.rounds[ev.round - 1]
+        if ev.table < 1 or ev.table > len(round_.tables):
+            raise BadTableNumber(ev)
+        super().unoverride(ev, member)
 
     def seed_finals(self, ev: events.SeedFinals, member: models.Person) -> None:
         self._check_judge(ev, member)

@@ -22,7 +22,6 @@ class PlayerSelectModal extends base.Modal {
             { size: "10", name: "select-player" }
         )
         this.players = new Map()
-        this.modal = new bootstrap.Modal(this.modal_div)
     }
 
     init(round_tab: RoundTab, players: d.Player[]) {
@@ -261,7 +260,6 @@ class SanctionPlayerModal extends base.Modal {
         )
         this.cancel_button.innerText = "Cancel"
         this.cancel_button.addEventListener("click", (ev) => { this.member = null; this.modal.hide() })
-        this.modal = new bootstrap.Modal(this.modal_div)
         this.modal_div.addEventListener("hide.bs.modal", (ev) => {
             if (this.qr_scanner) {
                 this.qr_scanner.stop()
@@ -482,7 +480,6 @@ class SeedFinalsModal extends base.Modal {
         const tooltip = base.add_tooltip(this.toss_button, "Toss to break ties")
         this.toss_button.addEventListener("click", (ev) => { ev.preventDefault(); tooltip.hide(); this.do_toss() })
         this.to_toss = []
-        this.modal = new bootstrap.Modal(this.modal_div)
     }
 
     show() {
@@ -590,6 +587,81 @@ class SeedFinalsModal extends base.Modal {
     }
 }
 
+class OverrideModal extends base.Modal {
+    alert: HTMLDivElement
+    form: HTMLFormElement
+    comment: HTMLTextAreaElement
+    submit_button: HTMLButtonElement
+    remove_button: HTMLButtonElement
+    cancel_button: HTMLButtonElement
+    console: TournamentConsole
+    round: number | undefined
+    table_number: number | undefined
+    constructor(el: HTMLElement, console: TournamentConsole) {
+        super(el)
+        this.console = console
+        this.modal_title.innerText = "Override Table"
+        this.alert = base.create_append(this.modal_body, "div", ["alert", "alert-info"], { role: "alert" })
+        this.form = base.create_append(this.modal_body, "form", ["w-100"])
+        this.comment = base.create_append(this.form, "textarea", ["form-control", "my-2"],
+            { type: "text", autocomplete: "new-comment", rows: 3, maxlength: 500, name: "new-comment" }
+        )
+        this.comment.ariaAutoComplete = "none"
+        this.comment.spellcheck = false
+        this.comment.placeholder = "Comment"
+        const buttons_div = base.create_append(this.form, "div", ["d-flex", "my-2"])
+        this.submit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"],
+            { type: "submit" }
+        )
+        this.submit_button.innerText = "Submit"
+        this.form.addEventListener("submit", (ev) => this.submit(ev))
+        this.remove_button = base.create_append(buttons_div, "button", ["btn", "btn-danger", "me-2"],
+            { type: "button" }
+        )
+        this.remove_button.innerHTML = '<i class="bi bi-trash"></i> Remove'
+        this.remove_button.addEventListener("click", (ev) => this.unoverride())
+        // remove_button hidden/shown in this.show()
+        this.cancel_button = base.create_append(buttons_div, "button", ["btn", "btn-secondary", "me-2"],
+            { type: "button" }
+        )
+        this.cancel_button.innerText = "Cancel"
+        this.cancel_button.addEventListener("click", (ev) => { this.table_number = undefined; this.modal.hide() })
+    }
+
+    show(round: number, table: d.Table, table_number: number) {
+        this.round = round
+        this.table_number = table_number
+        if (table.override) {
+            this.comment.value = table.override.comment
+            this.remove_button.hidden = false
+            this.remove_button.disabled = false
+            this.alert.hidden = false
+            this.alert.innerText = `Overriden by ${table.override.judge?.name}`
+        } else {
+            this.comment.value = ""
+            this.remove_button.hidden = true
+            this.remove_button.disabled = true
+            this.alert.hidden = true
+            this.alert.innerText = ""
+        }
+        this.modal.show()
+    }
+
+    submit(ev: SubmitEvent) {
+        ev.preventDefault()
+        const res = this.console.override_table(this.round, this.table_number, this.comment.value)
+        if (res) {
+            this.modal.hide()
+        }
+    }
+
+    unoverride() {
+        const res = this.console.unoverride_table(this.round, this.table_number)
+        if (res) {
+            this.modal.hide()
+        }
+    }
+}
 
 enum PlayerFilter {
     ALL = "All",
@@ -1055,11 +1127,13 @@ class RoundTab {
     panel: HTMLDivElement
     action_row: HTMLDivElement
     reseat_button: HTMLButtonElement
+    override_modal: OverrideModal
     finals: boolean
     player_drag: PlayerDrag
     constructor(con: TournamentConsole, index: number, finals: boolean = false) {
         this.console = con
         this.index = index
+        this.override_modal = new OverrideModal(con.root, con)
         this.finals = finals
         if (this.finals) {
             this.panel = this.console.add_nav(`Finals`, (ev) => this.setup_player_lookup_modal())
@@ -1199,15 +1273,17 @@ class RoundTab {
             const tooltip = base.add_tooltip(overrideButton, "Validate an odd score")
             overrideButton.addEventListener("click", ev => {
                 tooltip.hide()
-                this.console.override_table(this.index, table_index)
+                this.override_modal.show(this.index, data, table_index)
             })
         }
         if (data.override) {
-            const override_badge = base.create_append(title_div, "span", ["badge", "me-2", "text-bg-info"])
-            override_badge.innerText = "Overriden"
-            if (data.override.comment && data.override.comment.length > 0) {
-                base.add_tooltip(override_badge, data.override.comment.slice(0, 100))
-            }
+            const overrideButton = base.create_append(title_div, "button", ["me-2", "btn", "btn-info"])
+            overrideButton.innerText = "Overriden"
+            const tooltip = base.add_tooltip(overrideButton, "Check or remove the override")
+            overrideButton.addEventListener("click", ev => {
+                tooltip.hide()
+                this.override_modal.show(this.index, data, table_index)
+            })
         }
         for (const seat of data.seating) {
             const player = this.console.tournament.players[seat.player_uid]
@@ -1996,13 +2072,22 @@ class TournamentConsole {
         await this.handle_tournament_event(event)
         this.open_relevant_tab()
     }
-    async override_table(round_number: number, table_number: number) {
+    async override_table(round_number: number, table_number: number, comment: string) {
         const event: events.Override = {
             type: events.EventType.OVERRIDE,
             uid: uuid.v4(),
             round: round_number,
             table: table_number,
-            comment: "",  // TODO: we'll need another modal I guess
+            comment: comment,
+        }
+        await this.handle_tournament_event(event)
+    }
+    async unoverride_table(round_number: number, table_number: number) {
+        const event: events.Unoverride = {
+            type: events.EventType.UNOVERRIDE,
+            uid: uuid.v4(),
+            round: round_number,
+            table: table_number,
         }
         await this.handle_tournament_event(event)
     }
