@@ -10,27 +10,17 @@ import * as uuid from 'uuid'
 import QrScanner from "qr-scanner"
 
 
-class PlayerSelectModal {
-    modal_div: HTMLDivElement
-    header: HTMLHeadingElement
-    body: HTMLDivElement
+class PlayerSelectModal extends base.Modal {
     select: HTMLSelectElement
-    modal: bootstrap.Modal
     round_tab: RoundTab | undefined
     empty_row: HTMLTableRowElement | undefined
     players: Map<string, d.Player>
     constructor(el: HTMLElement, title: string = "Add player") {
-        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "PlayerSelectModalLabel" }
+        super(el)
+        this.modal_title.innerText = title
+        this.select = base.create_append(this.modal_body, "select", ["form-select"],
+            { size: "10", name: "select-player" }
         )
-        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
-        const content = base.create_append(dialog, "div", ["modal-content"])
-        const header_div = base.create_append(content, "div", ["modal-header"])
-        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"], { id: "PlayerSelectModalLabel" })
-        this.header.innerText = title
-        base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        this.body = base.create_append(content, "div", ["modal-body"])
-        this.select = base.create_append(this.body, "select", ["form-select"], { size: "10", name: "select-player" })
         this.players = new Map()
         this.modal = new bootstrap.Modal(this.modal_div)
     }
@@ -72,32 +62,20 @@ class PlayerSelectModal {
 }
 
 
-class AddMemberModal {
+class AddMemberModal extends base.Modal {
     countries: d.Country[] | undefined
-    modal_div: HTMLDivElement
-    header: HTMLHeadingElement
-    body: HTMLDivElement
     form: HTMLFormElement
     name: HTMLInputElement
     country: HTMLSelectElement
     city: HTMLSelectElement
     email: HTMLInputElement
     submit_button: HTMLButtonElement
-    modal: bootstrap.Modal
     console: TournamentConsole
     constructor(el: HTMLElement, console: TournamentConsole, title: string = "Add member") {
+        super(el)
         this.console = console
-        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "AddMemberModalLabel" }
-        )
-        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
-        const content = base.create_append(dialog, "div", ["modal-content"])
-        const header_div = base.create_append(content, "div", ["modal-header"])
-        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"], { id: "AddMemberModalLabel" })
-        this.header.innerText = title
-        base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        this.body = base.create_append(content, "div", ["modal-body"])
-        this.form = base.create_append(this.body, "form")
+        this.modal_title.innerText = title
+        this.form = base.create_append(this.modal_body, "form")
         this.name = base.create_append(this.form, "input", ["form-control", "my-2"],
             { type: "text", autocomplete: "new-name", name: "new-name" }
         )
@@ -123,7 +101,6 @@ class AddMemberModal {
         this.city.required = false
         this.country.addEventListener("change", (ev) => this.change_country())
         this.form.addEventListener("submit", (ev) => this.submit(ev))
-        this.modal = new bootstrap.Modal(this.modal_div)
     }
 
     async init(countries: d.Country[] | undefined = undefined) {
@@ -200,10 +177,7 @@ class AddMemberModal {
     }
 }
 
-class SanctionPlayerModal {
-    modal_div: HTMLDivElement
-    header: HTMLHeadingElement
-    body: HTMLDivElement
+class SanctionPlayerModal extends base.Modal {
     deck_link: HTMLAnchorElement
     qr_button: HTMLButtonElement
     video: HTMLVideoElement
@@ -216,25 +190,16 @@ class SanctionPlayerModal {
     category: HTMLSelectElement
     submit_button: HTMLButtonElement
     cancel_button: HTMLButtonElement
-    modal: bootstrap.Modal
     console: TournamentConsole
     member: d.Person | null
     round: number | undefined
     seat: d.TableSeat | undefined
     constructor(el: HTMLElement, console: TournamentConsole) {
+        super(el)
         this.console = console
         this.member = null
-        this.modal_div = base.create_append(el, "div", ["modal", "modal-lg", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "SanctionPlayerModalLabel" }
-        )
-        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
-        const content = base.create_append(dialog, "div", ["modal-content"])
-        const header_div = base.create_append(content, "div", ["modal-header"])
-        this.header = base.create_append(header_div, "h1", ["modal-title", "fs-5"], { id: "SanctionPlayerModalLabel" })
-        this.header.innerText = "Sanction Member"  // Update to player name in display()
-        base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        this.body = base.create_append(content, "div", ["modal-body"])
-        const deck_buttons_div = base.create_append(this.body, "div", ["d-md-flex"])
+        this.modal_title.innerText = "Sanction Member"  // Update to player name in display()
+        const deck_buttons_div = base.create_append(this.modal_body, "div", ["d-md-flex"])
         this.deck_link = base.create_append(deck_buttons_div, "a", ["btn", "btn-vdb", "bg-vdb", "my-2", "me-2"],
             { target: "_blank" }
         )
@@ -242,7 +207,7 @@ class SanctionPlayerModal {
             { type: "button" }
         )
         this.qr_button.innerHTML = '<i class="bi bi-qr-code-scan"> Scan VDB</i>'
-        this.video = base.create_append(this.body, "video", ["w-100"])
+        this.video = base.create_append(this.modal_body, "video", ["w-100"])
         this.video.hidden = true
         this.qr_button.addEventListener("click", (ev) => {
             this.qr_button.disabled = true
@@ -254,9 +219,11 @@ class SanctionPlayerModal {
             this.qr_scanner = new QrScanner(this.video, async (result) => this.scanned(result), {})
             this.qr_scanner.start()
         })
-        this.sanctions_accordion = base.create_append(this.body, "div", ["accordion"], { id: "sanctionAccordion" })
+        this.sanctions_accordion = base.create_append(this.modal_body, "div", ["accordion"],
+            { id: "sanctionAccordion" }
+        )
         // Add existing sanctions in show()
-        this.form = base.create_append(this.body, "form")
+        this.form = base.create_append(this.modal_body, "form")
         this.comment = base.create_append(this.form, "textarea", ["form-control", "my-2"],
             { type: "text", autocomplete: "new-comment", rows: 3, maxlength: 500, name: "new-comment" }
         )
@@ -308,7 +275,7 @@ class SanctionPlayerModal {
         this.member = this.console.members_map.by_uid.get(member_uid)
         this.round = round
         this.seat = seat
-        this.header.innerText = this.member.name
+        this.modal_title.innerText = this.member.name
         this.comment.value = ""
         this.level.selectedIndex = 0
         this.category.selectedIndex = 0
@@ -472,10 +439,7 @@ class SanctionPlayerModal {
 }
 
 
-class SeedFinalsModal {
-    modal_div: HTMLDivElement
-    header: HTMLHeadingElement
-    body: HTMLDivElement
+class SeedFinalsModal extends base.Modal {
     alert: HTMLDivElement
     form: HTMLDivElement
     players_table: HTMLTableElement
@@ -484,21 +448,12 @@ class SeedFinalsModal {
     to_toss: d.Player[][]
     submit_button: HTMLButtonElement
     toss_button: HTMLButtonElement
-    modal: bootstrap.Modal
     console: TournamentConsole
     constructor(el: HTMLElement, console: TournamentConsole) {
+        super(el)
         this.console = console
-        this.modal_div = base.create_append(el, "div", ["modal", "modal-lg"],
-            { tabindex: "-1", "aria-labelledby": "SeedFinalsModalLabel" }
-        )
-        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
-        const content = base.create_append(dialog, "div", ["modal-content"])
-        const header_div = base.create_append(content, "div", ["modal-header"])
-        this.header = base.create_append(header_div, "h5", ["modal-title"], { id: "SeedFinalsModalLabel" })
-        this.header.innerText = "Finals seeding"
-        base.create_append(header_div, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        this.body = base.create_append(content, "div", ["modal-body"])
-        const alert = base.create_append(this.body, "div", ["alert", "alert-info"], { role: "alert" })
+        this.modal_title.innerText = "Finals seeding"
+        const alert = base.create_append(this.modal_body, "div", ["alert", "alert-info"], { role: "alert" })
         alert.innerText = (
             "Make sure those players are available for the finals. " +
             "Close and drop or check-in players to adjust."
@@ -506,7 +461,7 @@ class SeedFinalsModal {
         // WARNING: don't use a form here, even if we have the toss number as inputs.
         // It breaks on Firefox in a strange way: failing to parse the form data itself
         // makes it raise a Network error on the fetch sending the event there...
-        this.players_table = base.create_append(this.body, "table", ["table", "table-sm"])
+        this.players_table = base.create_append(this.modal_body, "table", ["table", "table-sm"])
         const head = base.create_append(this.players_table, "thead")
         const row = base.create_append(head, "tr", ["align-middle"])
         for (const label of ["Rank", "Toss", "Player"]) {
@@ -514,7 +469,7 @@ class SeedFinalsModal {
             cel.innerText = label
         }
         this.players_table_body = base.create_append(this.players_table, "tbody")
-        const buttons_div = base.create_append(this.body, "div", ["d-flex", "my-2"])
+        const buttons_div = base.create_append(this.modal_body, "div", ["d-flex", "my-2"])
         this.submit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"],
             { type: "submit" }
         )
