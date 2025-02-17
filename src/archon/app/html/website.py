@@ -79,7 +79,10 @@ async def html_auth_oauth_token(
     return dependencies.Token(access_token=access_token, token_type="Bearer")
 
 
-@router.get("/auth/discord")
+@router.get(
+    "/auth/discord",
+    summary="Endpoint where the user is redirected after having logged in Discord",
+)
 async def html_auth_discord(
     request: fastapi.Request,
     logged_in: dependencies.DiscordLogin,
@@ -90,6 +93,54 @@ async def html_auth_discord(
         request.session["message"] = "Login failed"
         next = str(request.url_for("login"))
     return fastapi.responses.RedirectResponse(next)
+
+
+@router.post(
+    "/auth/email/reset",
+    summary="Ask for a password reset for a given email",
+)
+async def html_auth_email(
+    request: fastapi.Request,
+    email: dependencies.EmailAddress,
+):
+    await dependencies.send_reset_email(email)
+    request.session["message"] = (
+        "Check your email for the link to create or reset your password."
+    )
+    return fastapi.responses.RedirectResponse(request.url_for("login"), status_code=303)
+
+
+@router.get(
+    "/auth/email/reset",
+    summary="Check the reset link is valid, then ask the user to set a new password",
+)
+async def html_auth_email(
+    request: fastapi.Request,
+    uid: dependencies.EmailReset,
+):
+    if uid:
+        return fastapi.responses.RedirectResponse(
+            request.url_for("member_display", uid=uid)
+        )
+    else:
+        request.session["message"] = "Email verification URL is invalid or outdated"
+        return fastapi.responses.RedirectResponse(request.url_for("login"))
+
+
+@router.post(
+    "/auth/email",
+    summary="HTML Basic auth - standard email/password login",
+)
+async def html_auth_email(
+    request: fastapi.Request,
+    logged_in: dependencies.EmailLogin,
+):
+    if logged_in:
+        next = request.session.get("next", str(request.url_for("index")))
+    else:
+        request.session["message"] = "Login failed"
+        next = str(request.url_for("login"))
+    return fastapi.responses.RedirectResponse(next, status_code=303)
 
 
 @router.get(
@@ -190,6 +241,10 @@ async def login(
 ):
     if next:
         request.session["next"] = next
+    message = request.session.pop("message", None)
+    logging.warning("message: %s", message)
+    if message:
+        context["message"] = message
     return TEMPLATES.TemplateResponse(
         request=request, name="login.html.j2", context=context
     )

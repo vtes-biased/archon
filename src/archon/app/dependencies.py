@@ -1,9 +1,13 @@
 import aiohttp
+import base64
 import datetime
 import dotenv
+import fastapi_mail
 import fastapi.security
 import fastapi.templating
 import functools
+import hashlib
+import hmac
 import importlib.resources
 import itsdangerous.url_safe
 import jwt
@@ -30,6 +34,7 @@ SITE_URL_BASE = os.getenv("SITE_URL_BASE", "http://127.0.0.1:8000")
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 DISCORD_REDIRECT_URI = urllib.parse.urljoin(SITE_URL_BASE, "/auth/discord")
+EMAIL_LOGIN_URI = urllib.parse.urljoin(SITE_URL_BASE, "/auth/email/reset")
 DISCORD_AUTH_URL = functools.partial(
     "https://discord.com/oauth2/authorize?"
     "response_type=code&"
@@ -44,6 +49,25 @@ DISCORD_AUTH_URL = functools.partial(
 TOKEN_SECRET = os.getenv("TOKEN_SECRET")
 JWT_ALGORITHM = "HS256"
 LOG = logging.getLogger()
+
+
+DISCORD_LOGIN_HASH = itsdangerous.url_safe.URLSafeSerializer(
+    SESSION_KEY, "discord-login"
+)
+EMAIL_LOGIN_HASH = itsdangerous.url_safe.URLSafeTimedSerializer(
+    SESSION_KEY, "email-login"
+)
+
+MAIL_CONFIG = fastapi_mail.ConnectionConfig(
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_PORT=os.getenv("MAIL_PORT"),
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_FROM_NAME=os.getenv("MAIL_FROM_NAME"),
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+)
 
 
 # ############################################################################### Models
@@ -256,11 +280,6 @@ def check_can_contact(member: models.Person, target: models.Person):
 
 
 # #################################################################### Security: Session
-def hash_state(state: str):
-    """URL-safe signed hash of the state"""
-    return itsdangerous.url_safe.URLSafeSerializer(SESSION_KEY, "state").dumps(state)
-
-
 async def get_session_context(
     request: fastapi.Request, op: DbOperator
 ) -> dict[str, typing.Any]:
@@ -272,10 +291,18 @@ async def get_session_context(
     if uid:
         member = await op.get_member(uid)
         if member:
-            return {"member": member, "organizer": can_organize(member)}
+            return {
+                "member": member,
+                "organizer": can_organize(member),
+                "discord_oauth": DISCORD_AUTH_URL(
+                    state=DISCORD_LOGIN_HASH.dumps(member.uid)
+                ),
+            }
     anonymous_session(request)
     return {
-        "discord_oauth": DISCORD_AUTH_URL(state=hash_state(request.session["state"]))
+        "discord_oauth": DISCORD_AUTH_URL(
+            state=DISCORD_LOGIN_HASH.dumps(request.session["state"])
+        )
     }
 
 
@@ -338,7 +365,8 @@ async def discord_login(
     op: DbOperator,
 ) -> bool:
     """Login using Discord OAuth autorization code"""
-    if state != hash_state(request.session["state"]):
+    session_state = request.session.get("state") or request.session.get("user_id")
+    if DISCORD_LOGIN_HASH.loads(state) != session_state:
         LOG.warning("wrong state %s", state)
         return False
 
@@ -364,7 +392,12 @@ async def discord_login(
                 user = models.DiscordUser(**data)
     if user:
         async with db.operator() as op:
-            member = await op.upsert_member_discord(user)
+            if "user_id" in request.session:
+                member = await op.update_member_discord(
+                    request.session["user_id"], user
+                )
+            else:
+                member = await op.upsert_member_discord(user)
             authenticated_session(request, member)
             return True
     # reset state on login failure
@@ -373,6 +406,104 @@ async def discord_login(
 
 
 DiscordLogin = typing.Annotated[bool, fastapi.Depends(discord_login)]
+
+
+# ################################################################ Security: Email Login
+def email_login_url(email: str):
+    return (
+        EMAIL_LOGIN_URI
+        + "?"
+        + urllib.parse.urlencode({"state": EMAIL_LOGIN_HASH.dumps(email)})
+    )
+
+
+def _hash_password(password: str) -> str:
+    # Could use a higher n, but need to avoid memory overconsumption
+    return base64.standard_b64encode(
+        hashlib.scrypt(password.encode(), salt=SESSION_KEY.encode(), n=2**14, r=8, p=1)
+    ).decode()
+
+
+def set_member_password(member: models.Member, password: str):
+    logging.warning("setting: %s", password)
+    member.password_hash = _hash_password(password)
+    logging.warning("hash: %s", member.password_hash)
+
+
+def check_member_password(member: models.Member, password: str) -> bool:
+    logging.warning(
+        "recorded: %s, provided: %s, provided_hash: %s",
+        member.password_hash,
+        password,
+        _hash_password(password),
+    )
+    return hmac.compare_digest(member.password_hash, _hash_password(password))
+
+
+async def send_reset_email(email: str) -> None:
+    url = email_login_url(email)
+    html = (
+        "<p>Reset your Archon account password with "
+        f'<a href="{url}">this link</a>.</p>'
+    )
+    message = fastapi_mail.MessageSchema(
+        subject="Archon: Password reset",
+        recipients=[email],
+        body=html,
+        subtype=fastapi_mail.MessageType.html,
+    )
+
+    fm = fastapi_mail.FastMail(MAIL_CONFIG)
+    await fm.send_message(message)
+
+
+async def email_reset(
+    request: fastapi.Request,
+    state: typing.Annotated[str, fastapi.Query()],
+    op: DbOperator,
+) -> str:
+    """Login using verified email"""
+    email = None
+    try:
+        email = EMAIL_LOGIN_HASH.loads(state, 24 * 3600)
+    except itsdangerous.BadSignature:
+        LOG.warning("wrong state %s", state)
+        anonymous_session(request)
+        return ""
+
+    if email:
+        async with db.operator() as op:
+            member = await op.upsert_member_email(email)
+            authenticated_session(request, member)
+            return member.uid
+    # reset state on login failure
+    anonymous_session(request)
+    return ""
+
+
+EmailAddress = typing.Annotated[pydantic.EmailStr, fastapi.Form()]
+EmailReset = typing.Annotated[str, fastapi.Depends(email_reset)]
+
+
+basic_scheme = fastapi.security.HTTPBasic()
+
+
+async def email_login(
+    request: fastapi.Request,
+    op: DbOperator,
+    email: typing.Annotated[pydantic.EmailStr | None, fastapi.Form()] = None,
+    password: typing.Annotated[str | None, fastapi.Form()] = None,
+) -> bool:
+    """Login using email+password"""
+    async with db.operator() as op:
+        member = await op.get_member_by_email(email)
+        res = check_member_password(member, password)
+    if res:
+        authenticated_session(request, member)
+    return res
+
+
+EmailLogin = typing.Annotated[str, fastapi.Depends(email_login)]
 
 # ################################################################## Security: OAuth 2.0
 oauth2_scheme = fastapi.security.OAuth2AuthorizationCodeBearer(
@@ -417,13 +548,10 @@ def check_authorization_code(client_id, code, redirect_uri) -> str:
     return member_uid
 
 
-html_basic = fastapi.security.HTTPBasic()
-
-
 async def client_login(
     op: DbOperator,
     basic: typing.Annotated[
-        fastapi.security.HTTPBasicCredentials | None, fastapi.Depends(html_basic)
+        fastapi.security.HTTPBasicCredentials | None, fastapi.Depends(basic_scheme)
     ] = None,
     client_id: typing.Annotated[str | None, fastapi.Form()] = None,
     client_secret: typing.Annotated[str | None, fastapi.Form()] = None,
@@ -485,4 +613,23 @@ async def get_person_from_token(
 
 PersonFromToken = typing.Annotated[
     models.Person, fastapi.Depends(get_person_from_token)
+]
+
+
+async def get_member_from_token(
+    member_uid: MemberUidFromToken,
+    op: DbOperator,
+) -> models.Person:
+    member = await op.get_member(member_uid, True)
+    if member is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return member
+
+
+MemberFromToken = typing.Annotated[
+    models.Member, fastapi.Depends(get_member_from_token)
 ]

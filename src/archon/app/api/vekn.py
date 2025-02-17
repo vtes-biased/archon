@@ -115,6 +115,25 @@ async def api_vekn_add_member(
     return await op.insert_member(member)
 
 
+@router.post("/members/password")
+async def api_vekn_set_member_password(
+    member: dependencies.MemberFromToken,
+    op: dependencies.DbOperator,
+    password: typing.Annotated[models.PasswordParameter, fastapi.Body()],
+) -> models.Member:
+    dependencies.set_member_password(member, password.password)
+    return await op.update_member(member)
+
+
+@router.post("/members/unlink_discord")
+async def api_vekn_unlink_discord(
+    member: dependencies.MemberFromToken,
+    op: dependencies.DbOperator,
+) -> models.Member:
+    member.discord = None
+    return await op.update_member(member)
+
+
 @router.post("/members/{uid}/add_role")
 async def api_vekn_member_add_role(
     member: dependencies.PersonFromToken,

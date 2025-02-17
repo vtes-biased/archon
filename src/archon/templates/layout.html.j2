@@ -9,6 +9,7 @@
     <meta name="keywords" content="Archon, Vampire, the Eternal Struggle, VTES, CCG, Tournament">
     <meta name="format-detection" content="telephone=no">
     {% block meta %}{% endblock %}
+    <meta name="login-data" content="Login-related data" data-discord-oauth="{{ discord_oauth }}">
     <link rel="shortcut icon" href="{{ url_for('img', path='favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='layout.css') }}">
     <script async src="{{ url_for('static', path='login.js') }}" type="module"></script>
@@ -82,6 +83,19 @@
                         <i class="bi bi-discord"></i>
                         Discord login
                     </a>
+                    <hr>
+                    <form action="/auth/email" method="post">
+                        <input class="form-control me-2 mb-2" type="text" name="email" autocomplete="email"
+                            placeholder="E-mail">
+                        <input class="form-control me-2 mb-2" type="password" name="password"
+                            autocomplete="current-password" placeholder="Password">
+                        <div class="d-flow">
+                            <button type="submit" class="btn btn-primary me-2 mb-2">Login</button>
+                            <button type="submit" class="btn btn-secondary me-2 mb-2" formaction="/auth/email/reset">
+                                Reset Password
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

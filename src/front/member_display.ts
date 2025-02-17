@@ -14,6 +14,38 @@ function tournament_result_string(result: d.TournamentRating): string {
     )
 }
 
+class PasswordModal extends base.Modal {
+    token: base.Token
+    email: HTMLInputElement
+    password: HTMLInputElement
+    constructor(el: HTMLElement) {
+        super(el)
+        this.modal_title.innerText = "Set your password"
+        const form = base.create_append(this.modal_body, "form", ["w-100"])
+        this.email = base.create_append(form, "input", ["form-control", "me-2", "mb-2"], { name: "username" })
+        this.email.disabled = true
+        this.password = base.create_append(form, "input", ["form-control", "me-2", "mb-2"],
+            { type: "password", name: "new-password", autocomplete: "new-password", placeholder: "New Password" }
+        )
+        base.create_append(form, "button", ["btn", "btn-primary"], { type: "submit" }).innerText = "Submit"
+        form.addEventListener("submit", async (ev) => { ev.preventDefault(); await this.submit() })
+    }
+    show(token: base.Token, email: string) {
+        this.token = token
+        this.email.value = email
+        this.modal.show()
+    }
+    async submit() {
+        const res = await base.do_fetch_with_token(
+            "/api/vekn/members/password", this.token,
+            { method: "post", body: JSON.stringify({ password: this.password.value }) }
+        )
+        if (res) {
+            this.modal.hide()
+        }
+    }
+}
+
 class MemberDisplay {
     root: HTMLDivElement
     token: base.Token
@@ -22,15 +54,17 @@ class MemberDisplay {
     countries: Map<string, d.Country>
     cities: Map<string, d.City>
     vekn_modal: m.ExistingVeknModal
+    password_modal: PasswordModal
     // form
     name: HTMLInputElement
     email: HTMLInputElement
     whatsapp: HTMLInputElement
     country_select: HTMLSelectElement
     city_select: HTMLSelectElement
-    constructor(root: HTMLDivElement, page_size: number = 100) {
+    constructor(root: HTMLDivElement) {
         this.root = root
         this.vekn_modal = new m.ExistingVeknModal(root, (member) => this.reload_target(member))
+        this.password_modal = new PasswordModal(root)
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
@@ -41,7 +75,7 @@ class MemberDisplay {
             const countries = await res.json() as d.Country[]
             this.countries = new Map(countries.map(c => [c.country, c]))
         }
-        const user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
+        const user_id = base.user_uid_from_token(token)
         const member_fetch = await base.do_fetch_with_token(`/api/vekn/members/${user_id}`, token, {})
         this.member = await member_fetch.json()
         if (url.pathname.endsWith("display.html")) {
@@ -75,7 +109,8 @@ class MemberDisplay {
                     { role: "button" }
                 )
                 base.create_append(remove, "i", ["bi", "bi-x"])
-                remove.addEventListener("click", (ev) => this.remove_vekn())
+                const tooltip = base.add_tooltip(remove, "Disassociate VEKN ID#")
+                remove.addEventListener("click", (ev) => { tooltip.hide(); this.remove_vekn() })
             }
         } else {
             if (m.can_organize(this.member)) {
@@ -99,12 +134,17 @@ class MemberDisplay {
                 )
             }
         }
-        if (this.target.uid == this.member.uid) {
+        if (this.target.uid == this.member.uid && this.target.email) {
             const logout = base.create_append(header, "a", ["btn", "me-2", "mb-2", "btn-secondary", "align-text-top"],
                 { role: "button", href: "/auth/logout/" }
             )
             base.create_append(logout, "i", ["bi", "bi-box-arrow-left"])
             logout.append(document.createTextNode(" Logout"))
+            const reset_password = base.create_append(header, "button",
+                ["btn", "me-2", "mb-2", "btn-secondary", "align-text-top"]
+            )
+            reset_password.innerText = "Set Password"
+            reset_password.addEventListener("click", (ev) => this.password_modal.show(this.token, this.target.email))
         }
 
         const badges_row = base.create_append(this.root, "div", ["d-md-flex", "align-items-center"])
@@ -118,7 +158,8 @@ class MemberDisplay {
                     { role: "button" }
                 )
                 base.create_append(remove_button, "i", ["bi", "bi-x-circle-fill"])
-                remove_button.addEventListener("click", (ev) => this.remove_role(role))
+                const tooltip = base.add_tooltip(remove_button, "Remove role")
+                remove_button.addEventListener("click", (ev) => { tooltip.hide(); this.remove_role(role) })
             } else {
                 role_badge.innerText = role
             }
@@ -248,6 +289,24 @@ class MemberDisplay {
                 } else {
                     this.email.disabled = true
                 }
+                if (cci && this.email.value && this.member.uid != this.target.uid) {
+                    const reset_button = base.create_append(row_2, "button",
+                        ["btn", "btn-primary", "me-2", "mb-2", "text-nowrap"],
+                        { type: "button" },
+                    )
+                    reset_button.innerText = "Reset password"
+                    const form_data = new FormData()
+                    form_data.set("email", this.email.value)
+                    reset_button.addEventListener("click", (ev) => {
+                        ev.preventDefault()
+                        const res = base.do_fetch("/auth/email/reset", { method: "post", body: form_data })
+                        if (res) {
+                            reset_button.innerText = "Reset email sent"
+                            reset_button.disabled = true
+                        }
+
+                    })
+                }
             }
             // _________________________________________________________________________________________________ Discord
             if (this.member.uid == this.target.uid) {
@@ -258,13 +317,31 @@ class MemberDisplay {
                         { role: "button" }
                     )
                     discord.innerHTML = '<i class="bi bi-discord"></i> Unlink Discord'
-                    discord.disabled = true
+                    if (this.member.email) {
+                        discord.addEventListener("click", async (ev) => {
+                            ev.preventDefault()
+                            await this.unlink_discord()
+                        })
+                    } else {
+                        discord.disabled = true
+                    }
+                } else {
+                    const discord = base.create_append(row_2, "button",
+                        ["btn", "btn-discord", "me-2", "mb-2", "text-nowrap"],
+                        { role: "button" }
+                    )
+                    discord.innerHTML = '<i class="bi bi-discord"></i> Link Discord'
+                    const meta = document.querySelector("meta[name='login-data']") as HTMLMetaElement
+                    discord.addEventListener("click", async (ev) => {
+                        ev.preventDefault()
+                        window.location.assign(meta.dataset.discordOauth)
+                    })
                 }
             } else if (this.target.discord?.id) {
-                const discord = base.create_append(row_2, "a", ["btn", "btn-discord", "me-2", "mb-2"],
+                const discord = base.create_append(row_2, "a", ["btn", "btn-discord", "me-2", "mb-2", "text-nowrap"],
                     { role: "button", target: "_blank", rel: "noopener noreferrer" }
                 )
-                discord.href = `https://discordapp.com/channels/@me/${this.target.discord.id}/`
+                discord.href = `https://discordapp.com/users/${this.target.discord.id}/`
                 discord.innerHTML = '<i class="bi bi-discord"></i> Discord'
             }
             // ________________________________________________________________________________________________ Whatsapp
@@ -283,7 +360,7 @@ class MemberDisplay {
                 this.whatsapp.addEventListener("change", base.debounce((ev) => this.change_info()))
             } else if (this.target.whatsapp) {
                 this.whatsapp = undefined
-                const whatsapp = base.create_append(row_2, "a", ["btn", "btn-whatsapp", "me-2", "mb-2"],
+                const whatsapp = base.create_append(row_2, "a", ["btn", "btn-whatsapp", "me-2", "mb-2", "text-nowrap"],
                     { role: "button", target: "_blank", rel: "noopener noreferrer" }
                 )
                 whatsapp.href = "https://wa.me/" + this.target.whatsapp.replaceAll("-", "").replace(/^[0|\D]*/, "")
@@ -506,6 +583,14 @@ class MemberDisplay {
         // TODO add the nickname field
         const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/info`, this.token,
             { method: "post", body: JSON.stringify(info) }
+        )
+        if (res) {
+            await this.reload_target(await res.json())
+        }
+    }
+    async unlink_discord() {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/unlink_discord`, this.token,
+            { method: "post" }
         )
         if (res) {
             await this.reload_target(await res.json())

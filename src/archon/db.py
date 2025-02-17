@@ -47,6 +47,9 @@ POOL = psycopg_pool.AsyncConnectionPool(
 )
 
 
+class IndexError(RuntimeError): ...
+
+
 async def init():
     """Idempotent DB initialization"""
     async with POOL.connection() as conn:
@@ -58,11 +61,17 @@ async def init():
                 "vekn TEXT DEFAULT '', "
                 "data jsonb)"
             )
-            # Index on discord ID
+            # Unique index on discord ID
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_discord_id "
                 "ON members "
                 "USING BTREE ((data -> 'discord' ->> 'id'))"
+            )
+            # Unique index on email
+            await cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_email "
+                "ON members "
+                "USING BTREE ((data ->> 'email'))"
             )
             # Index roles
             await cursor.execute(
@@ -130,6 +139,18 @@ async def reset(keep_members: bool = True):
 
 
 T = typing.TypeVar("T", bound=models.Tournament)
+
+
+@contextlib.asynccontextmanager
+async def member_consistency() -> typing.AsyncIterator[None]:
+    try:
+        yield
+    except psycopg.errors.IntegrityError as err:
+        if err.diag.constraint_name == "idx_member_email":
+            raise IndexError("This email already exists")
+        if err.diag.constraint_name == "idx_member_discord_id":
+            raise IndexError("Discord ID already taken")
+        raise
 
 
 class Operator:
@@ -373,7 +394,8 @@ class Operator:
         """Get all members that can be contacted by non-vekn members"""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "SELECT data FROM members WHERE data->'roles' ? 'NC' OR data->'roles' ? 'Prince' OR uid=%s",
+                "SELECT data FROM members "
+                "WHERE data->'roles' ? 'NC' OR data->'roles' ? 'Prince' OR uid=%s",
                 [user.uid],
             )
             return [
@@ -381,9 +403,43 @@ class Operator:
                 for data in await res.fetchall()
             ]
 
+    def _update_discord_data(self, member: models.Member, user: models.DiscordUser):
+        member.discord = user
+        member.name = member.name or user.global_name or user.username
+        member.nickname = member.nickname or user.global_name or user.username
+        # do not update the email by default
+        member.email = member.email or user.email
+        if member.email == user.email:
+            member.verified = user.verified
+
+    async def update_member_discord(
+        self, member_uid: str, user: models.DiscordUser
+    ) -> models.Member:
+        """Update an existing member, set their discord profile"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM members WHERE uid = %s FOR UPDATE",
+                [uuid.UUID(member_uid)],
+            )
+            data = await res.fetchone()
+            if not data:
+                raise RuntimeError(f"Unknown member {member_uid}")
+            member = self._instanciate_member(data[0])
+            self._update_discord_data(member, user)
+            await cursor.execute(
+                "UPDATE members SET data=%s WHERE uid = %s",
+                [self._jsonize_member(member), uuid.UUID(member_uid)],
+            )
+            if cursor.rowcount < 1:
+                raise RuntimeError(
+                    f"Failed to update discord info for member {member_uid}"
+                )
+            return member
+
     async def upsert_member_discord(self, user: models.DiscordUser) -> models.Member:
         """Get or create a member from their discord profile"""
         async with self.conn.cursor() as cursor:
+            # if this discord ID already exists, use it
             res = await cursor.execute(
                 "SELECT data FROM members "
                 "WHERE data -> 'discord' ->> 'id' = %s FOR UPDATE",
@@ -392,28 +448,76 @@ class Operator:
             data = await res.fetchone()
             if data:
                 member = self._instanciate_member(data[0])
-                member.discord = user
-                member.name = member.name or user.global_name or user.username
-                member.nickname = member.nickname or user.global_name or user.username
-                member.email = member.email or user.email
-                if member.email == user.email:
-                    member.verified = user.verified
+                self._update_discord_data(member, user)
                 await cursor.execute(
                     "UPDATE members SET data=%s WHERE data -> 'discord' ->> 'id' = %s",
                     [self._jsonize_member(member), user.id],
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError(f"Failed to update Discord ID# {user.id}")
+                return member
+            # if the email exists already, use it
+            if user.email:
+                res = await cursor.execute(
+                    "SELECT data FROM members "
+                    "WHERE data ->> 'email' = %s FOR UPDATE",
+                    [user.email],
+                )
+                data = await res.fetchone()
+                if data:
+                    member = self._instanciate_member(data[0])
+                    self._update_discord_data(member, user)
+                    await cursor.execute(
+                        "UPDATE members SET data=%s WHERE data ->> 'email' = %s",
+                        [self._jsonize_member(member), user.email],
+                    )
+                    if cursor.rowcount < 1:
+                        raise RuntimeError(f"Failed to update Discord ID# {user.id}")
+                    return member
+            # otherwise create a new member
+            uid = uuid.uuid4()
+            member = models.Member(
+                uid=str(uid),
+                vekn="",
+                name=user.global_name or user.username,
+                nickname=user.global_name or user.username,
+                email=user.email,
+                verified=user.verified,
+                discord=user,
+            )
+            await cursor.execute(
+                "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
+                [uid, member.vekn, self._jsonize_member(member)],
+            )
+            if cursor.rowcount < 1:
+                raise RuntimeError("INSERT failed")
+            return member
+
+    async def upsert_member_email(self, email: str) -> models.Member:
+        async with self.conn.cursor() as cursor, member_consistency():
+            res = await cursor.execute(
+                "SELECT data FROM members " "WHERE data ->> 'email' = %s FOR UPDATE",
+                [email],
+            )
+            data = await res.fetchone()
+            if data:
+                member = self._instanciate_member(data[0])
+                member.verified = True
+                await cursor.execute(
+                    "UPDATE members SET data=%s WHERE data ->> 'email' = %s",
+                    [self._jsonize_member(member), email],
+                )
+                if cursor.rowcount < 1:
+                    raise RuntimeError(f"Failed to update email {email}")
             else:
                 uid = uuid.uuid4()
                 member = models.Member(
                     uid=str(uid),
                     vekn="",
-                    name=user.global_name or user.username,
-                    nickname=user.global_name or user.username,
-                    email=user.email,
-                    verified=user.verified,
-                    discord=user,
+                    name="",
+                    nickname="",
+                    email=email,
+                    verified=True,
                 )
                 await cursor.execute(
                     "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
@@ -423,8 +527,20 @@ class Operator:
                     raise RuntimeError("INSERT failed")
             return member
 
-    async def update_member(self, member: models.Member) -> models.Member:
+    async def get_member_by_email(self, email: str) -> models.Member:
         async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM members " "WHERE data ->> 'email' = %s",
+                [email],
+            )
+            data = await res.fetchone()
+            if data:
+                member = self._instanciate_member(data[0])
+                return member
+            raise RuntimeError(f"Member not found by email: {email}")
+
+    async def update_member(self, member: models.Member) -> models.Member:
+        async with self.conn.cursor() as cursor, member_consistency():
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid=%s",
                 [self._jsonize_member(member), member.uid],

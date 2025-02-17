@@ -60,7 +60,7 @@ export async function do_fetch(url: string, options: Object) {
             console.log(response)
             var message = await response.text()
             try {
-                message = JSON.stringify(JSON.parse(message)["detail"])
+                message = JSON.parse(message)["detail"]
             }
             catch (error) { }
             throw new Error(message)

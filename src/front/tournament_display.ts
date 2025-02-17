@@ -1142,9 +1142,14 @@ export class TournamentDisplay {
         { // name
             const div = base.create_append(form, "div", ["col-md-6"])
             const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
-            this.name = base.create_append(group, "input", ["form-control", "z-1"],
-                { id: "tournamentName", type: "text", name: "name", autocomplete: "off", spellcheck: "false" }
-            )
+            this.name = base.create_append(group, "input", ["form-control", "z-1"], {
+                id: "tournamentName",
+                type: "text",
+                name: "name",
+                placeholder: "Tournament Name",
+                autocomplete: "new-name",
+                spellcheck: "false",
+            })
             if (tournament?.name && tournament.name.length > 0) {
                 this.name.value = tournament.name
             }

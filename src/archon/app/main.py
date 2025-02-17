@@ -87,6 +87,7 @@ def auth_exception_handler(
     Redirect the user to the login page if not logged in
     """
     LOG.debug("Login failed", exc_info=exc.with_traceback(None))
+    request.session["message"] = "You need to log in"
     return fastapi.responses.RedirectResponse(
         url=request.url_for("login").include_query_params(next=str(request.url))
     )
@@ -95,7 +96,7 @@ def auth_exception_handler(
 # engine errors display
 @app.exception_handler(engine.TournamentError)
 def engine_exception_handler(
-    request: fastapi.Request, exc: dependencies.LoginRequired
+    request: fastapi.Request, exc: engine.TournamentError
 ) -> fastapi.responses.JSONResponse:
     """
     Returns a well-serialized JSON error message
@@ -105,3 +106,18 @@ def engine_exception_handler(
     else:
         LOG.warning(exc.args[0])
     return fastapi.responses.JSONResponse({"detail": str(exc)}, 400)
+
+
+# members consistency errors
+@app.exception_handler(db.IndexError)
+def engine_exception_handler(
+    request: fastapi.Request, exc: engine.TournamentError
+) -> fastapi.responses.JSONResponse:
+    """
+    Returns a well-serialized JSON error message
+    """
+    if __debug__:
+        LOG.exception("member index error", exc_info=exc)
+    else:
+        LOG.warning(exc.args[0])
+    return fastapi.responses.JSONResponse({"detail": exc.args[0]}, 400)

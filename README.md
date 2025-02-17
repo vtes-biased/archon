@@ -89,23 +89,67 @@ You can use the `DB_USER` and `DB_PWD` environment variables to use other values
 
 ## Development server
 
-Use `openssl` to generate a secure token secret for signing our [JWT]() access tokens.
-
-```bash
-openssl rand -hex 32
-```
-
-Set this value for the `TOKEN_SECRET` environment variable, for example in a `.env` file at the repository's root.
-
-```bash
-export TOKEN_SECRET="[The generated secret string]"
-```
-
+Make sure you have set up all the required [setting](#settings).
 Simply use `make serve` to run the front and back services.
 They constantly watch your files and rebuild the project automatically when there is any change.
 Use `pm2 logs` to keep an eye on what's going on and `pm2 kill` to stop the services.
 You can also use `pm2 ps` to check if the services are up and running.
 For more, see the [PM2 documentation](https://pm2.keymetrics.io/docs/usage/quick-start/).
+
+## Settings
+
+This software requires some environment settings for multiple functionalities:
+
+### VEKN credentials
+
+Used to collect the VEKN members list, and publish events and their result.
+
+```bash
+export VEKN_LOGIN="<vekn_login>"
+export VEKN_PASSWORD="<vekn_password>"
+```
+
+### Discord credentials
+
+Used for the Discord social login. You need to register a
+[Discord Application](https://discord.com/developers/applications).
+
+```bash
+export DISCORD_CLIENT_ID="<discord_client_id>"
+export DISCORD_CLIENT_SECRET="<discord_client_secret>"
+```
+
+### Application secrets
+
+Secrets for various security features.
+Make sure you use different secure random secrets for different environments.
+
+```bash
+SESSION_KEY="<sign_session_cookie>"
+TOKEN_SECRET="<sign_access_token>"
+HASH_KEY="<hash_user_passwords>"
+```
+
+You can use `openssl` to generate each of these secrets:
+
+```bash
+openssl rand -hex 32
+```
+
+### Email (SMTP) parameters
+
+Used to send the "password reset" email necessary for the basic email login feature.
+Note that if you're using GMail, you probably need to generate an
+[Application Password](https://myaccount.google.com/apppasswords) for this application.
+
+```bash
+export MAIL_SERVER="smtp.gmail.com"
+export MAIL_PORT="587"
+export MAIL_USERNAME="codex.of.the.damned@gmail.com"
+export MAIL_PASSWORD="<app_password>"
+export MAIL_FROM="codex.of.the.damned@gmail.com"
+export MAIL_FROM_NAME="Archon"
+```
 
 ## Design 
 

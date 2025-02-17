@@ -328,6 +328,7 @@ class Member(Person):
     email: str | None = None  # the user's email
     verified: bool | None = None  # whether the email has been verified
     discord: DiscordUser | None = None  # Discord data
+    password_hash: str = ""
     whatsapp: str | None = None  # phone
     ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
     prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
@@ -347,3 +348,8 @@ class RoleParameter:
 @dataclasses.dataclass
 class VeknParameter:
     vekn: str
+
+
+@dataclasses.dataclass
+class PasswordParameter:
+    password: str
