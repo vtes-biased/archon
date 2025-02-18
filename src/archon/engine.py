@@ -77,12 +77,30 @@ class TournamentManager(models.Tournament):
             player = self.players[ev.player_uid]
             if player.state != models.PlayerState.FINISHED:
                 return
+            # banned and DQ players stay finished in all cases
             if models.Barrier.BANNED in player.barriers:
                 return
             if models.Barrier.DISQUALIFIED in player.barriers:
                 return
+            # default state
             player.state = models.PlayerState.REGISTERED
+            if self.state in [
+                models.TournamentState.FINALS,
+                models.TournamentState.FINISHED,
+            ]:
+                player.state = models.PlayerState.FINISHED
+            # if player was playing, put them back as playing
+            if self.state in [
+                models.TournamentState.PLAYING,
+                models.TournamentState.FINALS,
+            ]:
+                round_ = self.rounds[-1]
+                for table in round_.tables:
+                    for seat in table.seating:
+                        if seat.player_uid == ev.player_uid:
+                            player.state = models.PlayerState.PLAYING
             return
+        # new player
         state = models.PlayerState.REGISTERED
         if self.state in [
             models.TournamentState.FINALS,
