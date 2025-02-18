@@ -193,95 +193,180 @@ class ScoreModal {
     }
 }
 
-class DeckModal {
-    display: TournamentDisplay
-    tournament: d.Tournament
-    player_uid: string
-    modal_div: HTMLDivElement
-    qr_scanner: QrScanner
+type DeckSubmitCallback = (player: string, deck: string, round: number | undefined) => Promise<void>
+
+export class DeckSubmit {
+    root: HTMLDivElement
+    callback: DeckSubmitCallback
+    qr_code_button: HTMLButtonElement
+    qr_scanner: QrScanner | undefined
+    video: HTMLVideoElement
     form: HTMLFormElement
     round_div: HTMLDivElement
-    round: HTMLSelectElement
+    round_select: HTMLSelectElement
+    deck_link: HTMLAnchorElement
+    deck_div: HTMLDivElement
     deck: HTMLTextAreaElement
-    modal: bootstrap.Modal
-    title: HTMLHeadingElement
-    constructor(el: HTMLDivElement, display: TournamentDisplay) {
-        this.display = display
-        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "scoreModalLabel" }
+    submit_button: HTMLButtonElement
+    player_uid: string
+    tournament: d.Tournament
+    constructor(el: HTMLDivElement, callback: DeckSubmitCallback, modal_div: HTMLDivElement | undefined = undefined) {
+        this.root = el
+        this.callback = callback
+        this.form = base.create_append(this.root, "form", ["w-100"])
+        const deck_buttons_div = base.create_append(this.form, "div", ["d-md-flex"])
+        this.deck_link = base.create_append(deck_buttons_div, "a",
+            ["btn", "btn-vdb", "bg-vdb", "text-white", "me-2", "mb-2"],
+            { target: "_blank" }
         )
-        const dialog = base.create_append(this.modal_div, "div", ["modal-dialog"])
-        const content = base.create_append(dialog, "div", ["modal-content"])
-        const header = base.create_append(content, "div", ["modal-header"])
-        this.title = base.create_append(header, "h1", ["modal-title", "fs-5"])
-        base.create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
-        const body = base.create_append(content, "div", ["modal-body"])
-        const qr_code_button = base.create_append(body, "button", ["btn", "btn-primary", "my-2"], { type: "button" })
-        qr_code_button.innerHTML = '<i class="bi bi-qr-code-scan"> Scan VDB</i>'
-        const video = base.create_append(body, "video", ["w-100"])
-        this.qr_scanner = new QrScanner(video, async (result) => this.scanned(result), { highlightScanRegion: true })
-        qr_code_button.addEventListener("click", (ev) => {
-            qr_code_button.disabled = true
-            this.qr_scanner.start()
-        })
-        this.form = base.create_append(body, "form")
+        this.qr_code_button = base.create_append(deck_buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"],
+            { type: "button" }
+        )
+        this.qr_code_button.innerHTML = '<i class="bi bi-qr-code-scan"> Scan VDB</i>'
+        this.video = base.create_append(this.form, "video", ["w-100"])
+        this.video.hidden = true
+        this.qr_code_button.addEventListener("click", async (ev) => { ev.preventDefault(); await this.toggle_video() })
         this.round_div = base.create_append(this.form, "div", ["input-group", "form-floating"])
-        this.round = base.create_append(this.round_div, "select", ["form-select", "my-2"],
+        this.round_select = base.create_append(this.round_div, "select", ["form-select", "my-2"],
             { name: "round", id: "deckModalRoundInput" }
         )
         base.create_append(this.round_div, "label", ["form-label"], { for: "deckModalRoundInput" }).innerText = "Round"
-        const deck_div = base.create_append(this.form, "div", ["input-group", "form-floating"])
-        this.deck = base.create_append(deck_div, "textarea", ["form-control", "mb-2", "h-100"],
+        this.round_select.addEventListener("change", (ev) => this.display_round(this.round_select.selectedIndex + 1))
+        this.deck_div = base.create_append(this.form, "div", ["input-group", "form-floating"])
+        this.deck = base.create_append(this.deck_div, "textarea", ["form-control", "mb-2", "h-100"],
             { id: "deckModalTextInput", type: "text", autocomplete: "new-deck", rows: "10", maxlength: 10000 }
         )
         this.deck.ariaLabel = "Deck list (plain text or URL)"
-        const label = base.create_append(deck_div, "label", ["form-label"], { for: "deckModalTextInput" })
-        label.innerText = "Deck list (plain text or URL: accepts VDB, Amaranth or VTESDecks)"
+        const label = base.create_append(this.deck_div, "label", ["form-label"], { for: "deckModalTextInput" })
+        label.innerText = "Deck list (plain text or URL)"
         const btn_div = base.create_append(this.form, "div", ["col-auto"])
-        base.create_append(btn_div, "button", ["btn", "btn-primary", "me-2"], { type: "submit" }).innerText = "Submit"
-        this.form.addEventListener("submit", (ev) => this.submit(ev))
-        this.modal = new bootstrap.Modal(this.modal_div)
-        this.modal_div.addEventListener("hide.bs.modal", (ev) => {
+        this.submit_button = base.create_append(btn_div, "button", ["btn", "btn-primary", "me-2", "mb-2"],
+            { type: "submit" }
+        )
+        this.submit_button.innerText = "Submit"
+        this.form.addEventListener("submit", async (ev) => await this.submit(ev))
+        if (modal_div) {
+            this.root.addEventListener("hide.bs.modal", (ev) => this.stop_video())
+        }
+    }
+    async toggle_video() {
+        if (this.qr_scanner) {
             this.qr_scanner.stop()
-            qr_code_button.disabled = false
-        })
+            this.qr_scanner.destroy()
+            this.qr_scanner = undefined
+            this.video.hidden = true
+            this.qr_code_button.innerHTML = '<i class="bi bi-qr-code-scan"> Scan VDB</i>'
+        } else {
+            this.video.hidden = false
+            this.qr_scanner = new QrScanner(this.video, async (result) => this.scanned(result),
+                { highlightScanRegion: true }
+            )
+            this.qr_code_button.innerHTML = '<i class="bi bi-qr-code-scan"> Stop scan</i>'
+            await this.qr_scanner.start()
+        }
     }
-
-    scanned(result: QrScanner.ScanResult) {
-        this.qr_scanner.stop()
-        this.deck.value = result.data
-        this.form.dispatchEvent(new SubmitEvent("submit", { submitter: this.qr_scanner.$video }))
+    stop_video() {
+        if (this.qr_scanner) { this.toggle_video() }
     }
-
-    async submit(ev: SubmitEvent) {
-        ev.preventDefault()
-        await this.display.set_deck(this.tournament, this.player_uid, this.deck.value, parseInt(this.round.value))
-        this.modal.hide()
-    }
-
-    show(tournament: d.Tournament, player: d.Player) {
-        this.title.innerText = `${player.name}'s deck`
+    init(player_uid: string, tournament: d.Tournament, round: number | undefined = undefined, submit_disabled: boolean = false) {
+        this.player_uid = player_uid
         this.tournament = tournament
-        this.player_uid = player.uid
         this.deck.value = ""
-        base.remove_children(this.round)
-        if (this.tournament.multideck) {
+        if (submit_disabled) {
+            this.deck_div.hidden = true
+            this.submit_button.hidden = true
+            this.qr_code_button.disabled = true
+        } else {
+            this.deck_div.hidden = false
+            this.submit_button.hidden = false
+            this.qr_code_button.disabled = false
+        }
+        this.stop_video()
+        base.remove_children(this.round_select)
+        round = round ?? tournament.rounds.length
+        if (tournament.multideck && round > 0) {
+            this.round_select.hidden = false
             this.round_div.classList.add("visible")
             this.round_div.classList.remove("invisible")
-            for (var idx = 1; idx <= this.tournament.rounds.length; idx++) {
+            for (var idx = 1; idx <= tournament.rounds.length; idx++) {
                 const option = base.create_element("option")
-                if (idx == this.tournament.rounds.length && tournament.finals_seeds.length) {
+                if (idx == tournament.rounds.length && tournament.finals_seeds.length) {
                     option.label = "Finals"
                 } else {
                     option.label = `Round ${idx}`
                 }
                 option.value = idx.toString()
-                this.round.options.add(option)
+                this.round_select.options.add(option)
+            }
+            if (round > 0) {
+                this.round_select.selectedIndex = round - 1
+                this.display_round(round)
             }
         } else {
             this.round_div.classList.add("invisible")
             this.round_div.classList.remove("visible")
+            this.round_select.selectedIndex = -1
+            this.round_select.hidden = true
+            this.display_round(0)
         }
+    }
+    display_round(round: number) {
+        console.log("switch to round", round)
+        var current_deck = undefined
+        if (this.tournament.multideck && round > 0) {
+            for (const table of this.tournament.rounds[round - 1].tables) {
+                for (const seating of table.seating) {
+                    if (seating.player_uid == this.player_uid) {
+                        current_deck = seating.deck ?? undefined
+                    }
+                }
+            }
+        } else {
+            current_deck = this.tournament.players[this.player_uid]?.deck
+        }
+        if (current_deck?.vdb_link) {
+            this.deck_link.href = current_deck.vdb_link
+            this.deck_link.innerHTML = '<i class="bi bi-file-text"></i> Decklist'
+            this.deck_link.classList.remove("disabled")
+        } else {
+            this.deck_link.innerHTML = "No decklist"
+            this.deck_link.href = "javascript:void(0)"
+            this.deck_link.classList.add("disabled")
+        }
+    }
+    scanned(result: QrScanner.ScanResult) {
+        this.qr_scanner.stop()
+        this.deck.value = result.data
+        this.form.dispatchEvent(new SubmitEvent("submit", { submitter: this.qr_scanner.$video }))
+    }
+    async submit(ev: SubmitEvent) {
+        ev.preventDefault()
+        var round = undefined
+        if (this.round_select.selectedIndex >= 0) {
+            round = this.round_select.selectedIndex + 1
+        }
+        await this.callback(this.player_uid, this.deck.value, round)
+    }
+}
+
+class DeckModal extends base.Modal {
+    display: TournamentDisplay
+    deck_submit: DeckSubmit
+    tournament: d.Tournament
+    player_uid: string
+    constructor(el: HTMLDivElement, display: TournamentDisplay) {
+        super(el)
+        this.display = display
+        this.deck_submit = new DeckSubmit(this.modal_body, (a, b, c) => this.submit(a, b, c), this.modal_div)
+    }
+    async submit(player: string, deck: string, round: number | undefined) {
+        await this.display.set_deck(this.tournament, player, deck, round)
+        this.modal.hide()
+    }
+    show(tournament: d.Tournament, player: d.Player, submit_disabled: boolean) {
+        this.modal_title.innerText = `${player.name}'s deck`
+        this.tournament = tournament
+        this.deck_submit.init(player.uid, tournament, undefined, submit_disabled)
         this.modal.show()
     }
 }
@@ -949,40 +1034,39 @@ export class TournamentDisplay {
         const upload_deck_button = base.create_append(tooltip_span, "button",
             ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"]
         )
-        upload_deck_button.innerText = "Upload Deck"
-        var vdb_link: string
-        var link_name: string
-        if (player.deck && player.deck.vdb_link) {
-            vdb_link = player.deck.vdb_link
-            link_name = "Decklist"
-        }
-        if (tournament.multideck && player.state == d.PlayerState.PLAYING) {
-            const player_seat = tournament.rounds.at(-1).tables.at(player.table - 1).seating.at(player.seat - 1)
-            if (player_seat.deck?.vdb_link) {
-                vdb_link = player_seat.deck.vdb_link
-                link_name = `Round ${current_round} decklist`
-            }
-        }
-        if (vdb_link) {
-            const deck_link = base.create_append(buttons_div, "a",
-                ["btn", "btn-vdb", "bg-vdb", "text-nowrap", "me-2", "mb-2"],
-                { target: "_blank" }
-            )
-            deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
-            deck_link.innerHTML += link_name
-            deck_link.href = vdb_link
-        }
+        upload_deck_button.innerText = "Decklist"
+        var tooltip
         if (tournament.decklist_required && current_round > 0) {
-            upload_deck_button.disabled = true
-            base.add_tooltip(tooltip_span, "The tournament has started, only a judge can modify your deck list")
-            return
+            if (player.deck) {
+                tooltip = base.add_tooltip(tooltip_span, "Only a judge can modify your deck list")
+            } else {
+                const alert = base.create_prepend(this.root, "div",
+                    ["alert", "alert-danger", "alert-dismissible", "fade", "show"],
+                    { role: "alert" }
+                )
+                alert.innerText = `You must upload your deck list`
+                base.create_append(alert, "button", ["btn-close"],
+                    { type: "button", "data-bs-dismiss": "alert", "arial-label": "Close" }
+                )
+                bootstrap.Alert.getOrCreateInstance(alert)
+                tooltip = base.add_tooltip(tooltip_span,
+                    "Once uploaded, you will not be able to modify your decklist"
+                )
+            }
+        } else {
+            tooltip = base.add_tooltip(tooltip_span,
+                "You can re-upload a new version anytime before the tournament begins"
+            )
         }
-        const tooltip = base.add_tooltip(tooltip_span,
-            "You can re-upload a new version anytime before the tournament begins"
-        )
+        var submit_disabled = false
+        if (player.deck && tournament.decklist_required && current_round > 0) {
+            submit_disabled = true
+            upload_deck_button.classList.remove("btn-primary")
+            upload_deck_button.classList.add("btn-secondary")
+        }
         upload_deck_button.addEventListener("click", (ev) => {
             tooltip.hide()
-            this.deck_modal.show(tournament, player)
+            this.deck_modal.show(tournament, player, submit_disabled)
         })
     }
     display_current_user_table(tournament: d.Tournament, player: d.Player) {
@@ -1129,7 +1213,11 @@ export class TournamentDisplay {
         await this.handle_tournament_event(tournament.uid, tev)
     }
     async delete_tournament(tournament: d.Tournament) {
-        const res = await base.do_fetch_with_token(`/api/tournaments/${tournament.uid}`, this.token, { method: "delete" })
+        const res = await base.do_fetch_with_token(
+            `/api/tournaments/${tournament.uid}`,
+            this.token,
+            { method: "delete" }
+        )
         if (!res) { return }
         window.location.href = "/tournament/list.html"
     }

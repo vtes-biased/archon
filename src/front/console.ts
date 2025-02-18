@@ -3,7 +3,7 @@ import * as base from "./base"
 import * as events from "./events"
 import * as member from "./member"
 import * as seating from "./seating"
-import { score_string, full_score_string, standings, TournamentDisplay } from "./tournament_display"
+import { score_string, full_score_string, standings, TournamentDisplay, DeckSubmit } from "./tournament_display"
 import { DateTime } from 'luxon'
 import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
@@ -178,9 +178,7 @@ class AddMemberModal extends base.Modal {
 
 class SanctionPlayerModal extends base.Modal {
     deck_link: HTMLAnchorElement
-    qr_button: HTMLButtonElement
-    video: HTMLVideoElement
-    qr_scanner: QrScanner
+    deck_submit: DeckSubmit
     sanctions_accordion: HTMLDivElement
     sanction_idx: number
     form: HTMLFormElement
@@ -198,31 +196,55 @@ class SanctionPlayerModal extends base.Modal {
         this.console = console
         this.member = null
         this.modal_title.innerText = "Sanction Member"  // Update to player name in display()
-        const deck_buttons_div = base.create_append(this.modal_body, "div", ["d-md-flex"])
-        this.deck_link = base.create_append(deck_buttons_div, "a", ["btn", "btn-vdb", "bg-vdb", "my-2", "me-2"],
-            { target: "_blank" }
-        )
-        this.qr_button = base.create_append(deck_buttons_div, "button", ["btn", "btn-vdb", "bg-vdb", "my-2", "me-2"],
-            { type: "button" }
-        )
-        this.qr_button.innerHTML = '<i class="bi bi-qr-code-scan"> Scan VDB</i>'
-        this.video = base.create_append(this.modal_body, "video", ["w-100"])
-        this.video.hidden = true
-        this.qr_button.addEventListener("click", (ev) => {
-            this.qr_button.disabled = true
-            this.video.hidden = false
-            // QrScanner must be instanciated when the video element is not hidden
-            if (this.qr_scanner) {
-                this.qr_scanner.destroy()
-            }
-            this.qr_scanner = new QrScanner(this.video, async (result) => this.scanned(result), {})
-            this.qr_scanner.start()
+        const nav = base.create_append(this.modal_body, "nav", ["nav", "nav-tabs", "w-100", "mb-2"], { role: "tablist" })
+        const tabs_div = base.create_append(this.modal_body, "div", ["tab-content", "w-100"])
+        const sanctions_button = base.create_append(nav, "button", ["nav-link"], {
+            id: `nav-modal-sanctions`,
+            "data-bs-toggle": "tab",
+            "data-bs-target": `#tab-modal-sanctions`,
+            type: "button",
+            role: "tab",
+            "aria-controls": "nav-home",
+            "aria-selected": "true",
         })
-        this.sanctions_accordion = base.create_append(this.modal_body, "div", ["accordion"],
+        sanctions_button.innerText = "Sanctions"
+        const sanctions_tab = base.create_append(tabs_div, "div", ["tab-pane", "fade"], {
+            id: `tab-modal-sanctions`,
+            role: "tabpanel",
+            "aria-labelledby": `nav-modal-sanctions`
+        })
+        const sanctions_tab_trigger = new bootstrap.Tab(sanctions_button)
+        sanctions_button.addEventListener('click', function (event) {
+            event.preventDefault()
+            sanctions_tab_trigger.show()
+        })
+        const decks_button = base.create_append(nav, "button", ["nav-link"], {
+            id: `nav-modal-decks`,
+            "data-bs-toggle": "tab",
+            "data-bs-target": `#tab-modal-decks`,
+            type: "button",
+            role: "tab",
+            "aria-controls": "nav-home",
+            "aria-selected": "true",
+        })
+        decks_button.innerText = "Deck list"
+        const decks_tab = base.create_append(tabs_div, "div", ["tab-pane", "fade"], {
+            id: `tab-modal-decks`,
+            role: "tabpanel",
+            "aria-labelledby": `nav-modal-decks`
+        })
+        const decks_tab_trigger = new bootstrap.Tab(decks_button)
+        decks_button.addEventListener('click', function (event) {
+            event.preventDefault()
+            decks_tab_trigger.show()
+        })
+        sanctions_tab_trigger.show()
+        this.deck_submit = new DeckSubmit(decks_tab, (a, b, c) => this.submit_deck(a, b, c), this.modal_div)
+        this.sanctions_accordion = base.create_append(sanctions_tab, "div", ["accordion"],
             { id: "sanctionAccordion" }
         )
         // Add existing sanctions in show()
-        this.form = base.create_append(this.modal_body, "form")
+        this.form = base.create_append(sanctions_tab, "form")
         this.comment = base.create_append(this.form, "textarea", ["form-control", "my-2"],
             { type: "text", autocomplete: "new-comment", rows: 3, maxlength: 500, name: "new-comment" }
         )
@@ -260,15 +282,7 @@ class SanctionPlayerModal extends base.Modal {
         )
         this.cancel_button.innerText = "Cancel"
         this.cancel_button.addEventListener("click", (ev) => { this.member = null; this.modal.hide() })
-        this.modal_div.addEventListener("hide.bs.modal", (ev) => {
-            if (this.qr_scanner) {
-                this.qr_scanner.stop()
-            }
-            this.video.hidden = true
-            this.qr_button.disabled = false
-        })
     }
-
     show(member_uid: string, round: number | undefined, seat: d.TableSeat | undefined) {
         this.member = this.console.members_map.by_uid.get(member_uid)
         this.round = round
@@ -299,37 +313,10 @@ class SanctionPlayerModal extends base.Modal {
         this.modal.show()
     }
     display() {
-        var deck_link = this.console.tournament.players[this.member.uid]?.deck?.vdb_link
-        if (this.console.tournament.multideck) {
-            deck_link = this.seat?.deck?.vdb_link
-        }
-        if (deck_link) {
-            this.deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
-            this.deck_link.innerHTML += "Decklist"
-            this.deck_link.href = deck_link
-            this.deck_link.classList.remove("disabled")
-        } else {
-            this.deck_link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="align-top me-1" style="width:1.5em;" version="1.0" viewBox="0 0 270 270"><path d="M62 186c-9-9-13-13-15-19-3-10 0-33 12-74l4-13 1 11c1 38 3 49 12 56 3 3 5 3 9 3l7-4c4-5 7-14 8-24a465 465 0 0 0-1-54 443 443 0 0 1 27 76c0 1-1 2-6 3l-6 4-24 23-20 20zm108-10c-2-1-2-3-3-8-2-7-3-11-9-21-15-29-19-38-22-46-2-8-3-22-1-28 2-7 7-15 18-26a185 185 0 0 1 26-20l-5 11c-8 16-10 23-10 34 0 13 3 21 10 28 7 6 12 9 17 8 4-1 9-7 14-15 3-6 8-24 12-44l2-12 4 13c5 20 4 39-3 51-2 5-8 10-16 16-17 13-25 22-28 33a190 190 0 0 0-5 27l-1-1zm28 23c-4-4-4-4-4-13a276 276 0 0 0-1-36c0-4 2-8 9-16l16-15c1 0 1 2-3 9l-5 20c0 6 0 7 5 8 3 1 9 0 12-2 5-3 9-10 13-22l2-5v5c-1 9-5 25-9 31-2 4-6 8-9 10l-8 3-7 3c-2 2-4 8-6 16l-2 6-3-2zm68 55a616 616 0 0 0-32-26l5-2c5-2 7-4 9-8l6-20c1-8 1-14-2-23-2-9-3-16-2-21a71 71 0 0 1 26-41l-2 8c-3 10-4 14-4 21 0 12 3 16 11 20 3 2 4 2 10 2 5 0 6 0 9-2 9-4 15-12 20-26 2-6 4-14 4-19l1-2c2 5 4 20 4 33 0 15-2 23-5 28s-6 6-21 11-22 8-26 11c-4 2-5 4-7 8v26l-1 25-3-3z" style="fill:red;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/><path d="M184 333c-11-7-83-64-118-94-12-9-12-10-9-14l64-65c5-4 5-4 22 10a10369 10369 0 0 1 117 95c1 2 1 2-2 5-6 9-58 62-63 65-4 3-5 3-11-2z" style="fill:#FFFFFF;stroke-width:.537313;fill-opacity:1" transform="scale(.75)"/></svg>'
-            if (this.console.tournament.multideck && !this.seat) {
-                // TODO: improve to be able to choose round when redoing this modal
-                this.deck_link.innerHTML += "Decklist only on tables"
-            } else {
-                this.deck_link.innerHTML += "No Decklist registered"
-            }
-            this.deck_link.href = "javascript:void(0)"
-            this.deck_link.classList.add("disabled")
-        }
-        if (this.console.tournament.multideck && !this.seat) {
-            this.qr_button.disabled = true
-        } else {
-            this.qr_button.disabled = false
-        }
+        this.deck_submit.init(this.member.uid, this.console.tournament, this.round)
     }
-    async scanned(result: QrScanner.ScanResult) {
-        this.qr_scanner.stop()
-        this.qr_button.disabled = false
-        this.video.hidden = true
-        await this.console.set_deck(this.member.uid, result.data, this.round)
+    async submit_deck(player_uid: string, deck: string, round: number | undefined) {
+        await this.console.set_deck(player_uid, deck, round)
         this.display()
     }
     add_sanction_display(sanction: d.Sanction) {
