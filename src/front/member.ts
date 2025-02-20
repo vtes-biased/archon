@@ -150,11 +150,11 @@ export class PersonLookup<Type extends d.Person> {
     }
 
     reset_focus(new_focus: HTMLLIElement | undefined = undefined) {
-        if (this.focus) {
+        if (this.focus && this.focus.firstElementChild) {
             this.focus.firstElementChild.classList.remove("active")
         }
         this.focus = new_focus
-        if (this.focus) {
+        if (this.focus && this.focus.firstElementChild) {
             this.focus.firstElementChild.classList.add("active")
         }
     }
@@ -281,11 +281,11 @@ export class PersonLookup<Type extends d.Person> {
         ev.stopPropagation()
         ev.preventDefault()
         if (next_focus === this.focus) { return }
-        if (this.focus) {
+        if (this.focus && this.focus.firstElementChild) {
             this.focus.firstElementChild.classList.remove("active")
         }
         this.focus = next_focus
-        if (this.focus) {
+        if (this.focus && this.focus.firstElementChild) {
             this.focus.firstElementChild.classList.add("active")
         }
     }

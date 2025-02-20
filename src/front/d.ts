@@ -8,6 +8,14 @@ export enum TournamentState {
     FINISHED = "Finished",
 }
 
+export enum StandingsMode {
+    PRIVATE = "Private",
+    CUTOFF = "Cutoff",
+    TOP_10 = "Top 10",
+    PUBLIC = "Public",
+
+}
+
 export enum PlayerState {
     REGISTERED = "Registered",
     CHECKED_IN = "Checked-in",
@@ -151,7 +159,7 @@ export interface ScoreOverride {
 export interface TableInfo {
     seating: SeatInfo[],
 }
-    
+
 export interface Table {
     seating: TableSeat[],
     state: TableState,
@@ -222,6 +230,7 @@ export interface Tournament extends TournamentConfig {
     // current_round: number,
     limited: LimitedFormat | undefined,
     checkin_code: boolean,
+    standings_mode: StandingsMode,
     state: TournamentState,
     players: Record<string, Player>,
     finals_seeds: string[],

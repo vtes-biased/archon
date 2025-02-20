@@ -65,7 +65,7 @@ async def api_tournament_put(
 @router.get("/{uid}", summary="Get tournament data")
 async def api_tournament_get(
     tournament: dependencies.Tournament, member: dependencies.PersonFromToken
-) -> models.Tournament | models.TournamentInfo:
+) -> models.Tournament:
     """Get tournament data
 
     - **uid**: The tournament unique ID
@@ -75,7 +75,7 @@ async def api_tournament_get(
 
 
 @router.get("/{uid}/info", summary="Get tournament public information")
-async def api_tournament_get(
+async def api_tournament_get_info(
     tournament: dependencies.Tournament, member: dependencies.PersonFromToken
 ) -> models.Tournament | models.TournamentInfo:
     """Get tournament information

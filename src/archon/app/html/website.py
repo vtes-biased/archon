@@ -11,6 +11,8 @@ import typing
 from .. import dependencies
 from ... import geo
 from ... import models
+from ... import engine
+from ... import scoring
 
 LOG = logging.getLogger()
 
@@ -279,6 +281,10 @@ async def tournament_list(
     )
 
 
+def _filter(cls, filter_cls, obj):
+    return cls(**dataclasses.asdict(filter_cls(**dataclasses.asdict(obj))))
+
+
 @router.get("/tournament/{uid}/display.html")
 async def tournament_display(
     request: fastapi.Request,
@@ -290,18 +296,39 @@ async def tournament_display(
     )
     # filter out other members info
     member_uid = request.session.get("user_id", None)
+    provide_score = set()
     if member_uid:
-        for k, v in tournament.players.items():
-            if k != member_uid:
-                tournament.players[k] = models.PublicPerson(**dataclasses.asdict(v))
-        for round_ in tournament.rounds:
-            for table in round_.tables:
-                for i, seat in enumerate(table.seating):
-                    if seat.player_uid != member_uid:
-                        table.seating[i] = models.SeatInfo(**dataclasses.asdict(seat))
-    # filter out everything private
-    else:
-        tournament = models.TournamentInfo(**dataclasses.asdict(tournament))
+        provide_score.add(member_uid)
+    if tournament.standings_mode == models.StandingsMode.TOP_10:
+        for rank, player in engine.standings(tournament):
+            if rank > 10:
+                break
+            provide_score.add(player.uid)
+    if tournament.standings_mode == models.StandingsMode.CUTOFF:
+        cutoff = scoring.Score()
+        for rank, player in engine.standings(tournament):
+            cutoff = player.result
+            if rank > 5:
+                break
+        context["cutoff"] = cutoff
+    for k, v in tournament.players.items():
+        if (
+            tournament.standings_mode == models.StandingsMode.PUBLIC
+            or tournament.state
+            in [models.TournamentState.FINALS, models.TournamentState.FINISHED]
+            or k in provide_score
+        ):
+            tournament.players[k] = _filter(models.Player, models.PlayerInfo, v)
+        elif k == member_uid:
+            pass
+        else:
+            tournament.players[k] = _filter(models.Player, models.PublicPerson, v)
+    # multideck tournaments: keep the deck info per round only for the player asking
+    for round_ in tournament.rounds:
+        for table in round_.tables:
+            for i, seat in enumerate(table.seating):
+                if seat.player_uid != member_uid:
+                    table.seating[i] = _filter(models.TableSeat, models.SeatInfo, seat)
     context["tournament"] = tournament
     return TEMPLATES.TemplateResponse(
         request=request,
@@ -391,6 +418,37 @@ async def tournament_print_seating(
     return TEMPLATES.TemplateResponse(
         request=request,
         name="tournament/print-seating.html.j2",
+        context=context,
+    )
+
+
+@router.get("/tournament/{uid}/print-standings.html")
+async def tournament_print_seating(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    tournament: dependencies.Tournament,
+    member: dependencies.PersonFromSession,
+):
+    dependencies.check_can_admin_tournament(member, tournament)
+    context["round_number"] = len(tournament.rounds)
+    standings = engine.standings(tournament)
+    finished = tournament.state == models.TournamentState.FINISHED
+    context["finished"] = finished
+    if finished:
+        context["standings"] = standings
+    else:
+        match tournament.standings_mode:
+            case models.StandingsMode.PRIVATE:
+                context["private"] = True
+            case models.StandingsMode.CUTOFF:
+                context["cutoff"] = standings[5][1].result
+            case models.StandingsMode.TOP_10:
+                context["standings"] = [(r, p) for r, p in standings if r <= 10]
+            case models.StandingsMode.PUBLIC:
+                context["standings"] = standings
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="tournament/print-standings.html.j2",
         context=context,
     )
 

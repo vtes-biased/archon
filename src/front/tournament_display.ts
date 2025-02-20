@@ -759,9 +759,12 @@ export class TournamentDisplay {
             )
         }
         // --------------------------------------------------------------------------------------------------- Standings
-        if (this.user &&
-            (tournament.state == d.TournamentState.FINALS || tournament.state == d.TournamentState.FINISHED)
-        ) {
+        if (this.user && (
+            tournament.standings_mode == d.StandingsMode.PUBLIC ||
+            tournament.standings_mode == d.StandingsMode.TOP_10 ||
+            tournament.state == d.TournamentState.FINALS ||
+            tournament.state == d.TournamentState.FINISHED
+        )) {
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
             const thead = base.create_append(table, "thead")
             const tr = base.create_append(thead, "tr", ["align-middle"])
@@ -776,6 +779,14 @@ export class TournamentDisplay {
                     classes.push("bg-warning-subtle")
                 } else if (player.uid == this.user.uid) {
                     classes.push("bg-primary-subtle")
+                }
+                if (
+                    tournament.standings_mode == d.StandingsMode.TOP_10 && !(
+                        tournament.state == d.TournamentState.FINALS ||
+                        tournament.state == d.TournamentState.FINISHED
+                    ) && rank > 10
+                ) {
+                    break
                 }
                 base.create_append(tr, "th", classes, { scope: "row" }).innerText = rank.toString()
                 base.create_append(tr, "td", classes).innerText = player.vekn
@@ -848,8 +859,8 @@ export class TournamentDisplay {
                 const accordion = base.create_append(this.root, "div", ["accordion"], { id: "pastRoundsAccordion" })
                 for (var idx = 0; idx < max_round; idx++) {
                     const round = tournament.rounds[idx]
-                    var player_table: d.Table
-                    var player_seat: d.TableSeat
+                    var player_table: d.Table = undefined
+                    var player_seat: d.TableSeat = undefined
                     for (const table of round.tables) {
                         for (const seat of table.seating) {
                             if (seat.player_uid == player.uid) {
@@ -857,11 +868,12 @@ export class TournamentDisplay {
                                 player_seat = seat
                                 break
                             }
-                            if (player_seat) {
-                                break
-                            }
+                        }
+                        if (player_seat) {
+                            break
                         }
                     }
+                    if (!player_seat) { continue }
                     const id = `prev-round-col-item-${idx}`
                     const head_id = `prev-round-col-head-${idx}`
                     const item = base.create_append(accordion, "div", ["accordion-item"])
@@ -886,7 +898,7 @@ export class TournamentDisplay {
                     })
                     collapse.id = id
                     const body = base.create_append(collapse, "div", ["accordion-body"])
-                    if (!player_table) { continue }
+                    console.log("Player Table", idx, player_table)
                     this.display_user_table(tournament, player, body, player_table)
                 }
                 [].slice.call(accordion.querySelectorAll(".collapse")).map(
@@ -1001,6 +1013,13 @@ export class TournamentDisplay {
                 d.AlertLevel.SUCCESS
             )
             return
+        }
+        if (tournament.standings_mode == d.StandingsMode.CUTOFF) {
+            const cutoff: d.Score = JSON.parse(this.root.parentElement.dataset.cutoff ?? '{"gw": 0, "vp": 0, "tp": 0}')
+            if (cutoff) {
+                const cutoff_div = base.create_append(this.root, "div", ["my-2", "text-bg-info", "rounded", "p-2"])
+                cutoff_div.innerHTML = `<strong>Cutoff for top 5:</strong> ${score_string(cutoff)}`
+            }
         }
         // _____________________________________________________________________________________________________ Playing
         if (tournament.state == d.TournamentState.PLAYING) {
@@ -1502,7 +1521,10 @@ export class TournamentDisplay {
         }
         { // start
             const div = base.create_append(form, "div", ["col-md-4"])
-            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"], { id: "pickerStart" })
+            const group = base.create_append(div, "div",
+                ["input-group", "form-floating", "has-validation"],
+                { id: "pickerStart" }
+            )
             group.dataset.tdTargetInput = "nearest"
             group.dataset.tdTargetToggle = "nearest"
             this.start = base.create_append(group, "input", ["form-control", "z-1"], {
@@ -1535,7 +1557,10 @@ export class TournamentDisplay {
         }
         { // finish
             const div = base.create_append(form, "div", ["col-md-4"])
-            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"], { id: "pickerFinish" })
+            const group = base.create_append(div, "div",
+                ["input-group", "form-floating", "has-validation"],
+                { id: "pickerFinish" }
+            )
             group.dataset.tdTargetInput = "nearest"
             group.dataset.tdTargetToggle = "nearest"
             this.finish = base.create_append(group, "input", ["form-control", "z-1"], {

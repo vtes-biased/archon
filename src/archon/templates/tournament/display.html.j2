@@ -5,5 +5,10 @@
 {% endblock%}
 
 {% block content %}
+{%if cutoff%}
+<div id="tournamentDisplay" data-tournament='{{ tournament | jsonable | tojson }}'
+    data-cutoff='{{ cutoff | jsonable | tojson}}'></div>
+{% else %}
 <div id="tournamentDisplay" data-tournament='{{ tournament | jsonable | tojson }}'></div>
+{% endif %}
 {% endblock %}

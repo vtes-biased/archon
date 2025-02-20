@@ -30,6 +30,13 @@ class TournamentState(enum.StrEnum):
     FINISHED = "Finished"
 
 
+class StandingsMode(enum.StrEnum):
+    PRIVATE = "Private"  # Default
+    CUTOFF = "Cutoff"  # Cutoff to make top 5
+    TOP_10 = "Top 10"  # Top 10 players
+    PUBLIC = "Public"  # All players
+
+
 class PlayerState(enum.StrEnum):
     REGISTERED = "Registered"
     CHECKED_IN = "Checked-in"
@@ -135,15 +142,25 @@ class KrcgDeck:
 
 
 @dataclasses.dataclass
-class Player(Person):
+class PlayerInfo(PublicPerson):
     state: PlayerState = PlayerState.REGISTERED
-    barriers: list[Barrier] = pydantic.Field(default_factory=list)
     rounds_played: int = 0
     table: int = 0  # non-zero when playing
     seat: int = 0  # non-zero when playing
-    toss: int = 0  # non-zero when draws for seeding finals
-    seed: int = 0  # Finals seed
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    seed: int = 0  # Finals seed
+
+
+@dataclasses.dataclass
+class Player(Person):
+    state: PlayerState = PlayerState.REGISTERED
+    rounds_played: int = 0
+    table: int = 0  # non-zero when playing
+    seat: int = 0  # non-zero when playing
+    result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    seed: int = 0  # Finals seed
+    barriers: list[Barrier] = pydantic.Field(default_factory=list)
+    toss: int = 0  # non-zero when draws for seeding finals
     deck: KrcgDeck | None = None  # card ID: card count, default deck (monodeck)
 
     def __hash__(self):
@@ -228,7 +245,9 @@ class TournamentConfig:
     decklist_required: bool = True
     finish: datetime.datetime | None = None
     description: str = ""
+    standings_mode: StandingsMode = StandingsMode.PRIVATE
     max_rounds: int = 0
+    limited: LimitedFormat | None = None
 
 
 @dataclasses.dataclass
@@ -238,7 +257,6 @@ class Tournament(TournamentConfig):
     # # This might come back to bite us for staggered tournament,
     # # but let's try to avoid it.
     # current_round: int = 0
-    limited: LimitedFormat | None = None
     checkin_code: str = pydantic.Field(
         default_factory=lambda: secrets.token_urlsafe(16)
     )

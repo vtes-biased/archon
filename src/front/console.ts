@@ -875,6 +875,26 @@ class Registration {
             }
         }
         base.remove_children(this.action_row)
+        if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
+            this.console.tournament.state == d.TournamentState.WAITING
+        ) {
+            const standings_select = base.create_append(this.action_row, "select", ["form-select", "me-2", "mb-2", "w-auto"])
+            for (const o of Object.values(d.StandingsMode)) {
+                const option = base.create_append(standings_select, "option", [],
+                    { value: o, label: `Standings: ${o}` }
+                )
+                if (o == this.console.tournament.standings_mode) {
+                    option.selected = true
+                }
+            }
+            const tooltip = base.add_tooltip(standings_select, "What standings information players see")
+            standings_select.addEventListener("change", async (ev) => {
+                tooltip.hide()
+                await this.console.update_config(
+                    { standings_mode: standings_select.value }
+                )
+            })
+        }
         if (this.console.tournament.state == d.TournamentState.REGISTRATION) {
             const button = base.create_append(this.action_row, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
@@ -882,6 +902,18 @@ class Registration {
             button.innerText = "Open Check-In"
             const tooltip = base.add_tooltip(button, "Start listing present players")
             button.addEventListener("click", (ev) => { tooltip.hide(); this.console.open_checkin() })
+        }
+        if ((this.console.tournament.state == d.TournamentState.REGISTRATION ||
+            this.console.tournament.state == d.TournamentState.WAITING ||
+            this.console.tournament.state == d.TournamentState.FINISHED)
+            && this.console.tournament.rounds.length > 0
+        ) {
+            const print_standings = base.create_append(this.action_row, "a",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"],
+                { target: "_blank" },
+            )
+            print_standings.innerHTML = '<i class="bi bi-printer-fill"></i> Standings'
+            print_standings.href = `/tournament/${this.console.tournament.uid}/print-standings.html`
         }
         if (this.console.tournament.state == d.TournamentState.REGISTRATION ||
             this.console.tournament.state == d.TournamentState.WAITING
@@ -893,6 +925,8 @@ class Registration {
             checkin_code.href = `/tournament/${this.console.tournament.uid}/checkin.html`
             checkin_code.target = "_blank"
             base.add_tooltip(checkin_code, "Display the QR code players can scan to check in")
+        }
+        if (this.console.tournament.state == d.TournamentState.WAITING) {
             const checkin_button = base.create_append(this.action_row, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"]
             )
@@ -908,6 +942,7 @@ class Registration {
             seat_button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
             var tooltip_message: string
             if (checked_in_count == 0) {
+                seat_button.innerText += " (Empty)"
                 seat_button.disabled = false
                 seat_button.classList.add("btn-warning")
                 tooltip_message = "Start empty round (no player checked in)"
@@ -1935,6 +1970,48 @@ class TournamentConsole {
             }
         }
         return false
+    }
+
+    async update_config(modification: Object) {
+        const config = {
+            name: this.tournament.name,
+            format: this.tournament.format,
+            start: this.tournament.start,
+            timezone: this.tournament.timezone,
+            uid: this.tournament.uid,
+            rank: this.tournament.rank,
+            country: this.tournament.country,
+            city: this.tournament.city,
+            venue: this.tournament.venue,
+            venue_url: this.tournament.venue_url,
+            address: this.tournament.address,
+            map_url: this.tournament.map_url,
+            online: this.tournament.online,
+            proxies: this.tournament.proxies,
+            multideck: this.tournament.multideck,
+            decklist_required: this.tournament.decklist_required,
+            finish: this.tournament.finish,
+            description: this.tournament.description,
+            judges: this.tournament.judges,
+        } as d.TournamentConfig
+        Object.assign(config, modification)
+        const res = await base.do_fetch_with_token(
+            `/api/tournaments/${this.tournament.uid}`,
+            this.token,
+            { method: "put", body: JSON.stringify(config) }
+        )
+        if (!res) { return }
+        const res2 = await base.do_fetch_with_token(
+            `/api/tournaments/${this.tournament.uid}`,
+            this.token,
+            { method: "get" }
+        )
+        if (!res2) { return }
+        const response: d.Tournament = await res2.json()
+        console.log(response)
+        this.tournament = response
+        await this.display()
+        return response
     }
 
     async handle_tournament_event(tev: events.TournamentEvent): Promise<d.Tournament | undefined> {

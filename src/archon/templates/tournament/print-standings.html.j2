@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Vampire: the Eternal Struggle (VTES) tournament seating chart">
+    <meta name="keywords" content="Archon, Vampire, the Eternal Struggle, VTES, Tournament">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="shortcut icon" href="{{ url_for('img', path='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='layout.css') }}">
+    {% if finals %}
+    <title>Finals</title>
+    {% else %}
+    <title>Round {{ round_number }} standings</title>
+    {% endif %}
+
+</head>
+
+<body>
+    <article class="container">
+        {% if finished %}
+        <h2 class="text-center">Final standings</h2>
+        {% else %}
+        <h2 class="text-center">Round {{ round_number }} standings</h2>
+        {% endif %}
+        {% if private %}
+        <p><strong>Standings are private until the tournament finishes</strong></p>
+        {% endif %}
+        {% if cutoff %}
+        <p><strong>Cutoff for Top 5: </strong>{{ cutoff }}</p>
+        {% endif %}
+        {% if standings %}
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th scope="col">Rank</th>
+                    <th scope="col">Score</th>
+                    <th scope="col">VEKN</th>
+                    <th scope="col">Name</th>
+                </tr>
+            </thead>
+            <tbody class="table-group-divider">
+                {% for rank, player in standings %}
+                <tr>
+                    <th>{{ rank }}</th>
+                    <td>{{ player.result }}</td>
+                    <td>{{ player.vekn }}</td>
+                    <td>{{ player.name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </article>
