@@ -268,7 +268,12 @@ export class DeckSubmit {
     stop_video() {
         if (this.qr_scanner) { this.toggle_video() }
     }
-    init(player_uid: string, tournament: d.Tournament, round: number | undefined = undefined, submit_disabled: boolean = false) {
+    init(
+        player_uid: string,
+        tournament: d.Tournament,
+        round: number | undefined = undefined,
+        submit_disabled: boolean = false
+    ) {
         this.player_uid = player_uid
         this.tournament = tournament
         this.deck.value = ""
@@ -544,13 +549,19 @@ export class TournamentDisplay {
             edit_button.innerText = "Edit"
             edit_button.addEventListener("click", (ev) => this.display_form(tournament))
             if (this.user.roles.includes(d.MemberRole.ADMIN)) {
+                const res = await base.do_fetch_with_token(
+                    `/api/tournaments/${tournament.uid}/info`,
+                    this.token,
+                    { method: "get" }
+                )
+                const tournament_info_data: d.TournamentInfo = await res.json()
                 const download_button = base.create_append(buttons_div, "a",
                     ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"],
                     { role: "button" }
                 )
                 download_button.innerHTML = '<i class="bi bi-download"></i> Download'
                 download_button.href = "data:application/yaml;charset=utf-8;base64," + Base64.encode(
-                    stringify(tournament)
+                    stringify(tournament_info_data)
                 )
                 download_button.download = `${tournament.name}.txt`
                 const delete_button = base.create_append(buttons_div, "a",
@@ -567,9 +578,6 @@ export class TournamentDisplay {
         }
         // ------------------------------------------------------------------------------------------------------ Badges
         const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
-        base.create_append(badges_div, "span",
-            ["me-2"]
-        ).innerText = `${Object.getOwnPropertyNames(tournament.players).length} contenders`
         const status_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
         switch (tournament.state) {
             case d.TournamentState.REGISTRATION:
@@ -670,6 +678,37 @@ export class TournamentDisplay {
         if (finish) {
             base.create_append(datetime_div, "div", ["me-2"]).innerHTML = '<i class="bi bi-arrow-right"></i>'
             base.create_append(datetime_div, "div", ["me-2"]).innerText = finish_string
+        }
+        // ------------------------------------------------------------------------------------------------- Contenders
+        if (!this.display_callback) {
+            const accordion = base.create_append(this.root, "div", ["accordion"], { id: "contendersAccordion" })
+
+            const item = base.create_append(accordion, "div", ["accordion-item"])
+            const header = base.create_append(item, "h2", ["accordion-header"], { id: "contendersAccordionHeader" })
+            const button = base.create_append(header, "button", ["accordion-button", "collapsed"], {
+                type: "button",
+                "data-bs-toggle": "collapse",
+                "data-bs-target": "#contendersCollapse",
+                "aria-expanded": "false",
+                "aria-controls": "contendersCollapse",
+            })
+            button.innerText = `${Object.getOwnPropertyNames(tournament.players).length} contenders`
+            const collapse = base.create_append(item, "div", ["accordion-collapse", "collapse"], {
+                "aria-labelledby": "contendersAccordionHeader", "data-bs-parent": "#pastRoundsAccordion"
+            })
+            collapse.id = "contendersCollapse"
+            const body = base.create_append(collapse, "div", ["accordion-body"])
+            const ul = base.create_append(body, "ul")
+            for (const player of Object.values(tournament.players).sort(
+                (a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })
+            )) {
+                const list_item = base.create_append(ul, "li")
+                if (player.vekn) {
+                    list_item.innerText = `${player.name} (#${player.vekn})`
+                } else {
+                    list_item.innerText = player.name
+                }
+            }
         }
         // ----------------------------------------------------------------------------------------------- User Commands
         if (!this.display_callback && this.user) {
@@ -945,7 +984,13 @@ export class TournamentDisplay {
             )
             drop_button.innerHTML = '<i class="bi bi-x-circle-fill"></i> Drop from the tournament'
             const tooltip = base.add_tooltip(drop_button, "Let the organizers know you are leaving")
-            drop_button.addEventListener("click", (ev) => { tooltip.hide(); this.drop(tournament, player) })
+            drop_button.addEventListener("click", (ev) => {
+                tooltip.hide()
+                this.confirmation_modal.show(
+                    "You will not participate in future rounds.",
+                    () => this.drop(tournament, player)
+                )
+            })
         }
         // _________________________________________________________________________________________ Open (registration)
         if (tournament.state == d.TournamentState.REGISTRATION) {

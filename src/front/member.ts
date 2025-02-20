@@ -314,6 +314,13 @@ export function can_organize(member: d.Person): boolean {
     return false
 }
 
+export function can_admin_tournament(member: d.Person, tournament: d.TournamentConfig): boolean {
+    if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
+    if (member.roles.includes(d.MemberRole.NC) && member.country == tournament.country) { return true }
+    if (tournament.judges.find(j => j.uid == member.uid)) { return true }
+    return false
+}
+
 export function can_change_info(member: d.Person, target: d.Person): boolean {
     if (member.uid == target.uid) { return true }
     const member_roles = new Set(member.roles)

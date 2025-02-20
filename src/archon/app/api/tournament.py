@@ -62,15 +62,49 @@ async def api_tournament_put(
     )
 
 
-@router.get("/{uid}", summary="Get tournament information")
+@router.get("/{uid}", summary="Get tournament data")
 async def api_tournament_get(
-    tournament: dependencies.Tournament, _: dependencies.MemberUidFromToken
-) -> models.Tournament:
+    tournament: dependencies.Tournament, member: dependencies.PersonFromToken
+) -> models.Tournament | models.TournamentInfo:
+    """Get tournament data
+
+    - **uid**: The tournament unique ID
+    """
+    dependencies.check_can_admin_tournament(member, tournament)
+    return tournament
+
+
+@router.get("/{uid}/info", summary="Get tournament public information")
+async def api_tournament_get(
+    tournament: dependencies.Tournament, member: dependencies.PersonFromToken
+) -> models.Tournament | models.TournamentInfo:
     """Get tournament information
 
     - **uid**: The tournament unique ID
     """
-    return tournament
+    return models.TournamentInfo(**dataclasses.asdict(tournament))
+
+
+@router.get("/{uid}/decks", summary="Get tournament decks information")
+async def api_tournament_get(
+    tournament: dependencies.Tournament, _: dependencies.MemberUidFromToken
+) -> models.TournamentDeckInfo:
+    """Get tournament information
+
+    - **uid**: The tournament unique ID
+    """
+    res = models.TournamentDeckInfo(**dataclasses.asdict(tournament))
+    if tournament.multideck:
+        for round_ in tournament.rounds:
+            for table in round_.tables:
+                for seat in table.seating:
+                    if seat.deck:
+                        res.decks.append(seat.deck)
+    else:
+        for player in tournament.players.values():
+            if player.deck:
+                res.decks.append(player.deck)
+    return res
 
 
 @router.delete("/{uid}", summary="Delete tournament")

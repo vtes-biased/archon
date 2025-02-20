@@ -71,13 +71,17 @@ class Ranking:
 
 
 @dataclasses.dataclass
-class Person:
+class PublicPerson:
     name: str
     vekn: str = ""
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     country: str | None = ""  # country name
     country_flag: str | None = ""  # unicode flag char
     city: str | None = ""  # city name
+
+
+@dataclasses.dataclass
+class Person(PublicPerson):
     roles: list[MemberRole] = pydantic.Field(default_factory=list)
     sponsor: str | None = ""  # useful for organizers, to find their recruits
     sanctions: list["RegisteredSanction"] = pydantic.Field(default_factory=list)
@@ -147,10 +151,14 @@ class Player(Person):
 
 
 @dataclasses.dataclass
-class TableSeat:
+class SeatInfo:
     player_uid: str
-    deck: KrcgDeck | None = None  # card ID: card count
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+
+
+@dataclasses.dataclass
+class TableSeat(SeatInfo):
+    deck: KrcgDeck | None = None  # card ID: card count
     judge_uid: str = ""  # Result set by a judge cannot be modified by a player
 
 
@@ -161,10 +169,20 @@ class ScoreOverride:
 
 
 @dataclasses.dataclass
-class Table:
+class TableInfo:
+    seating: list[SeatInfo]
+
+
+@dataclasses.dataclass
+class Table(TableInfo):
     seating: list[TableSeat]
     state: TableState = TableState.IN_PROGRESS
     override: ScoreOverride | None = None
+
+
+@dataclasses.dataclass
+class RoundInfo:
+    tables: list[TableInfo]
 
 
 @dataclasses.dataclass
@@ -197,7 +215,7 @@ class TournamentConfig:
     start: datetime.datetime
     timezone: str = "UTC"
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
-    judges: list[Person] = pydantic.Field(default_factory=list)
+    judges: list[PublicPerson] = pydantic.Field(default_factory=list)
     rank: TournamentRank = TournamentRank.BASIC
     country: str | None = None
     venue: str = ""
@@ -234,6 +252,26 @@ class Tournament(TournamentConfig):
     sanctions: dict[str, list[Sanction]] = pydantic.Field(default_factory=dict)
     winner: str = ""
     extra: dict = pydantic.Field(default_factory=dict)  # third-party data if any
+
+
+@dataclasses.dataclass
+class TournamentInfo(TournamentConfig):
+    players: dict[str, PublicPerson] = pydantic.Field(default_factory=dict)
+    finals_seeds: list[str] = pydantic.Field(default_factory=list)
+    rounds: list[RoundInfo] = pydantic.Field(default_factory=list)
+    winner: str = ""
+
+
+@dataclasses.dataclass
+class DeckInfo:
+    deck: KrcgDeck
+    score: scoring.Score
+    winner: bool = False
+
+
+@dataclasses.dataclass
+class TournamentDeckInfo(TournamentConfig):
+    decks: list[DeckInfo] = pydantic.Field(default_factory=list)
 
 
 @dataclasses.dataclass

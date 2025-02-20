@@ -65,13 +65,16 @@ export interface Ranking {
     limited_online: number,
 }
 
-export interface Person {
+export interface PublicPerson {
     name: string,
     vekn: string,
     uid: string,
     country: string | undefined,  // country name
     country_flag: string | undefined,  // unicode flag char
     city: string | undefined,  // city name
+}
+
+export interface Person extends PublicPerson {
     roles: MemberRole[] | undefined,  // city name
     sponsor: string | undefined,
     sanctions: RegisteredSanction[],
@@ -131,9 +134,12 @@ export interface Player extends Person {
     deck: KrcgDeck | undefined,
 }
 
-export interface TableSeat {
+export interface SeatInfo {
     player_uid: string,
     result: Score,
+}
+
+export interface TableSeat extends SeatInfo {
     deck: KrcgDeck | undefined,
 }
 
@@ -142,10 +148,18 @@ export interface ScoreOverride {
     comment: string,
 }
 
+export interface TableInfo {
+    seating: SeatInfo[],
+}
+    
 export interface Table {
     seating: TableSeat[],
     state: TableState,
     override: ScoreOverride | undefined,
+}
+
+export interface RoundInfo {
+    tables: TableInfo[]
 }
 
 export interface Round {
@@ -215,6 +229,13 @@ export interface Tournament extends TournamentConfig {
     sanctions: Record<string, Sanction[]>,
     winner: string,
     extra: {},
+}
+
+export interface TournamentInfo extends TournamentConfig {
+    players: Record<string, PublicPerson>,
+    finals_seeds: string[],
+    rounds: RoundInfo[],
+    winner: string,
 }
 
 export interface RegisteredSanction extends Sanction {

@@ -1,5 +1,6 @@
 import aiohttp
 import base64
+import dataclasses
 import datetime
 import dotenv
 import fastapi_mail
@@ -115,6 +116,13 @@ async def get_tournament_config(
     return await op.get_tournament(uid, models.TournamentConfig)
 
 
+async def get_tournament_info(
+    op: DbOperator,
+    uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
+) -> models.Tournament:
+    return await op.get_tournament(uid, models.TournamentInfo)
+
+
 async def get_tournament_orchestrator(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
@@ -128,6 +136,9 @@ async def get_tournament_orchestrator(
 Tournament = typing.Annotated[models.Tournament, fastapi.Depends(get_tournament)]
 TournamentConfig = typing.Annotated[
     models.TournamentConfig, fastapi.Depends(get_tournament_config)
+]
+TournamentInfo = typing.Annotated[
+    models.TournamentConfig, fastapi.Depends(get_tournament_info)
 ]
 TournamentOrchestrator = typing.Annotated[
     engine.TournamentOrchestrator, fastapi.Depends(get_tournament_orchestrator)
@@ -197,6 +208,16 @@ def can_organize(member: models.Person) -> bool:
         models.MemberRole.NC,
         models.MemberRole.PRINCE,
     }
+
+
+def check_can_admin_tournament(member: models.Person, tournament: models.Tournament):
+    if models.MemberRole.ADMIN in member.roles:
+        return
+    if models.MemberRole.NC in member.roles and member.country == tournament.country:
+        return
+    if member.uid in [j.uid for j in tournament.judges]:
+        return
+    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
 def check_organizer(member: models.Person) -> None:

@@ -349,7 +349,7 @@ class Operator:
         """Insert a new member"""
         # vekn must not be set
         member.vekn = ""
-        async with self.conn.cursor() as cursor:
+        async with self.conn.cursor() as cursor, member_consistency():
             # insert new
             await cursor.execute(
                 "INSERT INTO members (uid, data) VALUES (%s, %s)",

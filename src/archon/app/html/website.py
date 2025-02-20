@@ -1,3 +1,4 @@
+import dataclasses
 import fastapi
 import fastapi.encoders
 import fastapi.security
@@ -268,7 +269,7 @@ async def tournament_list(
     op: dependencies.DbOperator,
 ):
     request.session["next"] = str(request.url_for("tournament_list"))
-    tournaments = await op.get_tournaments()
+    tournaments = await op.get_tournaments(models.TournamentConfig)
     tournaments.sort(key=lambda x: x.start, reverse=True)
     context["tournaments"] = tournaments
     return TEMPLATES.TemplateResponse(
@@ -287,6 +288,20 @@ async def tournament_display(
     request.session["next"] = str(
         request.url_for("tournament_display", uid=tournament.uid)
     )
+    # filter out other members info
+    member_uid = request.session.get("user_id", None)
+    if member_uid:
+        for k, v in tournament.players.items():
+            if k != member_uid:
+                tournament.players[k] = models.PublicPerson(**dataclasses.asdict(v))
+        for round_ in tournament.rounds:
+            for table in round_.tables:
+                for i, seat in enumerate(table.seating):
+                    if seat.player_uid != member_uid:
+                        table.seating[i] = models.SeatInfo(**dataclasses.asdict(seat))
+    # filter out everything private
+    else:
+        tournament = models.TournamentInfo(**dataclasses.asdict(tournament))
     context["tournament"] = tournament
     return TEMPLATES.TemplateResponse(
         request=request,
@@ -320,21 +335,9 @@ async def tournament_console(
     request: fastapi.Request,
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
-    op: dependencies.DbOperator,
     member: dependencies.PersonFromSession,
 ):
-    if not (
-        models.MemberRole.ADMIN in member.roles
-        or (
-            models.MemberRole.NC in member.roles
-            and tournament.country == member.country
-        )
-        or member.uid in [j.uid for j in tournament.judges]
-    ):
-        raise fastapi.HTTPException(
-            status_code=fastapi.status.HTTP_403_FORBIDDEN,
-            detail="A judge is required",
-        )
+    dependencies.check_can_admin_tournament(member, tournament)
     context["tournament"] = tournament
     return TEMPLATES.TemplateResponse(
         request=request,
@@ -348,10 +351,9 @@ async def tournament_display(
     request: fastapi.Request,
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
-    member_uid: dependencies.MemberUidFromSession,
+    member: dependencies.PersonFromSession,
 ):
-    if member_uid not in [j.uid for j in tournament.judges]:
-        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    dependencies.check_can_admin_tournament(member, tournament)
     context["name"] = tournament.name
     context["code"] = tournament.checkin_code
     return TEMPLATES.TemplateResponse(
@@ -367,8 +369,9 @@ async def tournament_print_seating(
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
     round: typing.Annotated[int, fastapi.Query()],
-    _: dependencies.MemberUidFromSession,
+    member: dependencies.PersonFromSession,
 ):
+    dependencies.check_can_admin_tournament(member, tournament)
     context["round_number"] = round
     context["round"] = []
     if round == len(tournament.rounds) and tournament.finals_seeds:
