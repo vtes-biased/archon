@@ -6,14 +6,17 @@ Tournament management
 
 This project uses [npm](https://docs.npmjs.com), that you can install with [nvm](https://github.com/nvm-sh/nvm).
 It also uses [Python](https://docs.python.org/3/) on the backend side, so install Python version >= `3.11`.
+Do not forget to install the required certifi certificates for Python (follow the installer instructions).
 
-Finally, you'll need [GNU Make](https://www.gnu.org/software/make/manual/make.html) for simple targets and processes defined in a [Makefile](Makefile).
-Four options if you are on Windows:
+Finally, you'll need [GNU Make](https://www.gnu.org/software/make/manual/make.html) 
+for simple targets and processes defined in a [Makefile](Makefile).
+Four options **if you are on Windows**:
 
 - Use [Chocolatey](https://chocolatey.org) as package manager and `choco install make`
 - Use the [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/) feature
 - Just install the [GNU make binary for Windows](https://gnuwin32.sourceforge.net/packages/make.htm)
-- Don't use `make` at all. The [Makefile](Makefile) is just a shortcut, you can open it and copy/paste the commands in your Powershell.
+- Don't use `make` at all. The [Makefile](Makefile) is just a shortcut, 
+  you can open it and copy/paste the commands in your Powershell.
 
 ```bash
 nvm install node
@@ -22,6 +25,39 @@ python -m virtualenv .venv
 source .venv/bin/activate
 make update
 ```
+
+### Using Homebrew on OSX
+
+You can use [Homebrew](https://brew.sh/) on Linux or OSX to install Python and its dependencies.
+Don't forget to update the CA certificates from time to time.
+
+```bash
+brew reinstall ca-certificates openssl
+```
+
+### Updating the development environment
+
+To update Node.js and NPM versions, run:
+
+```bash
+nvm install --latest-npm
+nvm use node
+npm install -g npm@latest
+npm install --include=dev
+```
+
+To update Python version, install the new Python binary (OS-dependant), 
+then remove and regenerate the virtualenv with the new Python binary:
+
+```bash
+rm -rf ".venv"
+python3.13 -m virtualenv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install --upgrade ".[dev]"
+```
+
+### Tools & Frameworks
 
 We are using a couple of very standard tools and frameworks, that `make update` will install and update for you:
 
