@@ -517,8 +517,11 @@ async def email_login(
 ) -> bool:
     """Login using email+password"""
     async with db.operator() as op:
-        member = await op.get_member_by_email(email)
-        res = check_member_password(member, password)
+        try:
+            member = await op.get_member_by_email(email)
+            res = check_member_password(member, password)
+        except db.NotFound:
+            res = False
     if res:
         authenticated_session(request, member)
     return res

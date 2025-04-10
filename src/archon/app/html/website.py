@@ -141,7 +141,10 @@ async def html_auth_email(
     if logged_in:
         next = request.session.get("next", str(request.url_for("index")))
     else:
-        request.session["message"] = "Login failed"
+        request.session["message"] = (
+            "Login failed<br>"
+            '<em>Try another login method, or enter your e-mail and click the "Reset Password" button</em>'
+        )
         next = str(request.url_for("login"))
     return fastapi.responses.RedirectResponse(next, status_code=303)
 

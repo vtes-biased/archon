@@ -50,6 +50,9 @@ POOL = psycopg_pool.AsyncConnectionPool(
 class IndexError(RuntimeError): ...
 
 
+class NotFound(RuntimeError): ...
+
+
 async def init():
     """Idempotent DB initialization"""
     async with POOL.connection() as conn:
@@ -537,7 +540,7 @@ class Operator:
             if data:
                 member = self._instanciate_member(data[0])
                 return member
-            raise RuntimeError(f"Member not found by email: {email}")
+            raise NotFound(f"Member not found by email: {email}")
 
     async def update_member(self, member: models.Member) -> models.Member:
         async with self.conn.cursor() as cursor, member_consistency():

@@ -2,7 +2,7 @@
 
 {% block content %}
 {% if message %}
-<div class="alert alert-info" role="alert">{{ message }}</div>
+<div class="alert alert-info" role="alert">{{ message | safe }}</div>
 {% endif %}
 <h1 class="fs-5">Login</h1>
 <a type="button" class="btn btn-sm btn-discord my-2" href="{{ discord_oauth }}">
