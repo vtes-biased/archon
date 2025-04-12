@@ -1,16 +1,24 @@
 import aiohttp
+import asyncio
+import datetime
 import dotenv
+import enum
 import logging
 import os
+import pydantic
 import typing
+import urllib.parse
 
+from . import engine
 from . import geo
 from . import models
+from . import scoring
 
 
 dotenv.load_dotenv()
 VEKN_LOGIN = os.getenv("VEKN_LOGIN", "")
 VEKN_PASSWORD = os.getenv("VEKN_PASSWORD", "")
+SITE_URL_BASE = os.getenv("SITE_URL_BASE", "http://127.0.0.1:8000")
 
 LOG = logging.getLogger()
 
@@ -396,7 +404,7 @@ def _member_from_vekn_data(data: dict[str, str]) -> models.Member:
     # since we're dropping prince and nc prefixes
     return models.Member(
         vekn=data["veknid"],
-        name=data["firstname"] + " " + data["lastname"],
+        name=(data["firstname"] + " " + data["lastname"]).strip(),
         country=country.country if country else "",
         country_flag=country.flag if country else "",
         city=city.unique_name if city else "",
@@ -431,6 +439,134 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                 # make sure 59 -> 60 and not 6
                 if prefix and len(prefix) < 2:
                     prefix += "0"
+
+
+async def get_events(
+    members: list[models.Member],
+) -> typing.AsyncIterator[models.Tournament]:
+    members = {m.vekn: m for m in members}
+    async with aiohttp.ClientSession() as session:
+        token = await get_token(session)
+        # parallelize by batches of 10
+        for num in range(0, 1400):
+            tasks = []
+            async with asyncio.TaskGroup() as tg:
+                for digit in range(1, 10):
+                    tasks.append(
+                        tg.create_task(
+                            get_event(session, token, 10 * num + digit, members)
+                        )
+                    )
+            for digit, task in enumerate(tasks, 1):
+                if not task.done() | task.cancelled():
+                    continue
+                exc = task.exception()
+                if exc:
+                    LOG.exception("Failed to retrieve event %s", 10 * num + digit)
+                    continue
+                res = task.result()
+                if res:
+                    yield res
+
+
+async def get_event(
+    session: aiohttp.ClientSession, token: str, num: int, members: list[models.Member]
+) -> models.Tournament:
+    async with session.get(
+        f"https://www.vekn.net/api/vekn/event/{num}",
+        headers={"Authorization": f"Bearer {token}"},
+    ) as response:
+        response.raise_for_status()
+        result = await response.json()
+        data = result["data"]["events"]
+        if not data:
+            LOG.warning("No data for event #%s: %s", num, result)
+            return
+        data = data[0]
+        if data["players"]:
+            LOG.debug("Event #%s: %s", num, data)
+            return _tournament_from_vekn_data(data, members)
+
+
+def _tournament_from_vekn_data(
+    data: any, members: dict[str, models.Member]
+) -> models.Tournament:
+    try:
+        fmt, rank = TOURNAMENT_TYPE_TO_FORMAT_RANK[int(data["eventtype_id"])]
+    except KeyError:
+        LOG.warning(
+            "Error in event #%s - invalid event type: %s",
+            data["event_id"],
+            data["eventtype_id"],
+        )
+        fmt, rank = models.TournamentFormat.Limited, models.TournamentRank.BASIC
+    if data["venue_country"] and data["venue_country"] in geo.COUNTRIES_BY_ISO:
+        country = geo.COUNTRIES_BY_ISO[data["venue_country"]].country
+    else:
+        country = None
+    start = " ".join([data["event_startdate"], data["event_starttime"]])
+    try:
+        start = datetime.datetime.fromisoformat(start)
+    except ValueError:
+        LOG.warning("Error in event #%s - invalid start: %s", data["event_id"], start)
+        start = datetime.datetime.fromisoformat(data["event_startdate"])
+    finish = " ".join([data["event_enddate"], data["event_endtime"]])
+    try:
+        finish = datetime.datetime.fromisoformat(finish)
+    except ValueError:
+        LOG.warning("Error in event #%s - invalid finish: %s", data["event_id"], finish)
+        finish = datetime.datetime.fromisoformat(data["event_enddate"])
+    ret = models.Tournament(
+        extra={"vekn_id": data["event_id"]},
+        name=data["event_name"],
+        format=fmt,
+        start=start,
+        finish=finish,
+        timezone="UTC",
+        rank=rank,
+        country=country,
+        venue=data["venue_name"] or "",
+        online=bool(int(data["event_isonline"])),
+        state=models.TournamentState.FINISHED,
+        decklist_required=False,
+        proxies=bool(rank == models.TournamentRank.BASIC),
+    )
+    for idx, pdata in enumerate(data["players"], 1):
+        member = members.get(pdata["veknid"])
+        if not member:
+            continue
+        try:
+            result = scoring.Score(
+                gw=int(pdata["gw"]) + (1 if pdata["pos"] == 1 else 0),
+                vp=float(pdata["vp"]) + float(pdata["vpf"]),
+                tp=int(pdata["tp"]),
+            )
+        except pydantic.ValidationError:
+            LOG.warning(
+                "Error in event #%s - invalid player result: %s",
+                data["event_id"],
+                pdata,
+            )
+            result = scoring.Score()
+        ret.players[pdata["veknid"]] = models.Player(
+            name=member.name,
+            vekn=member.vekn,
+            uid=member.uid,
+            country=member.country,
+            country_flag=member.country_flag,
+            city=member.city,
+            roles=member.roles,
+            sponsor=member.sponsor,
+            state=models.PlayerState.FINISHED,
+            rounds_played=0,
+            result=result,
+            toss=int(pdata["tie"]),
+        )
+        if pdata["pos"] == "1":
+            ret.winner = member.uid
+        if pdata["dq"] != "0":
+            ret.players[pdata["veknid"]].barriers.append(models.Barrier.DISQUALIFIED)
+    return ret
 
 
 def increment(num: str) -> str:
@@ -474,3 +610,171 @@ async def get_rankings() -> dict[str, models.Ranking]:
         )
         for player in ranking
     }
+
+
+class TournamentType(enum.IntEnum):
+    DEMO = 1
+    STANDARD_CONSTRUCTED = 2
+    LIMITED = 3
+    MINI_QUALIFIER = 4
+    CONTINENTAL_QUALIFIER = 5
+    CONTINENTAL_CHAMPIONSHIP = 6
+    NATIONAL_QUALIFIER = 7
+    NATIONAL_CHAMPIONSHIP = 8
+    STORYLINE = 9
+    LAUNCH_EVENT = 10
+    BUILD_YOUR_OWN_STORYLINE = 11
+    UNSANCTIONED_TOURNAMENT = 12
+    LIMITED_NATIONAL_CHAMPIONSHIP = 13
+    LIMITED_CONTINENTAL_CHAMPIONSHIP = 14
+
+
+TOURNAMENT_TYPE_TO_FORMAT_RANK = {
+    TournamentType.DEMO: (models.TournamentFormat.Limited, models.TournamentRank.BASIC),
+    TournamentType.STANDARD_CONSTRUCTED: (
+        models.TournamentFormat.Standard,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.LIMITED: (
+        models.TournamentFormat.Limited,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.MINI_QUALIFIER: (
+        models.TournamentFormat.Standard,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.CONTINENTAL_QUALIFIER: (
+        models.TournamentFormat.Standard,
+        models.TournamentRank.GP,
+    ),
+    TournamentType.CONTINENTAL_CHAMPIONSHIP: (
+        models.TournamentFormat.Standard,
+        models.TournamentRank.CC,
+    ),
+    TournamentType.NATIONAL_QUALIFIER: (
+        models.TournamentFormat.Standard,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.NATIONAL_CHAMPIONSHIP: (
+        models.TournamentFormat.Standard,
+        models.TournamentRank.NC,
+    ),
+    TournamentType.STORYLINE: (
+        models.TournamentFormat.Limited,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.LAUNCH_EVENT: (
+        models.TournamentFormat.Limited,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.BUILD_YOUR_OWN_STORYLINE: (
+        models.TournamentFormat.Limited,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.UNSANCTIONED_TOURNAMENT: (
+        models.TournamentFormat.Limited,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.LIMITED_NATIONAL_CHAMPIONSHIP: (
+        models.TournamentFormat.Limited,
+        models.TournamentRank.BASIC,
+    ),
+    TournamentType.LIMITED_CONTINENTAL_CHAMPIONSHIP: (
+        models.TournamentFormat.Limited,
+        models.TournamentRank.BASIC,
+    ),
+}
+
+
+async def upload_tournament(tournament: models.Tournament) -> None:
+    type = TournamentType.UNSANCTIONED_TOURNAMENT
+    match (tournament.format, tournament.rank):
+        case (models.TournamentFormat.TournamentFormat.Draft, _):
+            TournamentType.LIMITED
+        case (models.TournamentFormat.TournamentFormat.Limited, _):
+            TournamentType.LIMITED
+        case (
+            models.TournamentFormat.TournamentFormat.Standard,
+            models.TournamentRank.TournamentRank.BASIC,
+        ):
+            type = TournamentType.STANDARD_CONSTRUCTED
+        case (
+            models.TournamentFormat.TournamentFormat.Standard,
+            models.TournamentRank.TournamentRank.NC,
+        ):
+            type = TournamentType.NATIONAL_CHAMPIONSHIP
+        case (
+            models.TournamentFormat.TournamentFormat.Standard,
+            models.TournamentRank.TournamentRank.GP,
+        ):
+            type = TournamentType.CONTINENTAL_QUALIFIER
+        case (
+            models.TournamentFormat.TournamentFormat.Standard,
+            models.TournamentRank.TournamentRank.CC,
+        ):
+            type = TournamentType.CONTINENTAL_CHAMPIONSHIP
+    start = tournament.start.astimezone(tz=datetime.timezone.utc)
+    finish = tournament.finish.astimezone(tz=datetime.timezone.utc)
+    try:
+        async with aiohttp.ClientSession() as session:
+            token = await get_token(session)
+            data = aiohttp.FormData(
+                {
+                    "name": tournament.name[:120],
+                    "type": type,
+                    "venueid": 0 if tournament.online else 3800,
+                    "online": tournament.online,
+                    "startdate": start.date().isoformat(),
+                    "starttime": f"{start:%H:%M}",
+                    "enddate": finish.date().isoformat(),
+                    "endtime": f"{finish:%H:%M}",
+                    "timelimit": "2h",
+                    "rounds": max(1, len(tournament.rounds) - 1),
+                    "final": True,
+                    "multidekc": tournament.multideck,
+                    "proxies": tournament.proxies,
+                    "website": urllib.parse.join(
+                        SITE_URL_BASE, f"/tournament/{tournament.uid}/display.html"
+                    ),
+                    "description": tournament.description[:1000],
+                }
+            )
+            event_id = None
+            async with session.post(
+                "https://www.vekn.net/api/vekn/event",
+                headers={"Authorization": f"Bearer {token}"},
+                data=data,
+            ) as response:
+                response.raise_for_status()
+                result = await response.json()
+                event_id = result["data"]["id"]
+            async with session.post(
+                f"https://www.vekn.net/api/vekn/archon/{event_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                data=aiohttp.FormData({"archondata": to_archondata(tournament)}),
+            ) as response:
+                response.raise_for_status()
+                tournament.extra["vekn_id"] = event_id
+    except aiohttp.ClientError:
+        LOG.exception("VEKN Upload failed")
+
+
+def to_archondata(tournament: models.Tournament) -> str:
+    ret = f"{len(tournament.rounds)}¤"
+    if tournament.state != models.TournamentState.FINISHED or not tournament.rounds:
+        raise ValueError("Invalid tournament")
+    ratings = engine.ratings(tournament)
+    finals_table = {s.player_uid: s for s in tournament.rounds[-1].tables[0].seating}
+    for rank, player in engine.standings(tournament):
+        first, last = (
+            player.name.split(" ", 1) if " " in player.name else (player.name, "")
+        )
+        if player.uid in finals_table:
+            final_vp = finals_table[player.uid].result.vp
+        else:
+            final_vp = 0
+        ret += (
+            f"{rank}§{first}§{last}§{player.city}§{player.vekn}§{player.result.gw}§{player.result.vp}§{final_vp}"
+            f"§{player.result.tp}§{player.toss}§{ratings[player.uid].rating_points}§"
+        )
+    return ret

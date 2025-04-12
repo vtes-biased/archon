@@ -68,6 +68,24 @@ def sync_members():
     asyncio.run(get_members())
 
 
+async def get_events() -> None:
+    async with db.POOL:
+        async with db.operator() as op:
+            members = await op.get_members()
+            count = 0
+            async for event in vekn.get_events(members):
+                await op.upsert_vekn_tournament(event)
+                count += 1
+                if not count % 10:
+                    print(count)
+
+
+@app.command()
+def sync_events():
+    """Update historical tournaments from the vekn.net website"""
+    asyncio.run(get_events())
+
+
 async def db_purge() -> int:
     async with db.POOL:
         async with db.operator() as op:

@@ -145,6 +145,11 @@ export VEKN_LOGIN="<vekn_login>"
 export VEKN_PASSWORD="<vekn_password>"
 ```
 
+### VEKN API
+
+For now, this app uses the [VEKN API](https://bitbucket.org/vekn/vekn-api/src/master/) 
+to declare and report events. There is an [online documentation](https://www.vekn.net/API/readme.txt).
+
 ### Discord credentials
 
 Used for the Discord social login. You need to register a

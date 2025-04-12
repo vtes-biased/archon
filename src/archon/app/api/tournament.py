@@ -4,6 +4,7 @@ import logging
 import typing
 
 from .. import dependencies
+from ... import vekn
 from ... import events
 from ... import models
 
@@ -170,4 +171,7 @@ async def api_tournament_event_post(
             if sanction.uid == event.sanction_uid:
                 del member.sanctions[idx]
         await op.update_member(member)
+    # TODO: check and debug this
+    if event.type == events.EventType.FINISH_TOURNAMENT:
+        await vekn.upload_tournament(orchestrator)
     return orchestrator

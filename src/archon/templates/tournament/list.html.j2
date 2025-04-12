@@ -28,7 +28,7 @@
             {% for tournament in tournaments %}
             <tr>
                 <th scope="row"><a href="{{ url_for('tournament_display', uid=tournament.uid) }}">{{
-                        tournament.name }}</a></th>
+                        tournament.name | truncate(64, True) }}</a></th>
                 <td class="smaller-font">{{ tournament.start.strftime("%Y-%m-%d %H:%M") }} ({{ tournament.timezone }})
                 </td>
                 {% if tournament.online %}

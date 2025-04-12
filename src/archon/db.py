@@ -209,10 +209,38 @@ class Operator:
         tournament.uid = str(uid)
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "INSERT INTO tournaments (uid, data) " "VALUES (%s, %s) RETURNING uid",
+                "INSERT INTO tournaments (uid, data) VALUES (%s, %s) RETURNING uid",
                 [uid, jsonize(tournament)],
             )
             return str((await res.fetchone())[0])
+
+    async def upsert_vekn_tournament(self, tournament: models.Tournament) -> str:
+        """Create a tournament, returns its uid"""
+        uid = uuid.uuid4()
+        tournament.uid = str(uid)
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM tournaments WHERE data->'extra'->>'vekn_id' = %s",
+                [tournament.extra.get("vekn_id")],
+            )
+            data = await res.fetchone()
+            if data:
+                uid = uuid.UUID(data[0]["uid"])
+                tournament.uid = str(uid)
+                res = await cursor.execute(
+                    "UPDATE tournaments SET data=%s WHERE uid=%s",
+                    [jsonize(tournament), uid],
+                )
+                return str(uid)
+            else:
+                uid = uuid.uuid4()
+                tournament.uid = str(uid)
+                res = await cursor.execute(
+                    "INSERT INTO tournaments (uid, data) "
+                    "VALUES (%s, %s) RETURNING uid",
+                    [uid, jsonize(tournament)],
+                )
+                return str((await res.fetchone())[0])
 
     async def get_tournaments(
         self, cls: typing.Type[T] = models.Tournament

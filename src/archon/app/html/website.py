@@ -23,6 +23,8 @@ def jsonable(obj: typing.Any) -> typing.Any:
 
 
 def country_with_flag(country_name: str) -> str:
+    if not country_name:
+        return ""
     return geo.COUNTRIES_BY_NAME[country_name].flag + " " + country_name
 
 

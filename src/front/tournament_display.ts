@@ -803,7 +803,7 @@ export class TournamentDisplay {
         const started = current_round > 0
         const first_round_checkin = (tournament.state == d.TournamentState.WAITING && !started)
         const buttons_div = base.create_append(this.root, "div", ["align-items-center", "my-2"])
-        if (tournament.judges.some(j => j.uid == this.user.uid)) {
+        if (member.can_admin_tournament(this.user, tournament)) {
             base.create_append(buttons_div, "a", ["btn", "btn-warning", "text-nowrap", "me-2", "mb-2"],
                 { href: `/tournament/${tournament.uid}/console.html` }
             ).innerText = "Tournament Manager"
