@@ -281,7 +281,7 @@ class MemberListDisplay {
         }
     }
     get_filtered_members(): [MemberSearchParams, IteratorObject<d.Person>] {
-        var members: ArrayIterator<d.Person> = this.members_map.by_uid.values()
+        var members: MapIterator<d.Person> = this.members_map.by_uid.values()
         const search_params = this.get_search_params()
         if (search_params.name) {
             members = this.members_map.complete_name(search_params.name)[Symbol.iterator]()

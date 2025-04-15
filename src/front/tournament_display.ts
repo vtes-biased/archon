@@ -564,6 +564,14 @@ export class TournamentDisplay {
                     stringify(tournament_info_data)
                 )
                 download_button.download = `${tournament.name}.txt`
+                if (tournament.state == d.TournamentState.FINISHED) {
+                    const sync_vekn = base.create_append(buttons_div, "button",
+                        ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
+                    )
+                    sync_vekn.innerText = "Send to VEKN"
+                    const tooltip = base.add_tooltip(sync_vekn, "Send Archon data to vekn.net")
+                    sync_vekn.addEventListener("click", (ev) => { tooltip.hide(); this.vekn_sync(tournament) })
+                }
                 const delete_button = base.create_append(buttons_div, "a",
                     ["btn", "btn-danger", "text-nowrap", "me-2", "mb-2"],
                     { role: "button" }
@@ -1004,6 +1012,15 @@ export class TournamentDisplay {
                 )
             })
         }
+        // _____________________________________________________________________________________ Cutoff (standings mode)
+        if (tournament.standings_mode == d.StandingsMode.CUTOFF) {
+            console.log("cutoff")
+            const cutoff: d.Score = JSON.parse(this.root.parentElement.dataset.cutoff ?? '{"gw": 0, "vp": 0, "tp": 0}')
+            if (cutoff) {
+                const cutoff_div = base.create_append(this.root, "div", ["my-2", "text-bg-info", "rounded", "p-2"])
+                cutoff_div.innerHTML = `<strong>Cutoff for top 5:</strong> ${score_string(cutoff)}`
+            }
+        }
         // _________________________________________________________________________________________ Open (registration)
         if (tournament.state == d.TournamentState.REGISTRATION) {
             this.set_alert(
@@ -1013,13 +1030,6 @@ export class TournamentDisplay {
                 d.AlertLevel.SUCCESS
             )
             return
-        }
-        if (tournament.standings_mode == d.StandingsMode.CUTOFF) {
-            const cutoff: d.Score = JSON.parse(this.root.parentElement.dataset.cutoff ?? '{"gw": 0, "vp": 0, "tp": 0}')
-            if (cutoff) {
-                const cutoff_div = base.create_append(this.root, "div", ["my-2", "text-bg-info", "rounded", "p-2"])
-                cutoff_div.innerHTML = `<strong>Cutoff for top 5:</strong> ${score_string(cutoff)}`
-            }
         }
         // _____________________________________________________________________________________________________ Playing
         if (tournament.state == d.TournamentState.PLAYING) {
@@ -1284,6 +1294,16 @@ export class TournamentDisplay {
         )
         if (!res) { return }
         window.location.href = "/tournament/list.html"
+    }
+    async vekn_sync(tournament: d.Tournament) {
+        const res = await base.do_fetch_with_token(
+            `/api/tournaments/${tournament.uid}/vekn-sync`,
+            this.token,
+            { method: "post" }
+        )
+        if (res) {
+            return await res.json()
+        }
     }
     async display_form(tournament: d.Tournament | undefined) {
         base.remove_children(this.root)

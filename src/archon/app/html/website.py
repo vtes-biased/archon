@@ -276,8 +276,7 @@ async def tournament_list(
     op: dependencies.DbOperator,
 ):
     request.session["next"] = str(request.url_for("tournament_list"))
-    tournaments = await op.get_tournaments(models.TournamentConfig)
-    tournaments.sort(key=lambda x: x.start, reverse=True)
+    tournaments = await op.get_tournaments_minimal()
     context["tournaments"] = tournaments
     return TEMPLATES.TemplateResponse(
         request=request,

@@ -25,6 +25,7 @@ from .. import db
 from .. import engine
 from .. import geo
 from .. import models
+from .. import vekn
 
 
 # ############################################################################### Config
@@ -143,6 +144,14 @@ TournamentInfo = typing.Annotated[
 TournamentOrchestrator = typing.Annotated[
     engine.TournamentOrchestrator, fastapi.Depends(get_tournament_orchestrator)
 ]
+
+
+# ################################################################################ Utils
+async def vekn_sync(tournament: models.Tournament):
+    if tournament.extra.get("vekn_id"):
+        await vekn.upload_tournament_result(tournament)
+    else:
+        await vekn.upload_tournament(tournament)
 
 
 # ################################################################################## Doc

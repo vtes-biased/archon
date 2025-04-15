@@ -516,6 +516,10 @@ def _tournament_from_vekn_data(
     except ValueError:
         LOG.warning("Error in event #%s - invalid finish: %s", data["event_id"], finish)
         finish = datetime.datetime.fromisoformat(data["event_enddate"])
+    if data["rounds"]:
+        rounds = min(1, int(data["rounds"][0]))
+    else:
+        rounds = 1
     ret = models.Tournament(
         extra={"vekn_id": data["event_id"]},
         name=data["event_name"],
@@ -537,7 +541,7 @@ def _tournament_from_vekn_data(
             continue
         try:
             result = scoring.Score(
-                gw=int(pdata["gw"]) + (1 if pdata["pos"] == 1 else 0),
+                gw=int(pdata["gw"]) + (1 if pdata["pos"] == "1" else 0),
                 vp=float(pdata["vp"]) + float(pdata["vpf"]),
                 tp=int(pdata["tp"]),
             )
@@ -548,6 +552,11 @@ def _tournament_from_vekn_data(
                 pdata,
             )
             result = scoring.Score()
+        player_rounds = rounds
+        if pdata["dq"] != "0" or pdata["wd"] != "0":
+            player_rounds = 0
+        elif int(pdata["pos"]) < 6:
+            player_rounds += 1
         ret.players[pdata["veknid"]] = models.Player(
             name=member.name,
             vekn=member.vekn,
@@ -558,7 +567,7 @@ def _tournament_from_vekn_data(
             roles=member.roles,
             sponsor=member.sponsor,
             state=models.PlayerState.FINISHED,
-            rounds_played=0,
+            rounds_played=player_rounds,
             result=result,
             toss=int(pdata["tie"]),
         )
@@ -689,32 +698,35 @@ TOURNAMENT_TYPE_TO_FORMAT_RANK = {
 async def upload_tournament(tournament: models.Tournament) -> None:
     type = TournamentType.UNSANCTIONED_TOURNAMENT
     match (tournament.format, tournament.rank):
-        case (models.TournamentFormat.TournamentFormat.Draft, _):
+        case (models.TournamentFormat.Draft, _):
             TournamentType.LIMITED
-        case (models.TournamentFormat.TournamentFormat.Limited, _):
+        case (models.TournamentFormat.Limited, _):
             TournamentType.LIMITED
         case (
-            models.TournamentFormat.TournamentFormat.Standard,
-            models.TournamentRank.TournamentRank.BASIC,
+            models.TournamentFormat.Standard,
+            models.TournamentRank.BASIC,
         ):
             type = TournamentType.STANDARD_CONSTRUCTED
         case (
-            models.TournamentFormat.TournamentFormat.Standard,
-            models.TournamentRank.TournamentRank.NC,
+            models.TournamentFormat.Standard,
+            models.TournamentRank.NC,
         ):
             type = TournamentType.NATIONAL_CHAMPIONSHIP
         case (
-            models.TournamentFormat.TournamentFormat.Standard,
-            models.TournamentRank.TournamentRank.GP,
+            models.TournamentFormat.Standard,
+            models.TournamentRank.GP,
         ):
             type = TournamentType.CONTINENTAL_QUALIFIER
         case (
-            models.TournamentFormat.TournamentFormat.Standard,
-            models.TournamentRank.TournamentRank.CC,
+            models.TournamentFormat.Standard,
+            models.TournamentRank.CC,
         ):
             type = TournamentType.CONTINENTAL_CHAMPIONSHIP
     start = tournament.start.astimezone(tz=datetime.timezone.utc)
-    finish = tournament.finish.astimezone(tz=datetime.timezone.utc)
+    if tournament.finish:
+        finish = tournament.finish.astimezone(tz=datetime.timezone.utc)
+    else:
+        finish = start + datetime.timedelta(hours=6)
     try:
         async with aiohttp.ClientSession() as session:
             token = await get_token(session)
@@ -723,17 +735,17 @@ async def upload_tournament(tournament: models.Tournament) -> None:
                     "name": tournament.name[:120],
                     "type": type,
                     "venueid": 0 if tournament.online else 3800,
-                    "online": tournament.online,
+                    "online": int(tournament.online),
                     "startdate": start.date().isoformat(),
                     "starttime": f"{start:%H:%M}",
                     "enddate": finish.date().isoformat(),
                     "endtime": f"{finish:%H:%M}",
                     "timelimit": "2h",
-                    "rounds": max(1, len(tournament.rounds) - 1),
+                    "rounds": max(1, len(tournament.rounds)),
                     "final": True,
                     "multidekc": tournament.multideck,
                     "proxies": tournament.proxies,
-                    "website": urllib.parse.join(
+                    "website": urllib.parse.urljoin(
                         SITE_URL_BASE, f"/tournament/{tournament.uid}/display.html"
                     ),
                     "description": tournament.description[:1000],
@@ -747,16 +759,41 @@ async def upload_tournament(tournament: models.Tournament) -> None:
             ) as response:
                 response.raise_for_status()
                 result = await response.json()
+                LOG.warning("VEKN answered: %s", result)
+                if result["data"]["code"] != 200:
+                    raise RuntimeError(
+                        f"VEKN error: {result["data"].get("message", "Unknown error")}"
+                    )
                 event_id = result["data"]["id"]
+                tournament.extra["vekn_id"] = event_id
+            await upload_tournament_result(tournament, token)
+    except aiohttp.ClientError:
+        LOG.exception("VEKN Upload failed")
+        raise
+
+
+async def upload_tournament_result(
+    tournament: models.Tournament, token: str | None = None
+) -> None:
+    try:
+        async with aiohttp.ClientSession() as session:
+            if not token:
+                token = await get_token(session)
             async with session.post(
-                f"https://www.vekn.net/api/vekn/archon/{event_id}",
+                f"https://www.vekn.net/api/vekn/archon/{tournament.extra["vekn_id"]}",
                 headers={"Authorization": f"Bearer {token}"},
                 data=aiohttp.FormData({"archondata": to_archondata(tournament)}),
             ) as response:
                 response.raise_for_status()
-                tournament.extra["vekn_id"] = event_id
+                result = await response.json()
+                LOG.warning("VEKN Archon answered: %s", result)
+                if result["data"]["code"] != 200:
+                    raise RuntimeError(
+                        f"VEKN error: {result["data"].get("message", "Unknown error")}"
+                    )
     except aiohttp.ClientError:
         LOG.exception("VEKN Upload failed")
+        raise
 
 
 def to_archondata(tournament: models.Tournament) -> str:

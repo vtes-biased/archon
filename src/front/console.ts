@@ -18,9 +18,10 @@ class PlayerSelectModal extends base.Modal {
     constructor(el: HTMLElement, title: string = "Add player") {
         super(el)
         this.modal_title.innerText = title
-        this.select = base.create_append(this.modal_body, "select", ["form-select"],
-            { size: "10", name: "select-player" }
-        )
+        const form = base.create_append(this.modal_body, "form")
+        this.select = base.create_append(form, "select", ["form-select"], { name: "select-player" })
+        base.create_append(this.select, "option", [], { value: "", label: "" })
+        this.select.addEventListener("change", (ev) => this.select_player())
         this.players = new Map()
     }
 
@@ -34,19 +35,22 @@ class PlayerSelectModal extends base.Modal {
 
     show(empty_row: HTMLTableRowElement) {
         this.empty_row = empty_row
-        base.remove_children(this.select)
+        while (this.select.options.length > 1) {
+            this.select.options.remove(1)
+        }
         const players = [...this.players.values()].sort((a, b) => a.name.localeCompare(b.name))
         for (const player of players) {
-            const option = base.create_append(this.select, "option", ["mb-2"], {
+            base.create_append(this.select, "option", [], {
                 value: player.uid,
                 label: `${player.name} (#${player.vekn})`
             })
-            option.addEventListener("click", (ev) => this.select_player(player))
         }
         this.modal.show()
     }
 
-    select_player(player: d.Player) {
+    select_player() {
+        const player = this.players.get(this.select.selectedOptions[0].value)
+        if (!player) { return }
         this.round_tab.add_player(this.empty_row, player)
         this.modal.hide()
     }

@@ -105,6 +105,17 @@ async def init():
                 "ON tournaments "
                 "USING GIN ((data->'players'))"
             )
+            # timetz function to help index tournaments by date
+            await cursor.execute(
+                "CREATE OR REPLACE FUNCTION timetz(text, text) RETURNS timestamptz "
+                "AS $$select ($1 || ' ' || $2)::timestamptz$$ "
+                "LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT;"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_start "
+                "ON tournaments "
+                "USING BTREE ((timetz(data ->> 'start', data ->> 'timezone')));"
+            )
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
@@ -215,9 +226,10 @@ class Operator:
             return str((await res.fetchone())[0])
 
     async def upsert_vekn_tournament(self, tournament: models.Tournament) -> str:
-        """Create a tournament, returns its uid"""
-        uid = uuid.uuid4()
-        tournament.uid = str(uid)
+        """Insert or update a VEKN tournament.
+        Note if it was ours to begin with (and synced down to VEKN when finished),
+        we don't sync anything from VEKN.
+        """
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "SELECT data FROM tournaments WHERE data->'extra'->>'vekn_id' = %s",
@@ -225,6 +237,8 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
+                if not data["extra"]["external"]:
+                    return
                 uid = uuid.UUID(data[0]["uid"])
                 tournament.uid = str(uid)
                 res = await cursor.execute(
@@ -235,6 +249,7 @@ class Operator:
             else:
                 uid = uuid.uuid4()
                 tournament.uid = str(uid)
+                tournament.extra["external"] = True
                 res = await cursor.execute(
                     "INSERT INTO tournaments (uid, data) "
                     "VALUES (%s, %s) RETURNING uid",
@@ -251,6 +266,24 @@ class Operator:
         async with self.conn.cursor() as cursor:
             res = await cursor.execute("SELECT data FROM tournaments")
             return [cls(**row[0]) for row in await res.fetchall()]
+
+    async def get_tournaments_minimal(self) -> list[models.TournamentMinimal]:
+        """List all tournaments with minimal information"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT "
+                "data ->> 'name', "
+                "data ->> 'format', "
+                "data ->> 'start', "
+                "data ->> 'finish', "
+                "data ->> 'timezone', "
+                "uid::text, "
+                "data ->> 'country', "
+                "data ->> 'rank' "
+                "FROM tournaments "
+                "ORDER BY timetz(data ->> 'start', data ->> 'timezone')"
+            )
+            return [models.TournamentMinimal(*row) for row in await res.fetchall()]
 
     async def get_tournament(
         self, uid: str, cls: typing.Type[T] = models.Tournament

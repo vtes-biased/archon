@@ -226,15 +226,20 @@ class Sanction:
 
 
 @dataclasses.dataclass
-class TournamentConfig:
+class TournamentMinimal:
     name: str
     format: TournamentFormat
     start: datetime.datetime
+    finish: datetime.datetime | None = None
     timezone: str = "UTC"
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
-    judges: list[PublicPerson] = pydantic.Field(default_factory=list)
-    rank: TournamentRank = TournamentRank.BASIC
     country: str | None = None
+    rank: TournamentRank = TournamentRank.BASIC
+
+
+@dataclasses.dataclass
+class TournamentConfig(TournamentMinimal):
+    judges: list[PublicPerson] = pydantic.Field(default_factory=list)
     venue: str = ""
     venue_url: str = ""
     address: str = ""
@@ -243,7 +248,6 @@ class TournamentConfig:
     proxies: bool = False
     multideck: bool = False
     decklist_required: bool = True
-    finish: datetime.datetime | None = None
     description: str = ""
     standings_mode: StandingsMode = StandingsMode.PRIVATE
     max_rounds: int = 0
