@@ -234,7 +234,9 @@ class TournamentMinimal:
     timezone: str = "UTC"
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     country: str | None = None
+    online: bool = False
     rank: TournamentRank = TournamentRank.BASIC
+    state: TournamentState = TournamentState.REGISTRATION
 
 
 @dataclasses.dataclass
@@ -244,7 +246,6 @@ class TournamentConfig(TournamentMinimal):
     venue_url: str = ""
     address: str = ""
     map_url: str = ""
-    online: bool = False
     proxies: bool = False
     multideck: bool = False
     decklist_required: bool = True
@@ -264,7 +265,6 @@ class Tournament(TournamentConfig):
     checkin_code: str = pydantic.Field(
         default_factory=lambda: secrets.token_urlsafe(16)
     )
-    state: TournamentState = TournamentState.REGISTRATION
     # note the doc is not great for this kind of dict, keys show as "additionalProp".
     # Might be improved in a future version of redoc
     # https://github.com/swagger-api/swagger-ui/pull/9739
@@ -282,6 +282,15 @@ class TournamentInfo(TournamentConfig):
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[RoundInfo] = pydantic.Field(default_factory=list)
     winner: str = ""
+
+
+# note: cannot use dataclass as query param
+class TournamentFilter(pydantic.BaseModel):
+    date: str = ""
+    uid: str = ""
+    country: str = ""
+    online: bool = True
+    states: list[TournamentState] = pydantic.Field(default_factory=list)
 
 
 @dataclasses.dataclass

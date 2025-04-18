@@ -114,7 +114,7 @@ async def init():
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_start "
                 "ON tournaments "
-                "USING BTREE ((timetz(data ->> 'start', data ->> 'timezone')));"
+                "USING BTREE ((timetz(data ->> 'start', data ->> 'timezone')), uid);"
             )
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
@@ -267,23 +267,70 @@ class Operator:
             res = await cursor.execute("SELECT data FROM tournaments")
             return [cls(**row[0]) for row in await res.fetchall()]
 
-    async def get_tournaments_minimal(self) -> list[models.TournamentMinimal]:
+    async def get_tournaments_minimal(
+        self,
+        filter: models.TournamentFilter | None = None,
+    ) -> tuple[models.TournamentFilter, list[models.TournamentMinimal]]:
         """List all tournaments with minimal information"""
+        Q = (
+            "SELECT "
+            "data ->> 'name', "
+            "data ->> 'format', "
+            "data ->> 'start', "
+            "data ->> 'finish', "
+            "data ->> 'timezone', "
+            "uid::text, "
+            "data ->> 'country', "
+            "data ->> 'online', "
+            "data ->> 'rank', "
+            "data ->> 'state' "
+            "FROM tournaments "
+        )
+        pieces = []
+        args = []
+        if filter:
+            Q += "WHERE "
+        # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
+        # using cursor in the WHERE clause with the appropriate index is the way to go.
+        if filter:
+            if filter.uid:
+                pieces.append(
+                    "(timetz(data ->> 'start', data ->> 'timezone') < %s::timestamptz "
+                    "OR ("
+                    "timetz(data ->> 'start', data ->> 'timezone') = %s::timestamptz "
+                    "AND uid < %s))"
+                )
+                args.extend([filter.date, filter.date, uuid.UUID(filter.uid)])
+            if filter.country:
+                pieces.append(
+                    "(data ->> 'country' IS NULL OR data ->> 'country' IN ('', %s))"
+                )
+                args.append(filter.country)
+            if not filter.online:
+                pieces.append("(data ->> 'online')::boolean IS FALSE")
+            if filter.states:
+                pieces.append("data ->> 'state' = ANY(%s)")
+                args.append(filter.states)
+        Q += " AND ".join(pieces)
+        Q += (
+            " ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC "
+            "LIMIT 100"
+        )
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT "
-                "data ->> 'name', "
-                "data ->> 'format', "
-                "data ->> 'start', "
-                "data ->> 'finish', "
-                "data ->> 'timezone', "
-                "uid::text, "
-                "data ->> 'country', "
-                "data ->> 'rank' "
-                "FROM tournaments "
-                "ORDER BY timetz(data ->> 'start', data ->> 'timezone')"
-            )
-            return [models.TournamentMinimal(*row) for row in await res.fetchall()]
+            LOG.warning("Query: %s", Q)
+            res = await cursor.execute(Q, args)
+            ret = [models.TournamentMinimal(*row) for row in await res.fetchall()]
+            ret_filter = models.TournamentFilter()
+            if filter:
+                ret_filter.country = filter.country
+                ret_filter.online = filter.online
+                ret_filter.states = filter.states
+            if ret and len(ret) == 100:
+                ret_filter.date = ret[-1].start.isoformat() + " " + ret[-1].timezone
+                ret_filter.uid = ret[-1].uid
+            elif not filter:
+                ret_filter = None
+            return (ret_filter, ret)
 
     async def get_tournament(
         self, uid: str, cls: typing.Type[T] = models.Tournament

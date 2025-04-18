@@ -203,24 +203,28 @@ export interface Sanction {
     comment: string
 }
 
-export interface TournamentConfig {
-    name: string,
-    format: TournamentFormat,
-    start: string,
-    timezone: string,
-    uid: string | undefined,
-    rank: TournamentRank | undefined,
-    country?: string | undefined,
+export interface TournamentMinimal {
+    name: string
+    format: TournamentFormat
+    start: string
+    finish?: string | undefined
+    timezone: string
+    uid: string | undefined
+    country?: string | undefined
+    online?: boolean,
+    rank: TournamentRank | undefined
+    state: TournamentState
+}
+
+export interface TournamentConfig extends TournamentMinimal {
     city?: string | undefined,
     venue?: string,
     venue_url?: string,
     address?: string,
     map_url?: string,
-    online?: boolean,
     proxies?: boolean,
     multideck?: boolean,
     decklist_required?: boolean,
-    finish?: string,
     description?: string,
     judges?: Person[],
 }
@@ -231,7 +235,6 @@ export interface Tournament extends TournamentConfig {
     limited: LimitedFormat | undefined,
     checkin_code: boolean,
     standings_mode: StandingsMode,
-    state: TournamentState,
     players: Record<string, Player>,
     finals_seeds: string[],
     rounds: Round[],
@@ -245,6 +248,14 @@ export interface TournamentInfo extends TournamentConfig {
     finals_seeds: string[],
     rounds: RoundInfo[],
     winner: string,
+}
+
+export interface TournamentFilter {
+    date: string,
+    uid: string,
+    country: string,
+    online: boolean,
+    states: TournamentState[],
 }
 
 export interface RegisteredSanction extends Sanction {

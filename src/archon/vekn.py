@@ -426,18 +426,25 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                 response.raise_for_status()
                 result = await response.json()
                 players = result["data"]["players"]
+                LOG.warning("prefix: %s — %s", prefix, len(players))
                 if players:
                     yield [_member_from_vekn_data(data) for data in players]
-                # if some players we got them all, just increment the prefix directly
-                if len(players) < 50:
+                # if < 100 players we got them all, just increment the prefix directly
+                if len(players) < 100:
                     prefix = increment(prefix)
-                # if the API returns 50 players max, there might be more
-                # we must increment slowly 10 by 10.
+                # the API returns 100 players max, there might be more
                 else:
-                    prefix = players[-1]["veknid"][:6]
+                    LOG.warning("Last ID: %s", players[-1]["veknid"])
+                    prefix = players[-1]["veknid"][:5]
+                    if players[-1]["veknid"][-2:] == "99":
+                        prefix = increment(prefix)
                 # VEKN api will return an empty list on a single-char prefix
                 # make sure 59 -> 60 and not 6
                 if prefix and len(prefix) < 2:
+                    prefix += "0"
+                # VEKN api will (wrongly) return an empty list on a "99" prefix
+                # because it adds one then pads... careful with the end condition
+                if prefix and prefix == "9" * len(prefix) and len(prefix) < 7:
                     prefix += "0"
 
 

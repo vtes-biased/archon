@@ -273,11 +273,8 @@ async def tournament_create(
 async def tournament_list(
     request: fastapi.Request,
     context: dependencies.SessionContext,
-    op: dependencies.DbOperator,
 ):
     request.session["next"] = str(request.url_for("tournament_list"))
-    tournaments = await op.get_tournaments_minimal()
-    context["tournaments"] = tournaments
     return TEMPLATES.TemplateResponse(
         request=request,
         name="tournament/list.html.j2",

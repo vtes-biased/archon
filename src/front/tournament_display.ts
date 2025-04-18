@@ -7,21 +7,10 @@ import * as uuid from 'uuid'
 import { Base64 } from 'js-base64'
 import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
-import { DateTime, DateTimeFormatOptions } from 'luxon'
 import QrScanner from 'qr-scanner'
 import { stringify } from 'yaml'
 import * as tempusDominus from '@eonasdan/tempus-dominus'
 import { biOneIcons } from '@eonasdan/tempus-dominus/dist/plugins/bi-one'
-
-export const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
-    hour12: false,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZoneName: "short",
-    hour: "2-digit",
-    minute: "2-digit"
-}
 
 function compare_arrays(lhs: number[], rhs: number[]): number {
     const length = lhs.length < rhs.length ? lhs.length : rhs.length
@@ -448,7 +437,7 @@ export class TournamentDisplay {
     score_modal: ScoreModal | undefined
     deck_modal: DeckModal | undefined
     checkin_modal: CheckInModal | undefined
-    countries: d.Country[]
+    countries: Map<string, d.Country>
     token: base.Token
     user: d.Person
     members_map: member.MemberMap
@@ -494,12 +483,11 @@ export class TournamentDisplay {
         if (this.token) {
             user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
         }
-        if (countries) {
-            this.countries = countries
-        } else {
+        if (!countries) {
             const res = await base.do_fetch("/api/vekn/country", {})
-            this.countries = await res.json() as d.Country[]
+            countries = await res.json() as d.Country[]
         }
+        this.countries = new Map(countries.map(c => [c.country, c]))
         if (members_map) {
             this.members_map = members_map
         } else if (user_id) {
@@ -659,33 +647,12 @@ export class TournamentDisplay {
         }
         // ------------------------------------------------------------------------------------------------- Date & Time
         const datetime_div = base.create_append(this.root, "div", ["d-md-flex", "mb-2"])
-        const start = DateTime.fromFormat(
-            `${tournament.start} ${tournament.timezone}`,
-            "yyyy-MM-dd'T'HH:mm:ss z",
-            { setZone: true }
-        )
-        var finish = undefined
-        if (tournament.finish) {
-            finish = DateTime.fromFormat(
-                `${tournament.finish} ${tournament.timezone}`,
-                "yyyy-MM-dd'T'HH:mm:ss z",
-                { setZone: true }
-            )
-        }
-        var start_string = undefined
-        var finish_string = undefined
-        if (tournament.online) {
-            start_string = start.toLocal().toLocal().toLocaleString(DATETIME_UNAMBIGUOUS)
-            finish_string = finish?.toLocal()?.toLocal()?.toLocaleString(DATETIME_UNAMBIGUOUS)
-        } else {
-            base.create_append(datetime_div, "div", ["me-2"]).innerText = `${tournament.country}`
-            start_string = start.toLocaleString(DATETIME_UNAMBIGUOUS)
-            finish_string = finish?.toLocaleString(DATETIME_UNAMBIGUOUS)
-        }
-        base.create_append(datetime_div, "div", ["me-2"]).innerText = start_string
-        if (finish) {
+        const start = base.create_append(datetime_div, "div", ["me-2"])
+        start.innerText = base.datetime(tournament.start, tournament.timezone, tournament.online)
+        if (tournament.finish && tournament.finish.length > 0) {
             base.create_append(datetime_div, "div", ["me-2"]).innerHTML = '<i class="bi bi-arrow-right"></i>'
-            base.create_append(datetime_div, "div", ["me-2"]).innerText = finish_string
+            const finish = base.create_append(datetime_div, "div", ["me-2"])
+            finish.innerText = base.datetime(tournament.finish, tournament.timezone, tournament.online)
         }
         // ------------------------------------------------------------------------------------------------- Contenders
         if (!this.display_callback) {
@@ -706,20 +673,28 @@ export class TournamentDisplay {
             })
             collapse.id = "contendersCollapse"
             const body = base.create_append(collapse, "div", ["accordion-body"])
-            const ul = base.create_append(body, "ul")
-            for (const player of Object.values(tournament.players).sort(
-                (a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })
-            )) {
-                const list_item = base.create_append(ul, "li")
-                if (player.vekn) {
-                    list_item.innerText = `${player.name} (#${player.vekn})`
-                } else {
-                    list_item.innerText = player.name
+            if (this.user) {
+                const ul = base.create_append(body, "ul")
+                for (const player of Object.values(tournament.players).sort(
+                    (a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" })
+                )) {
+                    const list_item = base.create_append(ul, "li")
+                    if (player.vekn) {
+                        list_item.innerText = `${player.name} (#${player.vekn})`
+                    } else {
+                        list_item.innerText = player.name
+                    }
                 }
+            } else {
+                const message = base.create_append(body, "div", ["alert", "alert-info"])
+                message.innerHTML = (
+                    "Only members can see other members names. Please " +
+                    '<a href="/login.html">login</a>'
+                )
             }
         }
         // ----------------------------------------------------------------------------------------------- User Commands
-        if (!this.display_callback && this.user) {
+        if (!this.display_callback) {
             this.display_user_info(tournament)
         }
         // ------------------------------------------------------------------------------------------------------- Venue
@@ -800,13 +775,18 @@ export class TournamentDisplay {
                 base.create_append(tr, "td", classes).innerText = player.vekn
                 base.create_append(tr, "td", classes).innerText = player.name
                 base.create_append(tr, "td", classes).innerText = player.city
-                base.create_append(tr, "td", classes).innerText = player.country
+                base.create_append(tr, "td", classes).innerText = `${player.country} ${player.country_flag}`
                 base.create_append(tr, "td", classes).innerHTML = score_string(player.result)
             }
         }
     }
     display_user_info(tournament: d.Tournament) {
-        if (!this.user) { return }
+        if (!this.user) {
+            if (tournament.state != d.TournamentState.FINISHED) {
+                this.set_alert('You need to <a href="/login.html">login</a> to participate.', d.AlertLevel.INFO)
+                return
+            }
+        }
         const current_round = tournament.rounds.length
         const started = current_round > 0
         const first_round_checkin = (tournament.state == d.TournamentState.WAITING && !started)
@@ -1468,7 +1448,7 @@ export class TournamentDisplay {
             this.country = base.create_append(div, "select", ["form-select"], { name: "country" })
             this.country.ariaLabel = "Country"
             this.country.options.add(base.create_element("option", [], { value: "", label: "Country" }))
-            for (const country of this.countries) {
+            for (const country of this.countries.values()) {
                 const option = document.createElement("option")
                 option.value = country.country
                 option.label = country.country

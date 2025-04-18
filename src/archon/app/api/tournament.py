@@ -17,10 +17,15 @@ router = fastapi.APIRouter(
 
 @router.get("/", summary="List all tournaments")
 async def api_tournaments(
+    filter: typing.Annotated[models.TournamentFilter, fastapi.Query()],
     op: dependencies.DbOperator,
-) -> list[models.TournamentConfig]:
+) -> tuple[models.TournamentFilter, list[models.TournamentMinimal]]:
     """List all tournaments"""
-    return await op.get_tournaments(models.TournamentConfig)
+    if filter.uid or filter.country or not filter.online or filter.states:
+        filter = filter
+    else:
+        filter = None
+    return await op.get_tournaments_minimal(filter)
 
 
 @router.post("/", summary="Create a new tournament")
