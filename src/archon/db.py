@@ -22,7 +22,7 @@ from . import geo
 from . import models
 from . import engine
 
-logger = logging.getLogger()
+LOG = logging.getLogger()
 
 dotenv.load_dotenv()
 DB_USER = os.getenv("DB_USER", "archon")
@@ -35,7 +35,7 @@ psycopg.types.json.set_json_loads(orjson.loads)
 
 
 def reconnect_failed(_pool: psycopg_pool.AsyncConnectionPool):
-    logger.error("Failed to reconnect to the PostgreSQL database")
+    LOG.error("Failed to reconnect to the PostgreSQL database")
 
 
 #: await POOL.open() before using this module, and POOL.close() when finished
@@ -57,7 +57,7 @@ async def init():
     """Idempotent DB initialization"""
     async with POOL.connection() as conn:
         async with conn.cursor() as cursor:
-            logger.debug("Initialising DB")
+            LOG.debug("Initialising DB")
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS members("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
@@ -145,7 +145,7 @@ async def reset(keep_members: bool = True):
     """ONLY FROM CLI - LOSES ALL DATA"""
     async with POOL.connection() as conn:
         async with conn.cursor() as cursor:
-            logger.warning("Reset DB")
+            LOG.warning("Reset DB")
             await cursor.execute("DROP TABLE IF EXISTS tournament_events")
             await cursor.execute("DROP TABLE IF EXISTS tournaments")
             if not keep_members:
@@ -666,22 +666,22 @@ class Operator:
             member = self._instanciate_member(data[1])
             if old_vekn == vekn:
                 #  no change
-                logger.warning("%s claiming %s but already has it", uid, vekn)
+                LOG.warning("%s claiming %s but already has it", uid, vekn)
                 return member
             if old_vekn:
-                logger.warning("%s claiming %s, previously had %s", uid, vekn, old_vekn)
+                LOG.warning("%s claiming %s, previously had %s", uid, vekn, old_vekn)
                 raise RuntimeError("Cannot claim a VEKN: already has one")
             res = await cursor.execute(
                 "SELECT data FROM members WHERE vekn=%s FOR UPDATE", [vekn]
             )
             data = await res.fetchone()
             if not data:
-                logger.warning("no VEKN record found for %s", vekn)
+                LOG.warning("no VEKN record found for %s", vekn)
                 return None
             vekn_member = self._instanciate_member(data[0])
             if vekn_member.discord:
                 if vekn_member.discord.id != member.discord.id:
-                    logger.warning(
+                    LOG.warning(
                         "VEKN %s already owned by %s", vekn, vekn_member.discord.id
                     )
                     return None
@@ -711,12 +711,12 @@ class Operator:
             )
             data = await res.fetchone()
             if not data:
-                logger.warning("User not found: %s", uid)
+                LOG.warning("User not found: %s", uid)
                 return None
             vekn = data[0]
             member = self._instanciate_member(data[1])
             if not vekn:
-                logger.warning("No vekn for %s, nothing to do", uid)
+                LOG.warning("No vekn for %s, nothing to do", uid)
                 return member
             new_member = models.Member(**dataclasses.asdict(member))
             new_uid = uuid.uuid4()
@@ -738,7 +738,7 @@ class Operator:
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to find Member {uid}")
-            logger.warning("Old member updated: %s", uid)
+            LOG.warning("Old member updated: %s", uid)
             if new_member.discord:
                 nick = new_member.discord.global_name or new_member.discord.username
                 new_member.name = nick
@@ -749,7 +749,7 @@ class Operator:
                 "INSERT INTO members (uid, data) VALUES (%s, %s)",
                 [new_uid, self._jsonize_member(new_member)],
             )
-            logger.warning("New member created: %s - %s", new_member.uid, data)
+            LOG.warning("New member created: %s - %s", new_member.uid, data)
             return new_member
 
     async def set_sponsor_on_prefix(self, prefix: str, sponsor_uid: str):
