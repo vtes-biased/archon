@@ -147,11 +147,11 @@ TournamentOrchestrator = typing.Annotated[
 
 
 # ################################################################################ Utils
-async def vekn_sync(tournament: models.Tournament):
-    if tournament.extra.get("vekn_id"):
+async def vekn_sync(tournament: models.Tournament, rounds: int):
+    if not tournament.extra.get("vekn_id"):
+        await vekn.upload_tournament(tournament, rounds)
+    if tournament.state == models.TournamentState.FINISHED:
         await vekn.upload_tournament_result(tournament)
-    else:
-        await vekn.upload_tournament(tournament)
 
 
 # ################################################################################## Doc

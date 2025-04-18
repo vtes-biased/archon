@@ -17,7 +17,7 @@ class Score:
         if self.gw:
             return f"{self.gw}GW{self.vp:.2g} ({self.tp}TP)"
         else:
-            return f"({self.vp:.2g}VP ({self.tp}TP)"
+            return f"{self.vp:.2g}VP ({self.tp}TP)"
 
     def __add__(self, rhs):
         return self.__class__(

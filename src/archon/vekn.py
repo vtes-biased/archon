@@ -702,7 +702,7 @@ TOURNAMENT_TYPE_TO_FORMAT_RANK = {
 }
 
 
-async def upload_tournament(tournament: models.Tournament) -> None:
+async def upload_tournament(tournament: models.Tournament, rounds: int) -> None:
     type = TournamentType.UNSANCTIONED_TOURNAMENT
     match (tournament.format, tournament.rank):
         case (models.TournamentFormat.Draft, _):
@@ -748,9 +748,9 @@ async def upload_tournament(tournament: models.Tournament) -> None:
                     "enddate": finish.date().isoformat(),
                     "endtime": f"{finish:%H:%M}",
                     "timelimit": "2h",
-                    "rounds": max(1, len(tournament.rounds)),
+                    "rounds": rounds,
                     "final": True,
-                    "multidekc": tournament.multideck,
+                    "multideck": tournament.multideck,
                     "proxies": tournament.proxies,
                     "website": urllib.parse.urljoin(
                         SITE_URL_BASE, f"/tournament/{tournament.uid}/display.html"
@@ -773,7 +773,6 @@ async def upload_tournament(tournament: models.Tournament) -> None:
                     )
                 event_id = result["data"]["id"]
                 tournament.extra["vekn_id"] = event_id
-            await upload_tournament_result(tournament, token)
     except aiohttp.ClientError:
         LOG.exception("VEKN Upload failed")
         raise
@@ -798,6 +797,7 @@ async def upload_tournament_result(
                     raise RuntimeError(
                         f"VEKN error: {result["data"].get("message", "Unknown error")}"
                     )
+                tournament.extra["vekn_submitted"] = True
     except aiohttp.ClientError:
         LOG.exception("VEKN Upload failed")
         raise

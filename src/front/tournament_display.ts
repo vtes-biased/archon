@@ -305,7 +305,6 @@ export class DeckSubmit {
         }
     }
     display_round(round: number) {
-        console.log("switch to round", round)
         var current_deck = undefined
         if (this.tournament.multideck && round > 0) {
             for (const table of this.tournament.rounds[round - 1].tables) {
@@ -394,7 +393,7 @@ class CheckInModal {
         this.modal_div.addEventListener("shown.bs.modal", (ev) => {
             this.qr_scanner = new QrScanner(
                 this.video,
-                async (result) => { console.log('decoded qr code:', result); await this.checkin(result.data) },
+                async (result) => { await this.checkin(result.data) },
                 { highlightScanRegion: true },
             )
             this.qr_scanner.start()
@@ -534,7 +533,7 @@ export class TournamentDisplay {
         if (this.display_callback) {
             const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
             const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
-            edit_button.innerText = "Edit"
+            edit_button.innerHTML = '<i class="bi bi-pencil"></i> Edit'
             edit_button.addEventListener("click", (ev) => this.display_form(tournament))
             if (this.user.roles.includes(d.MemberRole.ADMIN)) {
                 const res = await base.do_fetch_with_token(
@@ -544,7 +543,7 @@ export class TournamentDisplay {
                 )
                 const tournament_info_data: d.TournamentInfo = await res.json()
                 const download_button = base.create_append(buttons_div, "a",
-                    ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"],
+                    ["btn", "btn-secondary", "text-nowrap", "me-2", "mb-2"],
                     { role: "button" }
                 )
                 download_button.innerHTML = '<i class="bi bi-download"></i> Download'
@@ -552,14 +551,6 @@ export class TournamentDisplay {
                     stringify(tournament_info_data)
                 )
                 download_button.download = `${tournament.name}.txt`
-                if (tournament.state == d.TournamentState.FINISHED) {
-                    const sync_vekn = base.create_append(buttons_div, "button",
-                        ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
-                    )
-                    sync_vekn.innerText = "Send to VEKN"
-                    const tooltip = base.add_tooltip(sync_vekn, "Send Archon data to vekn.net")
-                    sync_vekn.addEventListener("click", (ev) => { tooltip.hide(); this.vekn_sync(tournament) })
-                }
                 const delete_button = base.create_append(buttons_div, "a",
                     ["btn", "btn-danger", "text-nowrap", "me-2", "mb-2"],
                     { role: "button" }
@@ -570,6 +561,78 @@ export class TournamentDisplay {
                     "<em>Only do this if this tournament is invalid or has not taken place</em>",
                     () => this.delete_tournament(tournament)
                 ))
+            }
+            if (member.can_admin_tournament(this.user, tournament)) {
+                // TODO: Remove when removing vekn.net
+                const temp_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2", "align-items-center"])
+                if (!tournament.extra["vekn_id"]) {
+                    const vekn_id = base.create_append(temp_div, "input", ["form-control", "me-2", "mb-2", "flex-shrink"], {
+                        id: "tournamentVeknId",
+                        type: "text",
+                        name: "vekn_id",
+                        placeholder: "VEKN Event ID#",
+                        autocomplete: "new-vekn-id",
+                        spellcheck: "false",
+                    })
+                    const set_vekn_span = base.create_append(temp_div, "span", ["d-inline-block"], { tabindex: "0" })
+                    const set_vekn = base.create_append(set_vekn_span, "button",
+                        ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
+                    )
+                    set_vekn.innerText = "Set VEKN Event ID"
+                    const tooltip = base.add_tooltip(set_vekn_span, "Set event id# if it exists on vekn.net already")
+                    set_vekn.addEventListener("click", (ev) => {
+                        tooltip.hide()
+                        this.set_vekn(vekn_id.value, tournament)
+                    })
+                    set_vekn.disabled = true
+                    vekn_id.addEventListener("input", (ev) => {
+                        if (vekn_id.value && vekn_id.value.match(/^\d{1,5}$/)) {
+                            set_vekn.disabled = false
+                        } else {
+                            set_vekn.disabled = true
+                        }
+                    })
+                    base.create_append(temp_div, "p", ["me-2", "mb-2"]).innerText = "OR"
+                    const rounds = base.create_append(temp_div, "select", ["form-select", "me-2", "mb-2"])
+                    rounds.options.add(base.create_element("option", [], { value: "", label: "Number of rounds" }))
+                    rounds.options.add(base.create_element("option", [], { value: "3", label: "2R+F" }))
+                    rounds.options.add(base.create_element("option", [], { value: "4", label: "3R+F" }))
+                    const sync_vekn_span = base.create_append(temp_div, "span", ["d-inline-block"], { tabindex: "0" })
+                    const sync_vekn = base.create_append(sync_vekn_span, "button",
+                        ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
+                    )
+                    sync_vekn.innerText = "Create on VEKN"
+                    const tooltip2 = base.add_tooltip(sync_vekn_span,
+                        "Create event on vekn.net if it does not exists yet")
+                    sync_vekn.addEventListener("click", (ev) => {
+                        tooltip2.hide()
+                        this.vekn_sync(tournament, parseInt(rounds.selectedOptions[0].value))
+                    })
+                    sync_vekn.disabled = true
+                    rounds.addEventListener("change", (ev) => {
+                        if (rounds.selectedIndex > 0) {
+                            sync_vekn.disabled = false
+                        } else {
+                            sync_vekn.disabled = true
+                        }
+                    })
+                    base.create_append(temp_div, "div", ["w-100"])
+                } else if (tournament.state == d.TournamentState.FINISHED) {
+                    if (tournament.extra["vekn_submitted"]) {
+                        const eid = tournament.extra["vekn_id"]
+                        base.create_append(temp_div, "p").innerHTML = (
+                            "Archon submitted to VEKN: " +
+                            `<a href="https://www.vekn.net/event-calendar/event/${eid}">Event #${eid}</a>`
+                        )
+                    } else {
+                        const sync_vekn = base.create_append(temp_div, "button",
+                            ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
+                        )
+                        sync_vekn.innerText = "Send to VEKN"
+                        const tooltip = base.add_tooltip(sync_vekn, "Send Archon data to vekn.net")
+                        sync_vekn.addEventListener("click", (ev) => { tooltip.hide(); this.vekn_sync(tournament) })
+                    }
+                }
             }
         }
         // ------------------------------------------------------------------------------------------------------ Badges
@@ -886,7 +949,6 @@ export class TournamentDisplay {
                     })
                     collapse.id = id
                     const body = base.create_append(collapse, "div", ["accordion-body"])
-                    console.log("Player Table", idx, player_table)
                     this.display_user_table(tournament, player, body, player_table)
                 }
                 [].slice.call(accordion.querySelectorAll(".collapse")).map(
@@ -994,7 +1056,6 @@ export class TournamentDisplay {
         }
         // _____________________________________________________________________________________ Cutoff (standings mode)
         if (tournament.standings_mode == d.StandingsMode.CUTOFF) {
-            console.log("cutoff")
             const cutoff: d.Score = JSON.parse(this.root.parentElement.dataset.cutoff ?? '{"gw": 0, "vp": 0, "tp": 0}')
             if (cutoff) {
                 const cutoff_div = base.create_append(this.root, "div", ["my-2", "text-bg-info", "rounded", "p-2"])
@@ -1189,20 +1250,16 @@ export class TournamentDisplay {
     async handle_tournament_event(tid: string, tev: events.TournamentEvent) {
         console.log("handle event", tev)
         // TODO: implement offline mode
-        const res = await base.do_fetch(
-            `/api/tournaments/${tid}/event`, {
-            method: "post",
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token.access_token}`
-            },
-            body: JSON.stringify(tev)
-        }
+        const res = await base.do_fetch_with_token(
+            `/api/tournaments/${tid}/event`,
+            this.token,
+            {
+                method: "post",
+                body: JSON.stringify(tev)
+            }
         )
         if (!res) { return }
         const response = await res.json()
-        console.log(response)
         await this.display(response)
         return response
     }
@@ -1275,14 +1332,32 @@ export class TournamentDisplay {
         if (!res) { return }
         window.location.href = "/tournament/list.html"
     }
-    async vekn_sync(tournament: d.Tournament) {
+    async set_vekn(vekn_id: string, tournament: d.Tournament) {
         const res = await base.do_fetch_with_token(
-            `/api/tournaments/${tournament.uid}/vekn-sync`,
+            `/api/tournaments/${tournament.uid}/set-vekn`,
+            this.token,
+            {
+                method: "post",
+                body: JSON.stringify({ vekn_id: vekn_id })
+            }
+        )
+        if (res) {
+            const response = await res.json()
+            await this.display(response)
+        }
+    }
+    async vekn_sync(tournament: d.Tournament, rounds: number | undefined = undefined) {
+        if (!rounds) {
+            rounds = Math.max(1, tournament.rounds.length)
+        }
+        const res = await base.do_fetch_with_token(
+            `/api/tournaments/${tournament.uid}/vekn-sync/${rounds}`,
             this.token,
             { method: "post" }
         )
         if (res) {
-            return await res.json()
+            const response = await res.json()
+            await this.display(response)
         }
     }
     async display_form(tournament: d.Tournament | undefined) {
@@ -1628,7 +1703,6 @@ export class TournamentDisplay {
             mardown_link.innerText = "Markdown"
             base.create_append(mardown_link, "i", ["bi", "bi-question-circle-fill"])
             if (tournament?.description && tournament.description.length > 0) {
-                console.log(tournament.description)
                 this.description.value = tournament.description
             }
         }
@@ -1765,7 +1839,6 @@ export class TournamentDisplay {
             return
         }
         form.classList.add('was-validated')
-        console.log("submitting")
         const tournamentForm = ev.currentTarget as HTMLFormElement
         const data = new FormData(tournamentForm)
         var json_data = Object.fromEntries(data.entries()) as unknown as d.TournamentConfig
@@ -1777,7 +1850,6 @@ export class TournamentDisplay {
         json_data.proxies = this.proxies.checked
         json_data.online = this.online.checked
         json_data.decklist_required = this.decklist_required.checked
-        console.log("submitting data", json_data)
         var url = "/api/tournaments/"
         var method = "post"
         if (tournament) {
@@ -1796,7 +1868,6 @@ export class TournamentDisplay {
         })
         if (!res) { return }
         const response = await res.json()
-        console.log(response)
         if (tournament) {
             if (this.display_callback) {
                 // TODO: what about offline mode? Probably just deactivate the edit button

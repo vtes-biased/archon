@@ -442,7 +442,7 @@ async def tournament_print_seating(
             case models.StandingsMode.PRIVATE:
                 context["private"] = True
             case models.StandingsMode.CUTOFF:
-                context["cutoff"] = standings[5][1].result
+                context["cutoff"] = standings[4][1].result
             case models.StandingsMode.TOP_10:
                 context["standings"] = [(r, p) for r, p in standings if r <= 10]
             case models.StandingsMode.PUBLIC:

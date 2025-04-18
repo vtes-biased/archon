@@ -112,17 +112,32 @@ async def api_tournament_get(
     return res
 
 
-@router.post("/{uid}/vekn-sync", summary="Sync finished tournament to vekn.net")
+@router.post(
+    "/{uid}/vekn-sync/{rounds}", summary="Sync finished tournament to vekn.net"
+)
 async def vekn_sync(
     tournament: dependencies.Tournament,
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
-) -> None:
-    if not tournament.state == models.TableState.FINISHED:
-        raise fastapi.HTTPException(fastapi.status.HTTP_400_BAD_REQUEST)
+    rounds: typing.Annotated[int, fastapi.Path()],
+) -> models.Tournament:
     dependencies.check_can_admin_tournament(member, tournament)
-    await dependencies.vekn_sync(tournament)
+    await dependencies.vekn_sync(tournament, rounds)
     await op.update_tournament(tournament)
+    return tournament
+
+
+@router.post("/{uid}/set-vekn/{vekn_id}", summary="Create tournament on vekn.net")
+async def set_vekn(
+    tournament: dependencies.Tournament,
+    member: dependencies.PersonFromToken,
+    op: dependencies.DbOperator,
+    vekn_id: typing.Annotated[str, fastapi.Path()],
+) -> models.Tournament:
+    dependencies.check_can_admin_tournament(member, tournament)
+    tournament.extra["vekn_id"] = vekn_id
+    await op.update_tournament(tournament)
+    return tournament
 
 
 @router.delete("/{uid}", summary="Delete tournament")
@@ -188,8 +203,7 @@ async def api_tournament_event_post(
             if sanction.uid == event.sanction_uid:
                 del member.sanctions[idx]
         await op.update_member(member)
-    # TODO: check and debug this
     if event.type == events.EventType.FINISH_TOURNAMENT:
-        await dependencies.vekn_sync(orchestrator)
+        await dependencies.vekn_sync(orchestrator, max(1, len(orchestrator.rounds)))
         await op.update_tournament(orchestrator)
     return orchestrator
