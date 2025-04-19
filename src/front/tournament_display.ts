@@ -711,11 +711,11 @@ export class TournamentDisplay {
         // ------------------------------------------------------------------------------------------------- Date & Time
         const datetime_div = base.create_append(this.root, "div", ["d-md-flex", "mb-2"])
         const start = base.create_append(datetime_div, "div", ["me-2"])
-        start.innerText = base.datetime(tournament.start, tournament.timezone, tournament.online)
+        start.innerText = base.datetime_string(tournament.start, tournament.timezone, tournament.online)
         if (tournament.finish && tournament.finish.length > 0) {
             base.create_append(datetime_div, "div", ["me-2"]).innerHTML = '<i class="bi bi-arrow-right"></i>'
             const finish = base.create_append(datetime_div, "div", ["me-2"])
-            finish.innerText = base.datetime(tournament.finish, tournament.timezone, tournament.online)
+            finish.innerText = base.datetime_string(tournament.finish, tournament.timezone, tournament.online)
         }
         // ------------------------------------------------------------------------------------------------- Contenders
         if (!this.display_callback) {

@@ -25,7 +25,7 @@
             <td class="smaller-font">{{ m.vekn }}</td>
             <td class="smaller-font">{{ m.name }}</td>
             <td class="smaller-font">{{ m.country | country_with_flag }}</td>
-            <td>{{ m.ranking.constructed_onsite }}</td>
+            <td>{{ m.ranking["Constructed Onsite"] }}</td>
         </tr>
         {% endfor %}
     </tbody>

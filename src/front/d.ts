@@ -60,17 +60,17 @@ export enum AlertLevel {
     DANGER = "Danger",
 }
 
+export enum RankingCategoy {
+    CONSTRUCTED_ONLINE = "Constructed Online",
+    CONSTRUCTED_ONSITE = "Constructed Onsite",
+    LIMITED_ONLINE = "Limited Online",
+    LIMITED_ONSITE = "Limited Onsite",
+}
+
 export interface Score {
     gw: number,
     vp: number,
     tp: number,
-}
-
-export interface Ranking {
-    constructed_onsite: number,
-    constructed_online: number,
-    limited_onsite: number,
-    limited_online: number,
 }
 
 export interface PublicPerson {
@@ -86,7 +86,7 @@ export interface Person extends PublicPerson {
     roles: MemberRole[] | undefined,  // city name
     sponsor: string | undefined,
     sanctions: RegisteredSanction[],
-    ranking: Ranking,
+    ranking: Record<RankingCategoy, number>,
 }
 
 export interface KrcgCard {
@@ -270,7 +270,7 @@ export interface DiscordUser {
 }
 
 export interface TournamentRating {
-    tournament: TournamentConfig,
+    tournament: TournamentMinimal,
     size: number
     rounds_played: number,
     result: Score,

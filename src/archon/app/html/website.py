@@ -230,8 +230,14 @@ async def index(
 ):
     request.session["next"] = str(request.url_for("index"))
     members: list[models.Person] = await op.get_members()
-    members.sort(key=lambda x: -x.ranking.constructed_onsite)
-    members = [m for m in members[:1000] if m.ranking.constructed_onsite > 0]
+    members.sort(
+        key=lambda x: -x.ranking.get(models.RankingCategoy.CONSTRUCTED_ONSITE, 0)
+    )
+    members = [
+        m
+        for m in members[:1000]
+        if m.ranking.get(models.RankingCategoy.CONSTRUCTED_ONSITE, 0) > 0
+    ]
     if "member" not in context:
         for member in members:
             member.name = ""

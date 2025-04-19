@@ -9,13 +9,12 @@ import logging
 import orjson
 import os
 import psycopg
-import psycopg.rows
-import psycopg.sql
 import psycopg.types.json
 import psycopg_pool
 import secrets
 import typing
 import uuid
+import zoneinfo
 
 from . import events
 from . import geo
@@ -30,7 +29,10 @@ DB_PWD = os.getenv("DB_PWD", "")
 CONNINFO = f"postgresql://{DB_USER}:{DB_PWD}@localhost/archondb"
 HASH_KEY = base64.b64decode(os.getenv("HASH_KEY", ""))
 
-psycopg.types.json.set_json_dumps(orjson.dumps)
+
+psycopg.types.json.set_json_dumps(
+    lambda o: orjson.dumps(o, option=orjson.OPT_NON_STR_KEYS)
+)
 psycopg.types.json.set_json_loads(orjson.loads)
 
 
@@ -237,10 +239,11 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
-                if not data["extra"]["external"]:
+                if not data[0]["extra"].get("external"):
                     return
                 uid = uuid.UUID(data[0]["uid"])
                 tournament.uid = str(uid)
+                tournament.extra["external"] = True
                 res = await cursor.execute(
                     "UPDATE tournaments SET data=%s WHERE uid=%s",
                     [jsonize(tournament), uid],
@@ -317,7 +320,7 @@ class Operator:
             "LIMIT 100"
         )
         async with self.conn.cursor() as cursor:
-            LOG.warning("Query: %s", Q)
+            LOG.debug("Query: %s", Q)
             res = await cursor.execute(Q, args)
             ret = [models.TournamentMinimal(*row) for row in await res.fetchall()]
             ret_filter = models.TournamentFilter()
@@ -713,7 +716,7 @@ class Operator:
             member = self._instanciate_member(data[1])
             if old_vekn == vekn:
                 #  no change
-                LOG.warning("%s claiming %s but already has it", uid, vekn)
+                LOG.info("%s claiming %s but already has it", uid, vekn)
                 return member
             if old_vekn:
                 LOG.warning("%s claiming %s, previously had %s", uid, vekn, old_vekn)
@@ -763,7 +766,7 @@ class Operator:
             vekn = data[0]
             member = self._instanciate_member(data[1])
             if not vekn:
-                LOG.warning("No vekn for %s, nothing to do", uid)
+                LOG.info("No vekn for %s, nothing to do", uid)
                 return member
             new_member = models.Member(**dataclasses.asdict(member))
             new_uid = uuid.uuid4()
@@ -785,7 +788,7 @@ class Operator:
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to find Member {uid}")
-            LOG.warning("Old member updated: %s", uid)
+            LOG.debug("Old member updated: %s", uid)
             if new_member.discord:
                 nick = new_member.discord.global_name or new_member.discord.username
                 new_member.name = nick
@@ -796,7 +799,7 @@ class Operator:
                 "INSERT INTO members (uid, data) VALUES (%s, %s)",
                 [new_uid, self._jsonize_member(new_member)],
             )
-            LOG.warning("New member created: %s - %s", new_member.uid, data)
+            LOG.debug("New member created: %s - %s", new_member.uid, data)
             return new_member
 
     async def set_sponsor_on_prefix(self, prefix: str, sponsor_uid: str):
@@ -816,39 +819,100 @@ class Operator:
             )
 
     async def recompute_all_ratings(self):
-        # that's how to compute cutoff: 18 months ago
-        # cutoff = datetime.datetime.now(datetime.timezone.utc)
-        # cutoff.year -= 1
-        # if cutoff.month > 6:
-        #     cutoff.month -= 6
-        # else:
-        #     cutoff.year -= 1
-        #     cutoff.month += 6
-        # that's how you'd check the cutoff to compute rankings
-        # tournament.start.replace(tzinfo=zoneinfo.ZoneInfo(tournament.timezone))
         async with self.conn.cursor() as cursor:
+            # first get all the tournaments and compute the ratings for everyone
             res = await cursor.execute(
                 """SELECT data FROM tournaments
                 WHERE data->>'state' = %s
                 """,
                 [models.TournamentState.FINISHED],
             )
-            all_ratings = collections.defaultdict(dict)
+            all_ratings: dict[str, dict[str, models.TournamentRating]] = (
+                collections.defaultdict(dict)
+            )
             async for row in res:
                 tournament = models.Tournament(**row[0])
                 for uid, rating in engine.ratings(tournament).items():
-                    all_ratings[uid][tournament.uid] = dataclasses.asdict(rating)
+                    all_ratings[uid][tournament.uid] = rating
+            # clean reset for all members
             await cursor.execute(
                 "UPDATE members SET data=jsonb_set(data, '{ratings}', '{}', true)"
             )
+            # set all tournaments ratings
             await cursor.executemany(
                 """UPDATE members
                 SET data=jsonb_set(data, '{ratings}', %s, false)
                 WHERE uid=%s
                 """,
                 [
-                    [psycopg.types.json.Jsonb(ratings), uuid.UUID(uid)]
+                    [
+                        psycopg.types.json.Jsonb(
+                            {k: dataclasses.asdict(v) for k, v in ratings.items()}
+                        ),
+                        uuid.UUID(uid),
+                    ]
                     for uid, ratings in all_ratings.items()
+                ],
+            )
+            # now compute the current rankings, using results from the past 18 months
+            # only the top 8 in each category count
+            rankings_lists: dict[str, dict[models.RankingCategoy, list[int]]] = (
+                collections.defaultdict(lambda: collections.defaultdict(list))
+            )
+            # compute cutoff: 18 months before today (UTC) at 00:00
+            cutoff = datetime.datetime.now(datetime.timezone.utc)
+            cutoff = cutoff.replace(hour=0, minute=0, second=0, microsecond=0)
+            cutoff = cutoff.replace(year=cutoff.year - 1)
+            if cutoff.month > 6:
+                cutoff = cutoff.replace(month=cutoff.month - 6)
+            else:
+                cutoff = cutoff.replace(year=cutoff.year - 1)
+                cutoff = cutoff.replace(month=cutoff.month + 6)
+            for uid, ratings in all_ratings.items():
+                for rating in ratings.values():
+                    if (
+                        rating.tournament.start.replace(
+                            tzinfo=zoneinfo.ZoneInfo(tournament.timezone)
+                        )
+                        < cutoff
+                    ):
+                        continue
+                    if rating.tournament.format == models.TournamentFormat.Standard:
+                        if rating.tournament.online:
+                            category = models.RankingCategoy.CONSTRUCTED_ONLINE
+                        else:
+                            category = models.RankingCategoy.CONSTRUCTED_ONSITE
+                    else:
+                        if rating.tournament.online:
+                            category = models.RankingCategoy.LIMITED_ONLINE
+                        else:
+                            category = models.RankingCategoy.LIMITED_ONSITE
+                    rankings_lists[uid][category].append(rating.rating_points)
+            # take the top 8
+            rankings = {
+                uid: {
+                    category: sum(sorted(r, reverse=True)[:8])
+                    for category, r in res.items()
+                    if r
+                }
+                for uid, res in rankings_lists.items()
+                if res
+            }
+            # clean everyone's ratings, then update with the newly computed values
+            await cursor.execute(
+                "UPDATE members SET data=jsonb_set(data, '{ranking}', '{}', true)"
+            )
+            await cursor.executemany(
+                """UPDATE members
+                SET data=jsonb_set(data, '{ranking}', %s, false)
+                WHERE uid=%s
+                """,
+                [
+                    [
+                        psycopg.types.json.Jsonb(ranking),
+                        uuid.UUID(uid),
+                    ]
+                    for uid, ranking in rankings.items()
                 ],
             )
 
@@ -874,6 +938,27 @@ class Operator:
             data["country_flag"] = country.flag
         if "city_geoname_id" in data:
             data["city"] = geo.CITIES_BY_GEONAME_ID[data["city_geoname_id"]].unique_name
+        # TODO: drop after migration
+        if "constructed_online" in data["ranking"]:
+            data["ranking"][models.RankingCategoy.CONSTRUCTED_ONLINE.value] = data[
+                "ranking"
+            ]["constructed_online"]
+            del data["ranking"]["constructed_online"]
+        if "constructed_onsite" in data["ranking"]:
+            data["ranking"][models.RankingCategoy.CONSTRUCTED_ONSITE.value] = data[
+                "ranking"
+            ]["constructed_onsite"]
+            del data["ranking"]["constructed_onsite"]
+        if "limited_online" in data["ranking"]:
+            data["ranking"][models.RankingCategoy.LIMITED_ONLINE.value] = data[
+                "ranking"
+            ]["limited_online"]
+            del data["ranking"]["limited_online"]
+        if "limited_onsite" in data["ranking"]:
+            data["ranking"][models.RankingCategoy.LIMITED_ONSITE.value] = data[
+                "ranking"
+            ]["limited_onsite"]
+            del data["ranking"]["limited_onsite"]
         return cls(**data)
 
 

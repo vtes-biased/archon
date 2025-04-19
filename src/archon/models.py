@@ -57,6 +57,13 @@ class Barrier(enum.StrEnum):
     MAX_ROUNDS = "Max Rounds"
 
 
+class RankingCategoy(enum.StrEnum):
+    CONSTRUCTED_ONLINE = "Constructed Online"
+    CONSTRUCTED_ONSITE = "Constructed Onsite"
+    LIMITED_ONLINE = "Limited Online"
+    LIMITED_ONSITE = "Limited Onsite"
+
+
 class MemberRole(enum.StrEnum):
     ADMIN = "Admin"
     PRINCE = "Prince"
@@ -67,14 +74,6 @@ class MemberRole(enum.StrEnum):
     PTC = "PTC"  # Playtest Coordinator
     PLAYTESTER = "Playtester"
     ETHICS = "Ethics"  # Member of the Ethics Comitee
-
-
-@dataclasses.dataclass(kw_only=True)
-class Ranking:
-    constructed_onsite: int = 0
-    constructed_online: int = 0
-    limited_onsite: int = 0
-    limited_online: int = 0
 
 
 @dataclasses.dataclass
@@ -92,7 +91,7 @@ class Person(PublicPerson):
     roles: list[MemberRole] = pydantic.Field(default_factory=list)
     sponsor: str | None = ""  # useful for organizers, to find their recruits
     sanctions: list["RegisteredSanction"] = pydantic.Field(default_factory=list)
-    ranking: Ranking = pydantic.Field(default_factory=Ranking)
+    ranking: dict[RankingCategoy, int] = pydantic.Field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -373,7 +372,7 @@ class RegisteredSanction(Sanction):
 
 @dataclasses.dataclass
 class TournamentRating:
-    tournament: TournamentConfig
+    tournament: TournamentMinimal
     size: int = 0
     rounds_played: int = 0
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)

@@ -99,7 +99,7 @@ class TournamentListDisplay {
             }
             base.create_append(row, "th", ["smaller-font"], { scope: "row" }).innerText = name
             const date = base.create_append(row, "td", ["smaller-font"])
-            date.innerText = base.datetime(tournament.start, tournament.timezone, tournament.online)
+            date.innerText = base.datetime_string(tournament.start, tournament.timezone, tournament.online)
             const location = base.create_append(row, "td", ["smaller-font"])
             if (tournament.online) {
                 location.innerText = "Online"

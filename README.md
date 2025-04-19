@@ -110,10 +110,13 @@ The `archon` CLI gives access to useful DB-related commands when developing in l
 │ --help                        Show this message and exit.                                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ list                                                                                                            │
-│ purge                                                                                                           │
-│ reset-db                                                                                                        │
-│ sync-members                                                                                                    │
+│ reset-db            ⚠️  Reset the database ⚠️ Removes all data                                                   │
+│ list                List tournaments                                                                            │
+│ sync-members        Update members from the vekn.net website                                                    │
+│ sync-events         Update historical tournaments from the vekn.net website                                     │
+│ purge               Purge deprecated historical data                                                            │
+│ add-client          Add an authorized client to the platform                                                    │
+│ recompute-ratings   Recompute all tournament ratings                                                            │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -131,6 +134,22 @@ They constantly watch your files and rebuild the project automatically when ther
 Use `pm2 logs` to keep an eye on what's going on and `pm2 kill` to stop the services.
 You can also use `pm2 ps` to check if the services are up and running.
 For more, see the [PM2 documentation](https://pm2.keymetrics.io/docs/usage/quick-start/).
+
+### Bootstrapping
+
+To bootstrap the app with a full VEKN sync, you need to run it once out of debug mode:
+
+```
+PYTHONOPTIMIZE=1 make serve
+```
+
+Alternatively, you can run the necessary sync from the command line directly:
+
+```
+archon sync-members
+archon sync-events
+archon recompute-ratings
+```
 
 ## Settings
 

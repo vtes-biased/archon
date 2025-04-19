@@ -94,10 +94,28 @@ JUDGES = {
 
 FIX_CITIES = {
     "Argentina": {"BUenos Aires": "Buenos Aires", "Buenos Aries": "Buenos Aires"},
+    "Australia": {
+        "Blacktown": "Sydney",
+        "Castle Hill": "Sydney",
+        "Hobart (Rosny)": "Hobart",
+        "Hobart, Tasmania": "Hobart",
+        "Penrith": "Sydney",
+        "Queanbeyan": "Canberra",
+        "Ravenhall": "Melbourne",
+        "Sydney (Inner City)": "Sydney",
+        "Tenambit": "Maitland",
+    },
     "Austria": {
+        "Danube city (Vienna)": "Vienna",
+        "Marchtrenk": "Linz",
+        "Thalheim": "Linz",
+        "Traiskirchen": "Vienna",
         "Vienna (Traiskirchen)": "Vienna",
         "Wien": "Vienna",
         "Wien/Vienna": "Vienna",
+    },
+    "Belarus": {
+        "Gomel": "Homyel",
     },
     "Belgium": {
         "Antwerp": "Antwerpen",
@@ -112,10 +130,14 @@ FIX_CITIES = {
         "Braslia": "Brasília",
         "Campinas": "Campinas, São Paulo",
         "Campogrande": "Campina Grande",
+        "Canoas / Porto Alegre": "Canoas",
         "GUARULHOS": "Guarulhos",
         "Itajai": "Itajaí",
         "Imperatiz": "Imperatriz",
+        "Nova Iguaçú": "Nova Iguaçu",
+        "Olaria": "Rio de Janeiro",
         "Petropolis": "Petrópolis",
+        "Rio De Janerio": "Rio de Janeiro",
         "Rio de Janerio": "Rio de Janeiro",
         "Rio de janeiro": "Rio de Janeiro",
         "Santo Andre": "Santo André",
@@ -123,8 +145,9 @@ FIX_CITIES = {
         "São Luis": "São Luís",
         "São PAulo": "São Paulo",
         "So Paulo": "São Paulo",
-        "Nova Iguaçú": "Nova Iguaçu",
-        " São João de Meriti": "São João de Meriti",
+        "Taguatinga": "Brasília",
+        "Vitória / Vila Velha / Grande Vitória": "Vitória",
+        "Vitria": "Vitória",
     },
     "Canada": {
         "Edmaonton": "Edmonton",
@@ -133,27 +156,36 @@ FIX_CITIES = {
         "Ednomton": "Edmonton",
         "Gibbons / Edmonton": "Edmonton",
         "Hull": "Gatineau",
-        "Jonquiere": "Jonquière",
+        "Jonquiere": "Saguenay",
+        "Jonquière": "Saguenay",
         "Levis": "Lévis",
+        "Marie Ville": "Montréal",
+        "Marieville": "Montréal",
         "Montral": "Montréal",
         "Montreal": "Montréal",
         "Niagara": "Niagara Falls",
         "Qubec City": "Québec",
+        "Qubec": "Québec",
         "Quebec": "Québec",
         "Scarborough": "Scarborough Village",
         "St. Albert / Edmonton": "St. Albert",
-        "St Catherines": "St. Catharines",
-        "St. Catherines": "St. Catharines",
+        "St Catharines": "Sainte-Catherine, Quebec, Montérégie",
+        "St Catherines": "Sainte-Catherine, Quebec, Montérégie",
+        "St. Catherines": "Sainte-Catherine, Quebec, Montérégie",
         "St-Eustache": "Saint-Eustache",
         "St Eustache": "Saint-Eustache",
-        "St. Hubert": "Saint-Hubert",
+        "St. Hubert": "Longueuil",
+        "Saint-Hubert": "Longueuil",
         "St-Jean-sur-Richelieu": "Saint-Jean-sur-Richelieu",
         "St-Jerome": "Saint-Jérôme",
         "St-Lazare": "Saint-Lazare",
     },
     "Chile": {
+        "Concepcin": "Concepción",
+        "Concepcion": "Concepción",
         "Entre Juegos, Santiago": "Santiago",
         "Magic Sur, Santiago": "Santiago",
+        "Maip": "Santiago",
         "Quilpue": "Quilpué",
         "Santiago de Chile": "Santiago",
         "Santiago (primogénito)": "Santiago",
@@ -161,19 +193,23 @@ FIX_CITIES = {
         "Valparaiso": "Valparaíso",
         "Vina del Mar": "Viña del Mar",
     },
-    "Colombia": {"Bogota": "Bogotá", "Medellin": "Medellín"},
+    "Colombia": {"Bogata": "Bogotá", "Bogota": "Bogotá", "Medellin": "Medellín"},
     "Czech Republic": {
+        "Brmo": "Brno",
         "Hradec Kralove": "Hradec Králové",
         "Hradec Krlov": "Hradec Králové",
         "Nachod": "Náchod",
         "Plzen": "Pilsen",
+        "Praha": "Prague",
         "Slany": "Slaný",
         "Trutnov, Mal Svatoovice": "Trutnov",
         "Vsetin": "Vsetín",
+        "Zlin": "Zlín",
     },
     "Denmark": {"Aarhus": "Århus", "Arhus": "Århus"},
     "Finland": {
         "Hyvinkää": "Hyvinge",
+        "Kuusankoski": "Kouvola",
     },
     "France": {
         "Alès ": "Alès",
@@ -188,6 +224,7 @@ FIX_CITIES = {
         "Gttingen": "Göttingen",
         "Hanau": "Hanau am Main",
         "Ludwigshafen": "Ludwigshafen am Rhein",
+        "Madgeburg": "Magdeburg",
         "Marburg": "Marburg an der Lahn",
         "Moerfelden": "Mörfelden-Walldorf",
         "Seeheim": "Seeheim-Jugenheim",
@@ -204,15 +241,22 @@ FIX_CITIES = {
     "Hungary": {
         "debrecen": "Debrecen",
         "Debrechen": "Debrecen",
+        "Erdőkertes": "Budapest",
         "Godollo": "Gödöllő",
+        "Kaposvar": "Kaposvár",
         "Kecskemet": "Kecskemét",
+        "Kismaros": "Budapest",
+        "Nyiregyhaza": "Nyíregyháza",
+        "Pecs": "Pécs",
         "Salgotarjan": "Salgótarján",
         "Salgtarjn": "Salgótarján",
         "Szekesfehervar": "Székesfehérvár",
-        "Nyiregyhaza": "Nyíregyháza",
+        "Szkesfehrvr": "Székesfehérvár",
+        "Trnok": "Budapest",
         "Veszprem": "Veszprém",
+        "Veszprm": "Veszprém",
     },
-    "Iceland": {"Reykjavik": "Reykjavík"},
+    "Iceland": {"Reykjavik": "Reykjavík", "Reykjaví­k": "Reykjavík"},
     "Israel": {"Bat-Yam": "Bat Yam", "Tel-Aviv": "Tel Aviv"},
     "Italy": {
         "Firenze": "Florence",
@@ -225,6 +269,7 @@ FIX_CITIES = {
     "Mexico": {
         "Ciudad de México ": "Mexico City",
         "Ciudad de México": "Mexico City",
+        "Distrito Federal": "Mexico City",
         "Durango": "Victoria de Durango",
         "Durango, Durango": "Victoria de Durango",
         "Guadalajara, jalisco": "Guadalajara",
@@ -232,12 +277,20 @@ FIX_CITIES = {
         "Naucalpan": "Naucalpan de Juárez",
         "Neza": "Ciudad Nezahualcoyotl",
         "Nezahualcoyotl": "Ciudad Nezahualcoyotl",
-        "Puebla": "Puebla City",
-        "Puebla de Zaragoza": "Puebla City",
+        "Nezahualcóyotl": "Ciudad Nezahualcoyotl",
+        "Puebla": "Puebla, Puebla",
+        "Puebla de Zaragoza": "Puebla, Puebla",
+        "Queretaro": "Santiago de Querétaro",
         "Toluca de Lerdo": "Toluca",
+        "Toluca De Lerdo": "Toluca",
     },
-    "Netherlands": {"Rotterdan": "Rotterdam"},
-    "New Zealand": {"WELLINGTON": "Wellington"},
+    "Netherlands": {
+        "Houten": "Utrecht",
+        "Krommenie": "Zaanstad",
+        "Rotterdan": "Rotterdam",
+    },
+    "New Zealand": {"WELLINGTON": "Wellington", "Plamerston North": "Palmerston North"},
+    "Norway": {"Fjellhamar": "Oslo"},
     "Panama": {"Panama": "Panamá"},
     "Philippines": {
         "Bacolod": "Bacolod City",
@@ -251,14 +304,18 @@ FIX_CITIES = {
         "Metro Manila": "Manila",
         "Parañaque City": "Paranaque City",
         "Quezon": "Quezon City",
+        "Quezon city": "Quezon City",
         "Quezon City, Metro Manila": "Quezon City",
         "Taguig City": "Taguig",
+        "Tondo, Manila": "Manila",
     },
     "Poland": {
         "Aleksandrow Lodzki": "Aleksandrów Łódzki",
+        "Andrespol": "Łódź",
         "Bedzin": "Będzin",
         "Bialystok": "Białystok",
         "Białstok": "Białystok",
+        "Bielsko Biaa": "Bielsko-Biala",
         "Bielsko Biała": "Bielsko-Biala",
         "Bielsko-Biała": "Bielsko-Biala",
         "Bielsko-Biaa": "Bielsko-Biala",
@@ -268,15 +325,20 @@ FIX_CITIES = {
         "Cracov": "Kraków",
         "Czstochowa": "Częstochowa",
         "Czestochowa": "Częstochowa",
+        "Hajnowka": "Hajnówka",
         "Jelenia Gora": "Jelenia Góra",
         "Kędzierzyn Koźle": "Kędzierzyn-Koźle",
+        "Krakw": "Kraków",
         "Krakow": "Kraków",
+        "Kraszew": "Łódź",
         "Lodz": "Łódź",
         "Lubon": "Luboń",
         "Nowa Sol": "Nowa Sól",
         "Poznan": "Poznań",
         "Swidnik": "Świdnik",
         "Szczezin": "Szczecin",
+        "Toru": "Toruń",
+        "Torun": "Toruń",
         "Wroclaw": "Wrocław",
     },
     "Portugal": {"Lisboa": "Lisbon", "Setubal": "Setúbal", "Setbal": "Setúbal"},
@@ -285,7 +347,11 @@ FIX_CITIES = {
         "Saint-Petersburg": "Saint Petersburg",
         "St. Peterburg": "Saint Petersburg",
     },
-    "Solvakia": {"Banska Bystrica": "Banská Bystrica", "Kosice": "Košice"},
+    "Slovakia": {
+        "Banska Bystrica": "Banská Bystrica",
+        "Godollo": "Gödöllő",
+        "Kosice": "Košice",
+    },
     "Spain": {
         "Barberá del Vallés": "Barberà del Vallès",
         "Barcellona": "Barcelona",
@@ -300,17 +366,20 @@ FIX_CITIES = {
         "Las Palmas": "Las Palmas de Gran Canaria",
         "Las Palmas de Gran Canarias": "Las Palmas de Gran Canaria",
         "Lucena (Córdoba)": "Lucena",
-        "Masnou": "el Masnou",
+        "Madirid": "Madrid",
+        "Masnou": "El Masnou",
         "Mollet del Vallés": "Mollet del Vallès",
         "Palma de Mallorca": "Palma",
         "Rentería": "Errenteria",
-        "San Pedro de Alcántara": "San Pedro",
+        "San Pedro de Alcántara": "Marbella",
         "San Sebastián": "San Sebastián de los Reyes",
         "Sant Cugat del Vallés": "Sant Cugat",
         "Sant Quirze del Vallés": "Sant Quirze del Vallès",
         "Santa Coloma de Gramanet": "Santa Coloma de Gramenet",
+        "Sóller": "Palma",
         "Villafranca de Córdoba": "Córdoba",
         "Vitoria": "Gasteiz / Vitoria",
+        "Vitoria-Gasteiz": "Gasteiz / Vitoria",
     },
     "Sweden": {
         "Malmo": "Malmö",
@@ -348,6 +417,8 @@ FIX_CITIES = {
         "Burton-on-trent": "Burton upon Trent",
         "Burton-onTrent": "Burton upon Trent",
         "Burton on Trent": "Burton upon Trent",
+        "Ealing": "London",
+        "Flint, Wales": "Liverpool",
         "Kings Lynn": "King's Lynn",
         "Milton keynes": "Milton Keynes",
         "Newcastle": "Newcastle upon Tyne",
@@ -356,8 +427,12 @@ FIX_CITIES = {
         "Newcastle Upon Tyne": "Newcastle upon Tyne",
         "Newcastle upon tyne": "Newcastle upon Tyne",
         "Newport, South Wales": "Newport, Wales",
+        "Northhampton": "Northampton",
         "Notttingham": "Nottingham",
+        "Rochester, Kent": "Rochester",
         "Shefield": "Sheffield",
+        "St. Albans": "St Albans",
+        "St. Andrews": "Saint Andrews",
         "St. Helens": "St Helens",
         "St. Neots": "Saint Neots",
     },
@@ -368,19 +443,18 @@ def _member_from_vekn_data(data: dict[str, str]) -> models.Member:
     if data["countryname"]:
         country = geo.COUNTRIES_BY_ISO[data["countrycode"]]
         if data["city"]:
-            city = geo.CITIES_BY_COUNTRY[country.country].get(data["city"], None)
+            data_city = data["city"].strip()
+            city = geo.CITIES_BY_COUNTRY[country.country].get(data_city, None)
             if not city and data.get("statename", None):
-                refined_name = ", ".join([data["city"], data["statename"]])
+                refined_name = ", ".join([data_city, data["statename"]])
                 city = geo.CITIES_BY_COUNTRY[country.country].get(refined_name, None)
             if not city:
                 fix = FIX_CITIES.get(country.country, {})
                 city = geo.CITIES_BY_COUNTRY[country.country].get(
-                    fix.get(data["city"], data["city"]), None
+                    fix.get(data_city, data_city), None
                 )
             if not city:
-                LOG.warning(
-                    'Did not find city "%s" in %s', data["city"], country.country
-                )
+                LOG.info('Did not find city "%s" in %s', data_city, country.country)
         else:
             city = None
     else:
@@ -426,7 +500,7 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                 response.raise_for_status()
                 result = await response.json()
                 players = result["data"]["players"]
-                LOG.warning("prefix: %s — %s", prefix, len(players))
+                LOG.debug("prefix: %s — %s", prefix, len(players))
                 if players:
                     yield [_member_from_vekn_data(data) for data in players]
                 # if < 100 players we got them all, just increment the prefix directly
@@ -434,7 +508,7 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                     prefix = increment(prefix)
                 # the API returns 100 players max, there might be more
                 else:
-                    LOG.warning("Last ID: %s", players[-1]["veknid"])
+                    LOG.debug("Last ID: %s", players[-1]["veknid"])
                     prefix = players[-1]["veknid"][:5]
                     if players[-1]["veknid"][-2:] == "99":
                         prefix = increment(prefix)
@@ -458,18 +532,20 @@ async def get_events(
         for num in range(0, 1400):
             tasks = []
             async with asyncio.TaskGroup() as tg:
-                for digit in range(1, 10):
+                for digit in range(0, 10):
+                    event_id = 10 * num + digit
+                    # skip zero
+                    if not event_id:
+                        continue
                     tasks.append(
-                        tg.create_task(
-                            get_event(session, token, 10 * num + digit, members)
-                        )
+                        tg.create_task(get_event(session, token, event_id, members))
                     )
             for digit, task in enumerate(tasks, 1):
                 if not task.done() | task.cancelled():
                     continue
                 exc = task.exception()
                 if exc:
-                    LOG.exception("Failed to retrieve event %s", 10 * num + digit)
+                    LOG.exception("Failed to retrieve event %s", event_id)
                     continue
                 res = task.result()
                 if res:
@@ -487,7 +563,7 @@ async def get_event(
         result = await response.json()
         data = result["data"]["events"]
         if not data:
-            LOG.warning("No data for event #%s: %s", num, result)
+            LOG.info("No data for event #%s: %s", num, result)
             return
         data = data[0]
         if data["players"]:
@@ -502,7 +578,7 @@ def _tournament_from_vekn_data(
         fmt, rank = TOURNAMENT_TYPE_TO_FORMAT_RANK[int(data["eventtype_id"])]
     except KeyError:
         LOG.warning(
-            "Error in event #%s - invalid event type: %s",
+            "Error in event #%s - unknown event type: %s",
             data["event_id"],
             data["eventtype_id"],
         )
@@ -515,13 +591,13 @@ def _tournament_from_vekn_data(
     try:
         start = datetime.datetime.fromisoformat(start)
     except ValueError:
-        LOG.warning("Error in event #%s - invalid start: %s", data["event_id"], start)
+        LOG.info("Error in event #%s - invalid start: %s", data["event_id"], start)
         start = datetime.datetime.fromisoformat(data["event_startdate"])
     finish = " ".join([data["event_enddate"], data["event_endtime"]])
     try:
         finish = datetime.datetime.fromisoformat(finish)
     except ValueError:
-        LOG.warning("Error in event #%s - invalid finish: %s", data["event_id"], finish)
+        LOG.info("Error in event #%s - invalid finish: %s", data["event_id"], finish)
         finish = datetime.datetime.fromisoformat(data["event_enddate"])
     if data["rounds"]:
         rounds = min(1, int(data["rounds"][0]))
@@ -560,8 +636,13 @@ def _tournament_from_vekn_data(
             )
             result = scoring.Score()
         player_rounds = rounds
+        # mark 1 round played for DQ, not 0
+        # because no-shows are simply not listed in the vekn.net archon
+        # DQ or WD only happens if at least a round was played
+        # so the player counts in the participants count
+        # this matters for the ratings of finalists
         if pdata["dq"] != "0" or pdata["wd"] != "0":
-            player_rounds = 0
+            player_rounds = 1
         elif int(pdata["pos"]) < 6:
             player_rounds += 1
         ret.players[pdata["veknid"]] = models.Player(
@@ -605,7 +686,7 @@ def increment(num: str) -> str:
     return None
 
 
-async def get_rankings() -> dict[str, models.Ranking]:
+async def get_rankings() -> dict[str, dict[models.RankingCategoy, int]]:
     try:
         async with aiohttp.ClientSession() as session:
             token = await get_token(session)
@@ -620,10 +701,12 @@ async def get_rankings() -> dict[str, models.Ranking]:
         LOG.exception("Ranking unavailable")
         ranking = []
     return {
-        player["veknid"]: models.Ranking(
-            constructed_onsite=int(player.pop("rtp_constructed")),
-            limited_onsite=int(player.pop("rtp_limited")),
-        )
+        player["veknid"]: {
+            models.RankingCategoy.CONSTRUCTED_ONSITE: int(
+                player.pop("rtp_constructed")
+            ),
+            models.RankingCategoy.LIMITED_ONSITE: int(player.pop("rtp_limited")),
+        }
         for player in ranking
     }
 
@@ -643,6 +726,7 @@ class TournamentType(enum.IntEnum):
     UNSANCTIONED_TOURNAMENT = 12
     LIMITED_NATIONAL_CHAMPIONSHIP = 13
     LIMITED_CONTINENTAL_CHAMPIONSHIP = 14
+    GRAND_PRIX = 15
 
 
 TOURNAMENT_TYPE_TO_FORMAT_RANK = {
@@ -698,6 +782,10 @@ TOURNAMENT_TYPE_TO_FORMAT_RANK = {
     TournamentType.LIMITED_CONTINENTAL_CHAMPIONSHIP: (
         models.TournamentFormat.Limited,
         models.TournamentRank.BASIC,
+    ),
+    TournamentType.GRAND_PRIX: (
+        models.TournamentFormat.Standard,
+        models.TournamentRank.GP,
     ),
 }
 
@@ -766,7 +854,7 @@ async def upload_tournament(tournament: models.Tournament, rounds: int) -> None:
             ) as response:
                 response.raise_for_status()
                 result = await response.json()
-                LOG.warning("VEKN answered: %s", result)
+                LOG.info("VEKN answered: %s", result)
                 if result["data"]["code"] != 200:
                     raise RuntimeError(
                         f"VEKN error: {result["data"].get("message", "Unknown error")}"
@@ -792,7 +880,7 @@ async def upload_tournament_result(
             ) as response:
                 response.raise_for_status()
                 result = await response.json()
-                LOG.warning("VEKN Archon answered: %s", result)
+                LOG.info("VEKN Archon answered: %s", result)
                 if result["data"]["code"] != 200:
                     raise RuntimeError(
                         f"VEKN error: {result["data"].get("message", "Unknown error")}"

@@ -393,10 +393,8 @@ class MemberDisplay {
                 // additional display for RegisteredSanction from previous tournaments
                 if (sanction.tournament) {
                     const rsanction = sanction as d.RegisteredSanction
-                    const timestamp = DateTime.fromFormat(
-                        `${rsanction.tournament?.start} ${rsanction.tournament?.timezone}`,
-                        "yyyy-MM-dd'T'HH:mm:ss z",
-                        { setZone: true }
+                    const timestamp = base.datetime(
+                        rsanction.tournament?.start, rsanction.tournament?.timezone
                     ).toLocal().toLocaleString(DateTime.DATE_SHORT)
                     button.innerText = `(${timestamp}: ${rsanction.tournament?.name})`
                 }
@@ -495,7 +493,12 @@ class MemberDisplay {
                 base.create_append(row, "th", [], { scope: "col" }).innerText = header
             }
             const body = base.create_append(results_table, "tbody")
-            for (const rating of Object.values(this.target.ratings)) {
+            const ratings = Object.values(this.target.ratings)
+            ratings.sort((a, b) => {
+                return base.datetime(b.tournament.start, b.tournament.timezone).toMillis() -
+                    base.datetime(a.tournament.start, a.tournament.timezone).toMillis()
+            })
+            for (const rating of ratings) {
                 const row = base.create_append(body, "tr", ["align-middle"])
                 const name = base.create_append(row, "th", [], { scope: "row" })
                 const link = base.create_append(name, "a", [],

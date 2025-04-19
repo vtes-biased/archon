@@ -15,12 +15,16 @@ export const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
     minute: "2-digit"
 }
 
-export function datetime(date: string, timezone: string, localize: boolean) {
-    const dt = DateTime.fromFormat(
+export function datetime(date: string, timezone: string): DateTime {
+    return DateTime.fromFormat(
         `${date} ${timezone}`,
         "yyyy-MM-dd'T'HH:mm:ss z",
         { setZone: true }
     )
+}
+
+export function datetime_string(date: string, timezone: string, localize: boolean) {
+    const dt = datetime(date, timezone)
     if (localize) {
         return dt.toLocal().toLocaleString(DATETIME_UNAMBIGUOUS)
     } else {

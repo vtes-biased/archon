@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import dotenv
 import fastapi
@@ -11,10 +12,11 @@ import uvicorn.logging
 
 from .. import db
 from .. import engine
+from .. import vekn
 from . import dependencies
-from .api import tournament
-from .api import vekn
-from .html import website
+from .api import tournament as api__tournament
+from .api import vekn as api__vekn
+from .html import website as html__website
 
 dotenv.load_dotenv()
 SESSION_KEY = os.getenv("SESSION_KEY", "dev_key")
@@ -23,6 +25,53 @@ LOG = logging.getLogger()
 handler = logging.StreamHandler()
 handler.setFormatter(uvicorn.logging.DefaultFormatter("%(levelprefix)s %(message)s"))
 LOG.addHandler(handler)
+if __debug__ or os.getenv("DEBUG"):
+    LOG.setLevel(logging.DEBUG)
+    handler.setLevel(logging.DEBUG)
+
+
+async def sync_vekn_members(op: db.Operator) -> None:
+    rankings = await vekn.get_rankings()
+    prefixes_map = {}  # prefix owners
+    async for members in vekn.get_members_batches():
+        for member in members:
+            member.ranking = rankings.get(member.vekn, {})
+        # note insert members modifies the passed members list
+        # after this call, all members have the right DB uid and data
+        await op.insert_members(members)
+        for member in members:
+            if member.prefix and len(member.prefix) == 3:
+                if member.prefix in prefixes_map:
+                    assert prefixes_map[member.prefix].vekn == member.vekn
+                prefixes_map[member.prefix] = member
+    for prefix, owner in prefixes_map.items():
+        await op.set_sponsor_on_prefix(prefix, owner.uid)
+
+
+async def sync_vekn() -> int | None:
+    if __debug__:
+        return 1
+    async with db.operator() as op:
+        await op.purge_tournament_events()
+        await sync_vekn_members(op)
+        members = await op.get_members()
+        async for event in vekn.get_events(members):
+            await op.upsert_vekn_tournament(event)
+        await op.recompute_all_ratings()
+
+
+def log_sync_errors(task: asyncio.Task) -> None:
+    if task.cancelled():
+        LOG.info("VEKN sync cancelled")
+        return
+    exception = task.exception()
+    if exception:
+        LOG.exception("VEKN sync failed", exc_info=exception)
+        return
+    if task.result():
+        LOG.info("VEKN sync omitted (debug mode)")
+    else:
+        LOG.info("VEKN sync done")
 
 
 @contextlib.asynccontextmanager
@@ -32,7 +81,11 @@ async def lifespan(app: fastapi.FastAPI):
     async with db.POOL:
         # idempotent init, call it every time
         await db.init()
+        # sync VEKN asynchronously, start in the meantime
+        task = asyncio.create_task(sync_vekn())
+        task.add_done_callback(log_sync_errors)
         yield
+        task.cancel()
     LOG.debug("Exiting APP lifespan")
 
 
@@ -73,9 +126,9 @@ with (
 
 
 # mount routers
-app.include_router(website.router)
-app.include_router(tournament.router)
-app.include_router(vekn.router)
+app.include_router(html__website.router)
+app.include_router(api__tournament.router)
+app.include_router(api__vekn.router)
 
 
 # login redirection

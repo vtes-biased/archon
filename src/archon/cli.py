@@ -11,7 +11,7 @@ from . import vekn
 app = typer.Typer()
 
 
-async def async_reset_db(keep_members):
+async def async_reset_db(keep_members) -> None:
     async with db.POOL:
         await db.reset(keep_members)
         await db.init()
@@ -21,13 +21,13 @@ async def async_reset_db(keep_members):
 def reset_db(
     confirm: typing.Annotated[bool, typer.Option(prompt=True)],
     keep_members: typing.Annotated[bool, typer.Option(prompt=True)],
-):
+) -> None:
     """⚠️  Reset the database ⚠️  Removes all data"""
     if confirm:
         asyncio.run(async_reset_db(keep_members))
 
 
-async def async_list() -> list[models.Tournament]:
+async def async_list() -> None:
     await db.POOL.open()
     async with db.operator() as op:
         tournaments = await op.get_tournaments()
@@ -37,7 +37,7 @@ async def async_list() -> list[models.Tournament]:
 
 
 @app.command()
-def list():
+def list() -> None:
     """List tournaments"""
     asyncio.run(async_list())
 
@@ -47,9 +47,10 @@ async def get_members() -> None:
         async with db.operator() as op:
             rankings = await vekn.get_rankings()
             prefixes_map = {}  # prefix owners
+            count = 0
             async for members in vekn.get_members_batches():
                 for member in members:
-                    member.ranking = rankings.get(member.vekn, models.Ranking())
+                    member.ranking = rankings.get(member.vekn, {})
                 # note insert members modifies the passed members list
                 # after this call, all members have the right DB uid and data
                 await op.insert_members(members)
@@ -58,12 +59,17 @@ async def get_members() -> None:
                         if member.prefix in prefixes_map:
                             assert prefixes_map[member.prefix].vekn == member.vekn
                         prefixes_map[member.prefix] = member
+                    count += 1
+                    if not count % 100:
+                        print(f" {count}", end="\r", flush=True)
+            print("Set sponsors...")
             for prefix, owner in prefixes_map.items():
                 await op.set_sponsor_on_prefix(prefix, owner.uid)
+            print(f"\rDone, {count} members synced")
 
 
 @app.command()
-def sync_members():
+def sync_members() -> None:
     """Update members from the vekn.net website"""
     asyncio.run(get_members())
 
@@ -77,11 +83,12 @@ async def get_events() -> None:
                 await op.upsert_vekn_tournament(event)
                 count += 1
                 if not count % 10:
-                    print(count)
+                    print(f" {count}", end="\r", flush=True)
+            print(f"\rDone, {count} events synced")
 
 
 @app.command()
-def sync_events():
+def sync_events() -> None:
     """Update historical tournaments from the vekn.net website"""
     asyncio.run(get_events())
 
@@ -93,13 +100,13 @@ async def db_purge() -> int:
 
 
 @app.command()
-def purge():
+def purge() -> None:
     """Purge deprecated historical data"""
     count = asyncio.run(db_purge())
     print(f"{count} record{'s' if count > 1 else ''} deleted")
 
 
-async def async_add_client(name: str):
+async def async_add_client(name: str) -> tuple[str, str]:
     async with db.POOL:
         async with db.operator() as op:
             client_id = await op.create_client(models.Client(name))
@@ -108,7 +115,7 @@ async def async_add_client(name: str):
 
 
 @app.command()
-def add_client(name: typing.Annotated[str, typer.Option(prompt=True)]):
+def add_client(name: typing.Annotated[str, typer.Option(prompt=True)]) -> None:
     """Add an authorized client to the platform"""
     client_id, client_secret = asyncio.run(async_add_client(name))
     print("Store the secret safely: if lost, it cannot be retrieved.")
@@ -116,14 +123,14 @@ def add_client(name: typing.Annotated[str, typer.Option(prompt=True)]):
     print(f'CLIENT_SECRET="{client_secret}"')
 
 
-async def async_recompute_ratings():
+async def async_recompute_ratings() -> None:
     async with db.POOL:
         async with db.operator() as op:
             await op.recompute_all_ratings()
 
 
 @app.command()
-def recompute_ratings():
+def recompute_ratings() -> None:
     """Recompute all tournament ratings"""
     asyncio.run(async_recompute_ratings())
 

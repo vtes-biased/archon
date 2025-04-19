@@ -1024,6 +1024,7 @@ def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
 
 
 def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]:
+    """Returns a dict of {member_uid: TournamentRating}"""
     if tournament.state != models.TournamentState.FINISHED:
         return {}
     participants = [p for p in tournament.players.values() if p.rounds_played > 0]
@@ -1032,7 +1033,7 @@ def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]
     if not size:
         return ret
     coef = math.log(size * size, 15) - 1
-    if tournament.rank in [models.TournamentRank.NC, models.TournamentRank.GP]:
+    if tournament.rank in [models.TournamentRank.NC]:
         coef += 0.25
     elif tournament.rank == models.TournamentRank.CC:
         coef += 1
@@ -1043,7 +1044,7 @@ def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]
         elif rank == 2:
             rating_points += round(30 * coef)
         ret[player.uid] = models.TournamentRating(
-            tournament=models.TournamentConfig(**dataclasses.asdict(tournament)),
+            tournament=models.TournamentMinimal(**dataclasses.asdict(tournament)),
             size=size,
             rounds_played=player.rounds_played,
             result=player.result,
