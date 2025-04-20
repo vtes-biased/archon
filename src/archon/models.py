@@ -97,26 +97,18 @@ class Person(PublicPerson):
     @classmethod
     def convert_migration_2025_04(cls, v):
         # TODO: drop after migration
-        if "constructed_online" in v["ranking"]:
-            v["ranking"][RankingCategoy.CONSTRUCTED_ONLINE.value] = v["ranking"][
-                "constructed_online"
-            ]
-            del v["ranking"]["constructed_online"]
-        if "constructed_onsite" in v["ranking"]:
-            v["ranking"][RankingCategoy.CONSTRUCTED_ONSITE.value] = v["ranking"][
-                "constructed_onsite"
-            ]
-            del v["ranking"]["constructed_onsite"]
-        if "limited_online" in v["ranking"]:
-            v["ranking"][RankingCategoy.LIMITED_ONLINE.value] = v["ranking"][
-                "limited_online"
-            ]
-            del v["ranking"]["limited_online"]
-        if "limited_onsite" in v["ranking"]:
-            v["ranking"][RankingCategoy.LIMITED_ONSITE.value] = v["ranking"][
-                "limited_onsite"
-            ]
-            del v["ranking"]["limited_onsite"]
+        if "constructed_online" in v:
+            v[RankingCategoy.CONSTRUCTED_ONLINE.value] = v["constructed_online"]
+            del v["constructed_online"]
+        if "constructed_onsite" in v:
+            v[RankingCategoy.CONSTRUCTED_ONSITE.value] = v["constructed_onsite"]
+            del v["constructed_onsite"]
+        if "limited_online" in v:
+            v[RankingCategoy.LIMITED_ONLINE.value] = v["limited_online"]
+            del v["limited_online"]
+        if "limited_onsite" in v:
+            v[RankingCategoy.LIMITED_ONSITE.value] = v["limited_onsite"]
+            del v["limited_onsite"]
         return v
 
 
