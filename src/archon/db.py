@@ -331,8 +331,6 @@ class Operator:
             if ret and len(ret) == 100:
                 ret_filter.date = ret[-1].start.isoformat() + " " + ret[-1].timezone
                 ret_filter.uid = ret[-1].uid
-            elif not filter:
-                ret_filter = None
             return (ret_filter, ret)
 
     async def get_tournament(
