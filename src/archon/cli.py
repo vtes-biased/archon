@@ -59,14 +59,17 @@ async def get_members() -> None:
                     if member.prefix and len(member.prefix) == 3:
                         if member.prefix in prefixes_map:
                             assert prefixes_map[member.prefix].vekn == member.vekn
-                        prefixes_map[member.prefix] = member
+                        prefixes_map[member.prefix] = member.uid
                     count += 1
                     if not count % 100:
                         print(f" {count}", end="\r", flush=True)
+                del members
+            del rankings
             print("Set sponsors...")
-            for prefix, owner in prefixes_map.items():
+            for prefix, uid in prefixes_map.items():
                 async with op.conn.transaction():
-                    await op.set_sponsor_on_prefix(prefix, owner.uid)
+                    await op.set_sponsor_on_prefix(prefix, uid)
+            del prefixes_map
             print(f"\rDone, {count} members synced")
 
 
@@ -79,11 +82,12 @@ def sync_members() -> None:
 async def get_events() -> None:
     async with db.POOL:
         async with db.operator(autocommit=True) as op:
-            members = await op.get_members()
+            members = await op.get_members_vekn_dict()
             count = 0
             async for event in vekn.get_events(members):
                 async with op.conn.transaction():
                     await op.upsert_vekn_tournament(event)
+                del event
                 count += 1
                 if not count % 10:
                     print(f" {count}", end="\r", flush=True)

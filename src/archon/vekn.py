@@ -521,12 +521,13 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                 # because it adds one then pads... careful with the end condition
                 if prefix and prefix == "9" * len(prefix) and len(prefix) < 7:
                     prefix += "0"
+                del players
+                del result
 
 
 async def get_events(
-    members: list[models.Person],
+    members: dict[str, models.Person],
 ) -> typing.AsyncIterator[models.Tournament]:
-    members = {m.vekn: m for m in members}
     async with aiohttp.ClientSession() as session:
         token = await get_token(session)
         # parallelize by batches of 10
@@ -551,11 +552,15 @@ async def get_events(
                 res = task.result()
                 if res:
                     yield res
+            del tasks
 
 
 async def get_event(
-    session: aiohttp.ClientSession, token: str, num: int, members: list[models.Person]
-) -> models.Tournament:
+    session: aiohttp.ClientSession,
+    token: str,
+    num: int,
+    members: dict[str, models.Person],
+) -> models.Tournament | None:
     async with session.get(
         f"https://www.vekn.net/api/vekn/event/{num}",
         headers={"Authorization": f"Bearer {token}"},
@@ -567,9 +572,13 @@ async def get_event(
             LOG.info("No data for event #%s: %s", num, result)
             return
         data = data[0]
+        ret = None
         if data["players"]:
             LOG.debug("Event #%s: %s", num, data)
-            return _tournament_from_vekn_data(data, members)
+            ret = _tournament_from_vekn_data(data, members)
+        del data
+        del result
+        return ret
 
 
 def _tournament_from_vekn_data(
@@ -703,6 +712,7 @@ async def get_rankings() -> dict[str, dict[models.RankingCategoy, int]]:
                 response.raise_for_status()
                 result = await response.json()
                 ranking = result["data"]["players"][:1000]
+                del result
     except aiohttp.ClientError:
         LOG.exception("Ranking unavailable")
         ranking = []

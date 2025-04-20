@@ -67,17 +67,21 @@ async def init():
                 "vekn TEXT DEFAULT '', "
                 "data jsonb)"
             )
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_member_discord_id")
             # Unique index on discord ID
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_discord_id "
                 "ON members "
-                "USING BTREE ((data -> 'discord' ->> 'id'))"
+                "USING BTREE ((data -> 'discord' ->> 'id'::text))"
             )
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_member_email")
             # Unique index on email
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_email "
                 "ON members "
-                "USING BTREE ((data ->> 'email'))"
+                "USING BTREE ((data ->> 'email'::text))"
             )
             # Index vekn ID#
             await cursor.execute(
@@ -86,10 +90,12 @@ async def init():
                 "USING BTREE (vekn)"
             )
             # Index roles
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_member_roles")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_member_roles "
                 "ON members "
-                "USING GIN ((data -> 'roles'))"
+                "USING GIN ((data -> 'roles'::text))"
             )
             # Trigram index for member names, for quick completion
             await cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
@@ -109,15 +115,19 @@ async def init():
                 "ON tournaments "
                 "USING GIN (data jsonb_path_ops)"
             )
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_players")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_players "
                 "ON tournaments "
-                "USING GIN ((data->'players'))"
+                "USING GIN ((data->'players'::text))"
             )
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_vekn")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_vekn "
                 "ON tournaments "
-                "USING BTREE ((data->'extra'->>'vekn_id'))"
+                "USING BTREE ((data->'extra'->>'vekn_id'::text))"
             )
             # timetz function to help index tournaments by date
             await cursor.execute(
@@ -125,10 +135,12 @@ async def init():
                 "AS $$select ($1 || ' ' || $2)::timestamptz$$ "
                 "LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT;"
             )
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_start")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_start "
                 "ON tournaments "
-                "USING BTREE ((timetz(data ->> 'start', data ->> 'timezone')), uid);"
+                "USING BTREE ((timetz(data ->> 'start'::text, data ->> 'timezone'::text)), (uid::text));"
             )
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
@@ -512,6 +524,17 @@ class Operator:
                 self._instanciate_member(data[0], models.Person)
                 for data in await res.fetchall()
             ]
+
+    async def get_members_vekn_dict(self) -> dict[str, models.Person]:
+        """Get all members"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT vekn, data FROM members WHERE vekn <> ''"
+            )
+            return {
+                data[0]: self._instanciate_member(data[1], models.Person)
+                for data in await res.fetchall()
+            }
 
     async def get_externally_visible_members(
         self, user: models.Person
@@ -899,6 +922,7 @@ class Operator:
                         else:
                             category = models.RankingCategoy.LIMITED_ONSITE
                     rankings_lists[uid][category].append(rating.rating_points)
+            del all_ratings
             # take the top 8
             rankings = {
                 uid: {
@@ -909,6 +933,7 @@ class Operator:
                 for uid, res in rankings_lists.items()
                 if res
             }
+            del rankings_lists
             # clean everyone's ratings, then update with the newly computed values
             await cursor.execute(
                 "UPDATE members SET data=jsonb_set(data, '{ranking}', '{}', true)"
