@@ -93,6 +93,32 @@ class Person(PublicPerson):
     sanctions: list["RegisteredSanction"] = pydantic.Field(default_factory=list)
     ranking: dict[RankingCategoy, int] = pydantic.Field(default_factory=dict)
 
+    @pydantic.field_validator("ranking", mode="before")
+    @classmethod
+    def convert_migration_2025_04(cls, v):
+        # TODO: drop after migration
+        if "constructed_online" in v["ranking"]:
+            v["ranking"][RankingCategoy.CONSTRUCTED_ONLINE.value] = v["ranking"][
+                "constructed_online"
+            ]
+            del v["ranking"]["constructed_online"]
+        if "constructed_onsite" in v["ranking"]:
+            v["ranking"][RankingCategoy.CONSTRUCTED_ONSITE.value] = v["ranking"][
+                "constructed_onsite"
+            ]
+            del v["ranking"]["constructed_onsite"]
+        if "limited_online" in v["ranking"]:
+            v["ranking"][RankingCategoy.LIMITED_ONLINE.value] = v["ranking"][
+                "limited_online"
+            ]
+            del v["ranking"]["limited_online"]
+        if "limited_onsite" in v["ranking"]:
+            v["ranking"][RankingCategoy.LIMITED_ONSITE.value] = v["ranking"][
+                "limited_onsite"
+            ]
+            del v["ranking"]["limited_onsite"]
+        return v
+
 
 @dataclasses.dataclass
 class KrcgCard:

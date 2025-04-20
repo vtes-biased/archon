@@ -943,27 +943,6 @@ class Operator:
             data["city"] = geo.CITIES_BY_GEONAME_ID[data["city_geoname_id"]].unique_name
         else:
             data["city"] = None
-        # TODO: drop after migration
-        if "constructed_online" in data["ranking"]:
-            data["ranking"][models.RankingCategoy.CONSTRUCTED_ONLINE.value] = data[
-                "ranking"
-            ]["constructed_online"]
-            del data["ranking"]["constructed_online"]
-        if "constructed_onsite" in data["ranking"]:
-            data["ranking"][models.RankingCategoy.CONSTRUCTED_ONSITE.value] = data[
-                "ranking"
-            ]["constructed_onsite"]
-            del data["ranking"]["constructed_onsite"]
-        if "limited_online" in data["ranking"]:
-            data["ranking"][models.RankingCategoy.LIMITED_ONLINE.value] = data[
-                "ranking"
-            ]["limited_online"]
-            del data["ranking"]["limited_online"]
-        if "limited_onsite" in data["ranking"]:
-            data["ranking"][models.RankingCategoy.LIMITED_ONSITE.value] = data[
-                "ranking"
-            ]["limited_onsite"]
-            del data["ranking"]["limited_onsite"]
         return cls(**data)
 
 
