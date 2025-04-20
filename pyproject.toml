@@ -8,13 +8,14 @@ dynamic = ["version"]
 authors = [{ name = "VEKN" }]
 description = "VTES tournament management"
 keywords = ["vtes", "Vampire: The Eternal Struggle", "CCG", "Tournament"]
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: MIT License",
     "Development Status :: 3 - Alpha",
     "Natural Language :: English",
     "Operating System :: OS Independent",
