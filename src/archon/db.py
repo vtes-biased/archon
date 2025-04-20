@@ -936,8 +936,13 @@ class Operator:
             country = geo.COUNTRIES_BY_ISO[data["country_iso"]]
             data["country"] = country.country
             data["country_flag"] = country.flag
-        if "city_geoname_id" in data:
+        if (
+            "city_geoname_id" in data
+            and data["city_geoname_id"] in geo.CITIES_BY_GEONAME_ID
+        ):
             data["city"] = geo.CITIES_BY_GEONAME_ID[data["city_geoname_id"]].unique_name
+        else:
+            data["city"] = None
         # TODO: drop after migration
         if "constructed_online" in data["ranking"]:
             data["ranking"][models.RankingCategoy.CONSTRUCTED_ONLINE.value] = data[
