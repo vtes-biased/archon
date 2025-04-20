@@ -58,6 +58,7 @@ class NotFound(RuntimeError): ...
 async def init():
     """Idempotent DB initialization"""
     async with POOL.connection() as conn:
+        await conn.set_autocommit(True)
         async with conn.cursor() as cursor:
             LOG.debug("Initialising DB")
             await cursor.execute(
@@ -132,6 +133,7 @@ async def init():
                 "member_uid UUID REFERENCES members(uid) ON DELETE SET NULL, "
                 "data jsonb)"
             )
+        await conn.set_autocommit(False)
 
 
 class IsDataclass(typing.Protocol):
@@ -945,7 +947,11 @@ class Operator:
 
 
 @contextlib.asynccontextmanager
-async def operator() -> typing.AsyncIterator[Operator]:
+async def operator(autocommit: bool = False) -> typing.AsyncIterator[Operator]:
     """Yields an async DB Operator to execute DB operations in a single transaction"""
     async with POOL.connection() as conn:
+        if autocommit:
+            await conn.set_autocommit(True)
         yield Operator(conn)
+        if autocommit:
+            await conn.set_autocommit(False)

@@ -38,25 +38,28 @@ async def sync_vekn_members(op: db.Operator) -> None:
             member.ranking = rankings.get(member.vekn, {})
         # note insert members modifies the passed members list
         # after this call, all members have the right DB uid and data
-        await op.insert_members(members)
+        async with op.conn.transaction():
+            await op.insert_members(members)
         for member in members:
             if member.prefix and len(member.prefix) == 3:
                 if member.prefix in prefixes_map:
                     assert prefixes_map[member.prefix].vekn == member.vekn
                 prefixes_map[member.prefix] = member
     for prefix, owner in prefixes_map.items():
-        await op.set_sponsor_on_prefix(prefix, owner.uid)
+        async with op.conn.transaction():
+            await op.set_sponsor_on_prefix(prefix, owner.uid)
 
 
 async def sync_vekn() -> int | None:
     if __debug__:
         return 1
-    async with db.operator() as op:
+    async with db.operator(autocommit=True) as op:
         await op.purge_tournament_events()
         await sync_vekn_members(op)
         members = await op.get_members()
         async for event in vekn.get_events(members):
-            await op.upsert_vekn_tournament(event)
+            async with op.conn.transaction():
+                await op.upsert_vekn_tournament(event)
         await op.recompute_all_ratings()
 
 
