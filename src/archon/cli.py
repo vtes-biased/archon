@@ -84,7 +84,7 @@ async def get_events() -> None:
         async with db.operator(autocommit=True) as op:
             members = await op.get_members_vekn_dict()
             count = 0
-            async for event in vekn.get_events(members):
+            async for event in vekn.get_events_parallel(members):
                 async with op.conn.transaction():
                     await op.upsert_vekn_tournament(event)
                 del event

@@ -525,7 +525,7 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                 del result
 
 
-async def get_events(
+async def get_events_parallel(
     members: dict[str, models.Person],
 ) -> typing.AsyncIterator[models.Tournament]:
     async with aiohttp.ClientSession() as session:
@@ -553,6 +553,47 @@ async def get_events(
                 if res:
                     yield res
             del tasks
+
+
+async def get_events_parallel(
+    members: dict[str, models.Person],
+) -> typing.AsyncIterator[models.Tournament]:
+    async with aiohttp.ClientSession() as session:
+        token = await get_token(session)
+        # parallelize by batches of 10
+        for num in range(0, 1400):
+            tasks = []
+            async with asyncio.TaskGroup() as tg:
+                for digit in range(0, 10):
+                    event_id = 10 * num + digit
+                    # skip zero
+                    if not event_id:
+                        continue
+                    tasks.append(
+                        tg.create_task(get_event(session, token, event_id, members))
+                    )
+            for digit, task in enumerate(tasks, 1):
+                if not task.done() | task.cancelled():
+                    continue
+                exc = task.exception()
+                if exc:
+                    LOG.exception("Failed to retrieve event %s", event_id)
+                    continue
+                res = task.result()
+                if res:
+                    yield res
+            del tasks
+
+
+async def get_events_serial(
+    members: dict[str, models.Person],
+) -> typing.AsyncIterator[models.Tournament]:
+    async with aiohttp.ClientSession() as session:
+        token = await get_token(session)
+        for event_id in range(1, 14000):
+            res = await get_event(session, token, event_id, members)
+            if res:
+                yield res
 
 
 async def get_event(

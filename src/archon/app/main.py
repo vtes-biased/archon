@@ -60,7 +60,7 @@ async def sync_vekn() -> int | None:
         await op.purge_tournament_events()
         await sync_vekn_members(op)
         members = await op.get_members_vekn_dict()
-        async for event in vekn.get_events(members):
+        async for event in vekn.get_events_serial(members):
             async with op.conn.transaction():
                 await op.upsert_vekn_tournament(event)
             del event
