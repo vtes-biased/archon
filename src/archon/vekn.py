@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import dataclasses
 import datetime
 import dotenv
 import enum
@@ -523,7 +524,7 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
 
 
 async def get_events(
-    members: list[models.Member],
+    members: list[models.Person],
 ) -> typing.AsyncIterator[models.Tournament]:
     members = {m.vekn: m for m in members}
     async with aiohttp.ClientSession() as session:
@@ -553,7 +554,7 @@ async def get_events(
 
 
 async def get_event(
-    session: aiohttp.ClientSession, token: str, num: int, members: list[models.Member]
+    session: aiohttp.ClientSession, token: str, num: int, members: list[models.Person]
 ) -> models.Tournament:
     async with session.get(
         f"https://www.vekn.net/api/vekn/event/{num}",
@@ -572,7 +573,7 @@ async def get_event(
 
 
 def _tournament_from_vekn_data(
-    data: any, members: dict[str, models.Member]
+    data: any, members: dict[str, models.Person]
 ) -> models.Tournament:
     try:
         fmt, rank = TOURNAMENT_TYPE_TO_FORMAT_RANK[int(data["eventtype_id"])]
@@ -603,6 +604,10 @@ def _tournament_from_vekn_data(
         rounds = min(1, int(data["rounds"][0]))
     else:
         rounds = 1
+    judges = []
+    person = members.get(data["organizer_veknid"])
+    if person:
+        judges = [models.PublicPerson(**dataclasses.asdict(person))]
     ret = models.Tournament(
         extra={"vekn_id": data["event_id"]},
         name=data["event_name"],
@@ -617,6 +622,7 @@ def _tournament_from_vekn_data(
         state=models.TournamentState.FINISHED,
         decklist_required=False,
         proxies=bool(rank == models.TournamentRank.BASIC),
+        judges=judges,
     )
     for idx, pdata in enumerate(data["players"], 1):
         member = members.get(pdata["veknid"])
@@ -645,7 +651,7 @@ def _tournament_from_vekn_data(
             player_rounds = 1
         elif int(pdata["pos"]) < 6:
             player_rounds += 1
-        ret.players[pdata["veknid"]] = models.Player(
+        ret.players[member.uid] = models.Player(
             name=member.name,
             vekn=member.vekn,
             uid=member.uid,
@@ -662,7 +668,7 @@ def _tournament_from_vekn_data(
         if pdata["pos"] == "1":
             ret.winner = member.uid
         if pdata["dq"] != "0":
-            ret.players[pdata["veknid"]].barriers.append(models.Barrier.DISQUALIFIED)
+            ret.players[member.uid].barriers.append(models.Barrier.DISQUALIFIED)
     return ret
 
 

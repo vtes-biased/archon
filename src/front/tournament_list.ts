@@ -1,6 +1,7 @@
 import * as base from "./base"
 import * as d from "./d"
 import * as m from "./member"
+import * as utils from "./utils"
 
 class TournamentListDisplay {
     root: HTMLDivElement
@@ -99,29 +100,14 @@ class TournamentListDisplay {
             }
             base.create_append(row, "th", ["smaller-font"], { scope: "row" }).innerText = name
             const date = base.create_append(row, "td", ["smaller-font"])
-            date.innerText = base.datetime_string(tournament.start, tournament.timezone, tournament.online)
+            date.innerText = utils.datetime_string(tournament)
             const location = base.create_append(row, "td", ["smaller-font"])
             if (tournament.online) {
                 location.innerText = "Online"
             } else {
                 location.innerText = `${tournament.country} ${this.countries.get(tournament.country)?.flag}`
             }
-            const rank_cell = base.create_append(row, "td", ["smaller-font"])
-            const rank_badge = base.create_append(rank_cell, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
-            switch (tournament.rank) {
-                case d.TournamentRank.NC:
-                    rank_badge.innerText = "NC"
-                    rank_badge.classList.add("text-bg-primary")
-                    break;
-                case d.TournamentRank.GP:
-                    rank_badge.innerText = "GP"
-                    rank_badge.classList.add("text-bg-warning")
-                    break;
-                case d.TournamentRank.CC:
-                    rank_badge.innerText = "CC"
-                    rank_badge.classList.add("text-bg-danger")
-                    break;
-            }
+            base.create_append(row, "td", ["smaller-font"]).innerHTML = utils.tournament_rank_badge(tournament)
             const status_cell = base.create_append(row, "td", ["smaller-font"])
             const status_badge = base.create_append(status_cell, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
             switch (tournament.state) {

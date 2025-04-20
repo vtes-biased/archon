@@ -1,10 +1,10 @@
 import dataclasses
 import fastapi
 import fastapi.encoders
-import fastapi.security
 import fastapi.templating
 import importlib.resources
 import logging
+import math
 import typing
 
 
@@ -230,18 +230,32 @@ async def index(
 ):
     request.session["next"] = str(request.url_for("index"))
     members: list[models.Person] = await op.get_members()
-    members.sort(
-        key=lambda x: -x.ranking.get(models.RankingCategoy.CONSTRUCTED_ONSITE, 0)
-    )
-    members = [
-        m
-        for m in members[:1000]
-        if m.ranking.get(models.RankingCategoy.CONSTRUCTED_ONSITE, 0) > 0
-    ]
     if "member" not in context:
         for member in members:
             member.name = ""
-    context["members"] = members
+
+    # compute rankings
+    def ranked(members, category):
+        members.sort(key=lambda x: -x.ranking.get(category, 0))
+        rank, passed, rating = 0, 0, math.inf
+        for member in members:
+            member_rating = member.ranking.get(category, 0)
+            if member_rating == 0:
+                break
+            if member_rating < rating:
+                rank += 1 + passed
+                rating = member_rating
+                passed = 0
+            else:
+                passed += 1
+            if rank > 500:
+                break
+            yield rank, member
+
+    context["members"] = {
+        category.value: list(ranked(members, category))
+        for category in models.RankingCategoy
+    }
     return TEMPLATES.TemplateResponse(
         request=request, name="index.html.j2", context=context
     )

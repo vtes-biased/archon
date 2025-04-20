@@ -33,7 +33,6 @@
         "src/front/console.ts",
         "src/front/d.ts",
         "src/front/login.ts",
-        "src/front/member.ts",
         "src/front/member_display.ts",
         "src/front/member_list.ts",
         "src/front/profile.ts",
@@ -41,7 +40,6 @@
         "src/front/topnav.ts",
         "src/front/tournament_display.ts",
         "src/front/tournament_list.ts",
-        "src/front/tournament.ts",
         "src/front/layout.scss"
       ]
     }

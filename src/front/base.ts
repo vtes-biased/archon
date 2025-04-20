@@ -3,34 +3,7 @@
 
 import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
-import { DateTime, DateTimeFormatOptions } from 'luxon'
 
-export const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
-    hour12: false,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZoneName: "short",
-    hour: "2-digit",
-    minute: "2-digit"
-}
-
-export function datetime(date: string, timezone: string): DateTime {
-    return DateTime.fromFormat(
-        `${date} ${timezone}`,
-        "yyyy-MM-dd'T'HH:mm:ss z",
-        { setZone: true }
-    )
-}
-
-export function datetime_string(date: string, timezone: string, localize: boolean) {
-    const dt = datetime(date, timezone)
-    if (localize) {
-        return dt.toLocal().toLocaleString(DATETIME_UNAMBIGUOUS)
-    } else {
-        return dt.toLocaleString(DATETIME_UNAMBIGUOUS)
-    }
-}
 
 export function create_element<K extends keyof HTMLElementTagNameMap>(
     tag_name: K,

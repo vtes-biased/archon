@@ -1,33 +1,151 @@
 {% extends "layout.html.j2" %}
 
 {% block content %}
-<h2>World ranking</h2>
-{%if not member%}
+<h2>World rankings</h2>
+{% if not member %}
 <div class="alert alert-info">
     Only members can see other members names.
     Please <a href="{{ url_for('login') }}">login</a>.
 </div>
-{%endif%}
-<table class="table table-striped">
-    <thead>
-        <tr class="align-middle smaller-font">
-            <th scope="col">Rank</th>
-            <th scope="col">VEKN</th>
-            <th scope="col">Name</th>
-            <th scope="col">Country</th>
-            <th scope="col">Points</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for m in members %}
-        <tr>
-            <th scope="row">{{ loop.index }}</th>
-            <td class="smaller-font">{{ m.vekn }}</td>
-            <td class="smaller-font">{{ m.name }}</td>
-            <td class="smaller-font">{{ m.country | country_with_flag }}</td>
-            <td>{{ m.ranking["Constructed Onsite"] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% endif %}
+<p>
+    Rankings are computed as per the
+    <a href="/document/tournament-rules.html#Happendix-a-vekn-rating-ranking-systems">
+        VEKN ratings & rankings system
+    </a>.
+</p>
+<nav>
+    <div class="nav nav-tabs" id="navTab" role="tablist">
+        <button class="nav-link active" id="navCSTab" data-bs-toggle="tab" data-bs-target="#navCS" type="button"
+            role="tab" aria-controls="navCS" aria-selected="true">Constructed (on site)</button>
+        <button class="nav-link" id="navCLtab" data-bs-toggle="tab" data-bs-target="#navCL" type="button" role="tab"
+            aria-controls="navCL" aria-selected="false">Constructed Online</button>
+        <button class="nav-link" id="navLStab" data-bs-toggle="tab" data-bs-target="#navLS" type="button" role="tab"
+            aria-controls="navLS" aria-selected="false">Limited (on site)</button>
+        <button class="nav-link" id="navLLtab" data-bs-toggle="tab" data-bs-target="#navLL" type="button" role="tab"
+            aria-controls="navLL" aria-selected="false">Limited Online</button>
+    </div>
+</nav>
+<div class="tab-content" id="nav-tabContent">
+    <div class="tab-pane fade show active" id="navCS" role="tabpanel" aria-labelledby="navCSTab" tabindex="0">
+        <table class="table table-striped">
+            <thead>
+                <tr class="align-middle smaller-font">
+                    <th scope="col">Rank</th>
+                    <th scope="col">VEKN</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Country</th>
+                    <th scope="col">Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in members["Constructed Onsite"] %}
+                <tr>
+                    <th scope="row">{{ m.0 }}</th>
+                    <td class="smaller-font">{{ m.1.vekn }}</td>
+                    {% if m.1.name %}
+                    <td class="smaller-font">
+                        <a href="{{ url_for('member_display', uid=m.1.uid) }}">{{ m.1.name }}</a>
+                    </td>
+                    {% else %}
+                    <td class="smaller-font">***</td>
+                    {% endif %}
+                    <td class="smaller-font">{{ m.1.country | country_with_flag }}</td>
+                    <td>{{ m.1.ranking["Constructed Onsite"] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="tab-pane fade" id="navCL" role="tabpanel" aria-labelledby="navCLtab" tabindex="0">
+        <table class="table table-striped">
+            <thead>
+                <tr class="align-middle smaller-font">
+                    <th scope="col">Rank</th>
+                    <th scope="col">VEKN</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Country</th>
+                    <th scope="col">Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in members["Constructed Online"] %}
+                <tr>
+                    <th scope="row">{{ m.0 }}</th>
+                    <td class="smaller-font">{{ m.1.vekn }}</td>
+                    {% if m.1.name %}
+                    <td class="smaller-font">
+                        <a href="{{ url_for('member_display', uid=m.1.uid) }}">{{ m.1.name }}</a>
+                    </td>
+                    {% else %}
+                    <td class="smaller-font">***</td>
+                    {% endif %}
+                    <td class="smaller-font">{{ m.1.country | country_with_flag }}</td>
+                    <td>{{ m.1.ranking["Constructed Online"] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="tab-pane fade" id="navLS" role="tabpanel" aria-labelledby="navLStab" tabindex="0">
+        <table class="table table-striped">
+            <thead>
+                <tr class="align-middle smaller-font">
+                    <th scope="col">Rank</th>
+                    <th scope="col">VEKN</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Country</th>
+                    <th scope="col">Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in members["Limited Onsite"] %}
+                <tr>
+                    <th scope="row">{{ m.0 }}</th>
+                    <td class="smaller-font">{{ m.1.vekn }}</td>
+                    {% if m.1.name %}
+                    <td class="smaller-font">
+                        <a href="{{ url_for('member_display', uid=m.1.uid) }}">{{ m.1.name }}</a>
+                    </td>
+                    {% else %}
+                    <td class="smaller-font">***</td>
+                    {% endif %}
+                    <td class="smaller-font">{{ m.1.country | country_with_flag }}</td>
+                    <td>{{ m.1.ranking["Limited Onsite"] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="tab-pane fade" id="navLL" role="tabpanel" aria-labelledby="navLLtab" tabindex="0">
+        <table class="table table-striped">
+            <thead>
+                <tr class="align-middle smaller-font">
+                    <th scope="col">Rank</th>
+                    <th scope="col">VEKN</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Country</th>
+                    <th scope="col">Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in members["Limited Online"] %}
+                <tr>
+                    <th scope="row">{{ m.0 }}</th>
+                    <td class="smaller-font">{{ m.1.vekn }}</td>
+                    {% if m.1.name %}
+                    <td class="smaller-font">
+                        <a href="{{ url_for('member_display', uid=m.1.uid) }}">{{ m.1.name }}</a>
+                    </td>
+                    {% else %}
+                    <td class="smaller-font">***</td>
+                    {% endif %}
+                    <td class="smaller-font">{{ m.1.country | country_with_flag }}</td>
+                    <td>{{ m.1.ranking["Limited Online"] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}

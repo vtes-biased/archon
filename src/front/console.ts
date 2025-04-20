@@ -3,11 +3,10 @@ import * as base from "./base"
 import * as events from "./events"
 import * as member from "./member"
 import * as seating from "./seating"
-import { score_string, full_score_string, standings, TournamentDisplay, DeckSubmit } from "./tournament_display"
-import { DateTime } from 'luxon'
+import * as utils from "./utils"
+import { TournamentDisplay, DeckSubmit } from "./tournament"
 import * as bootstrap from 'bootstrap'
 import * as uuid from 'uuid'
-import QrScanner from "qr-scanner"
 
 
 class PlayerSelectModal extends base.Modal {
@@ -341,11 +340,7 @@ class SanctionPlayerModal extends base.Modal {
         if (Object.hasOwn(sanction, "tournament")) {
             const rsanction = sanction as d.RegisteredSanction
             if (rsanction.tournament) {
-                const timestamp = DateTime.fromFormat(
-                    `${rsanction.tournament?.start} ${rsanction.tournament?.timezone}`,
-                    "yyyy-MM-dd'T'HH:mm:ss z",
-                    { setZone: true }
-                ).toLocal().toLocaleString(DateTime.DATE_SHORT)
+                const timestamp = utils.date_string(rsanction.tournament)
                 button.innerText = `(${timestamp}: ${rsanction.tournament?.name})`
             }
         }
@@ -475,7 +470,7 @@ class SeedFinalsModal extends base.Modal {
 
     show() {
         this.players = []
-        for (const [rank, player] of standings(this.console.tournament, undefined, true)) {
+        for (const [rank, player] of utils.standings(this.console.tournament, undefined, true)) {
             if (rank > 5) {
                 break
             }
@@ -491,10 +486,10 @@ class SeedFinalsModal extends base.Modal {
         var last_row: HTMLTableRowElement
         var last_player: d.Player
         var toss_basket: d.Player[]
-        for (const [rank, player] of standings(this.console.tournament, this.players)) {
+        for (const [rank, player] of utils.standings(this.console.tournament, this.players)) {
             const row = base.create_append(this.players_table_body, "tr", ["align-middle"])
             const score_cell = base.create_append(row, "td", ["text-nowrap"])
-            score_cell.innerHTML = full_score_string(player, rank)
+            score_cell.innerHTML = utils.full_score_string(player, rank)
             const toss_cel = base.create_append(row, "td", ["text-nowrap"])
             const toss = base.create_append(toss_cel, "input", ["border", "form-control-sm"],
                 { type: "number", min: "0", max: "5", placeholder: "0", name: `toss-${player.uid}` }
@@ -549,7 +544,7 @@ class SeedFinalsModal extends base.Modal {
         for (const player of this.players) {
             toss[player.uid] = player.toss
         }
-        for (const [rank, player] of standings(this.console.tournament, this.players)) {
+        for (const [rank, player] of utils.standings(this.console.tournament, this.players)) {
             if (rank > 5) { break }
             seeds.push(player.uid)
         }
@@ -744,7 +739,7 @@ class Registration {
         this.players_table_body = base.create_append(this.players_table, "tbody")
     }
     sorted_players() {
-        var players = standings(this.console.tournament)
+        var players = utils.standings(this.console.tournament)
         if (this.filter == PlayerFilter.UNCHECKED) {
             players = players.filter(([r, p]) => p.state != d.PlayerState.CHECKED_IN)
         }
@@ -813,7 +808,7 @@ class Registration {
             const name = base.create_append(row, "td", ["w-100", "smaller-font"])
             name.innerText = player.name
             const score = base.create_append(row, "td", ["text-nowrap", "smaller-font"])
-            score.innerHTML = full_score_string(player, rank)
+            score.innerHTML = utils.full_score_string(player, rank)
             const state = base.create_append(row, "td", ["text-nowrap", "smaller-font"])
             var color_cls: string
             switch (player.state) {
@@ -1346,12 +1341,12 @@ class RoundTab {
         row.dataset.player_uid = player.uid
         if (this.finals) {
             const score_cell = base.create_append(row, "td", ["text-nowrap"])
-            score_cell.innerHTML = full_score_string(player)
+            score_cell.innerHTML = utils.full_score_string(player)
         }
         base.create_append(row, "th", ["text-nowrap", "smaller-font"], { scope: "row" }).innerText = player.vekn
         base.create_append(row, "td", ["w-100", "smaller-font"]).innerText = player.name
         if (seat) {
-            base.create_append(row, "td", ["text-nowrap"]).innerText = score_string(seat.result)
+            base.create_append(row, "td", ["text-nowrap"]).innerText = utils.score_string(seat.result)
         } else {
             // not seated *yet*: we're in alter seating mode
             base.create_append(row, "td", ["text-nowrap"]).innerText = "0VP"

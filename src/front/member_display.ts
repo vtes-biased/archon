@@ -2,17 +2,10 @@ import * as base from "./base"
 import * as d from "./d"
 import * as m from "./member"
 import * as events from "./events"
-import { score_string } from "./tournament_display"
-import { DateTime, DateTimeFormatOptions } from 'luxon'
+import * as utils from "./utils"
+import * as bootstrap from 'bootstrap'
+import { DateTime } from 'luxon'
 
-
-function tournament_result_string(result: d.TournamentRating): string {
-    return (
-        `<strong>${result.rank}.</strong> `
-        + `${score_string(result.result)} `
-        + `<span class="badge text-bg-secondary align-text-top">${result.result.tp}TPs</span>`
-    )
-}
 
 class PasswordModal extends base.Modal {
     token: base.Token
@@ -393,9 +386,7 @@ class MemberDisplay {
                 // additional display for RegisteredSanction from previous tournaments
                 if (sanction.tournament) {
                     const rsanction = sanction as d.RegisteredSanction
-                    const timestamp = base.datetime(
-                        rsanction.tournament?.start, rsanction.tournament?.timezone
-                    ).toLocal().toLocaleString(DateTime.DATE_SHORT)
+                    const timestamp = utils.date_string(rsanction.tournament)
                     button.innerText = `(${timestamp}: ${rsanction.tournament?.name})`
                 }
                 const level_badge = base.create_append(button, "div", ["badge", "mx-1"])
@@ -484,37 +475,92 @@ class MemberDisplay {
         // _____________________________________________________________________________________________________ Results
         if (this.target.ratings && Object.keys(this.target.ratings).length > 0) {
             base.create_append(this.root, "h2", ["mt-4"]).innerText = "Events"
-            const results_table = base.create_append(this.root, "table",
-                ["my-2", "table", "table-striped", "table-hover"]
-            )
-            const head = base.create_append(results_table, "thead")
-            const row = base.create_append(head, "tr", ["align-middle"])
-            for (const header of ["Tournament", "Date", "Rank", "Result", "RTPs"]) {
-                base.create_append(row, "th", [], { scope: "col" }).innerText = header
-            }
-            const body = base.create_append(results_table, "tbody")
+            const nav = base.create_append(this.root, "nav")
+            const nav_div = base.create_append(nav, "div", ["nav", "nav-tabs"], { role: "tablist" })
             const ratings = Object.values(this.target.ratings)
-            ratings.sort((a, b) => {
-                return base.datetime(b.tournament.start, b.tournament.timezone).toMillis() -
-                    base.datetime(a.tournament.start, a.tournament.timezone).toMillis()
-            })
-            for (const rating of ratings) {
-                const row = base.create_append(body, "tr", ["align-middle"])
-                const name = base.create_append(row, "th", [], { scope: "row" })
-                const link = base.create_append(name, "a", [],
-                    { href: `/tournament/${rating.tournament.uid}/display.html` }
+            const categories = new Set(ratings.map(r => utils.ranking_category(r.tournament)))
+            for (const category of categories) {
+                const category_str = category.replaceAll(" ", "")
+                const nav_tab = base.create_append(nav_div, "button", ["nav-link"], {
+                    id: `navTab${category_str}`,
+                    "data-bs-toggle": "tab",
+                    "data-bs-target": `#nav${category_str}`,
+                    type: "button",
+                    role: "tab",
+                    "aria-controls": `nav${category_str}`,
+                    "aria-selected": "false",
+                })
+                console.log()
+                nav_tab.innerHTML = (category + " " +
+                    `<span class="badge text-bg-primary align-text-top">${this.target.ranking[category] ?? 0}</span>`
                 )
-                link.innerText = rating.tournament.name
-                const start = DateTime.fromFormat(
-                    `${rating.tournament.start} ${rating.tournament.timezone}`,
-                    "yyyy-MM-dd'T'HH:mm:ss z",
-                    { setZone: true }
-                ).toLocal().toLocal().toISODate()
-                base.create_append(row, "td").innerText = start
-                base.create_append(row, "td").innerText = rating.tournament.rank
-                base.create_append(row, "td").innerHTML = tournament_result_string(rating)
-                base.create_append(row, "td").innerText = rating.rating_points.toString()
             }
+            const first_tab = nav_div.querySelector("button")
+            first_tab.ariaSelected = "true"
+            first_tab.classList.add("active")
+            const tabs = base.create_append(this.root, "div", ["tab-content"])
+            const cutoff = DateTime.now().set({ hour: 0, minute: 0, millisecond: 0 }).minus({ months: 18 })
+            for (const category of categories) {
+                const category_str = category.replaceAll(" ", "")
+                const tab = base.create_append(tabs, "div", ["tab-pane", "fade"], {
+                    id: `nav${category_str}`,
+                    role: "tabpanel",
+                    "aria-labelledby": `navTab${category_str}`,
+                    tabindex: "0",
+                })
+                const results_table = base.create_append(tab, "table",
+                    ["my-2", "table", "table-striped", "table-hover"]
+                )
+                const head = base.create_append(results_table, "thead")
+                const row = base.create_append(head, "tr", ["align-middle"])
+                for (const header of ["Tournament", "Date", "Rank", "Result", "RTPs"]) {
+                    base.create_append(row, "th", [], { scope: "col" }).innerText = header
+                }
+                const body = base.create_append(results_table, "tbody")
+                const category_ratings = ratings.filter(r => utils.ranking_category(r.tournament) == category)
+                category_ratings.sort(
+                    (a, b) => utils.datetime(b.tournament).toMillis() - utils.datetime(a.tournament).toMillis()
+                )
+                const top_8 = (category_ratings
+                    .filter(r => utils.datetime(r.tournament) > cutoff)
+                    .sort((a, b) => b.rating_points - a.rating_points)
+                    .slice(0, 8)
+                    .map(r => r.tournament.uid)
+                )
+                for (const rating of category_ratings) {
+                    const row = base.create_append(body, "tr", ["align-middle"])
+                    const name_cell = base.create_append(row, "th", [], { scope: "row" })
+                    const link = base.create_append(name_cell, "a", [],
+                        { href: `/tournament/${rating.tournament.uid}/display.html` }
+                    )
+                    var name = rating.tournament.name
+                    if (name.length > 50) {
+                        name = name.slice(0, 49) + "…"
+                    }
+                    link.innerText = name
+                    const start = utils.date_string(rating.tournament)
+                    base.create_append(row, "td").innerText = start
+                    base.create_append(row, "td").innerHTML = utils.tournament_rank_badge(rating.tournament)
+                    base.create_append(row, "td").innerHTML = utils.tournament_result_string(rating)
+                    if (top_8.includes(rating.tournament.uid)) {
+                        base.create_append(row, "td").innerHTML = (
+                            `<span class="badge text-bg-primary align-text-top">${rating.rating_points}</span>`
+                        )
+                    } else {
+                        base.create_append(row, "td").innerHTML = (
+                            `<span class="badge text-bg-secondary align-text-top">${rating.rating_points}</span>`
+                        )
+                    }
+                }
+            }
+            tabs.querySelector("div").classList.add("show", "active")
+            nav_div.querySelectorAll('button').forEach(triggerEl => {
+                const tabTrigger = new bootstrap.Tab(triggerEl)
+                triggerEl.addEventListener('click', event => {
+                    event.preventDefault()
+                    tabTrigger.show()
+                })
+            })
         }
     }
     async load_cities() {

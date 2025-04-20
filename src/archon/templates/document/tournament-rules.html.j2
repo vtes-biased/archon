@@ -739,7 +739,7 @@
         <p>
             If the head judge determines that a player uses shuffling as a stalling method, that player
             will be subject to the appropriate provisions of the
-            <a href="{{ url_for('document_judges_guide') }}">Judge's Guide</a>
+            <a href="{{ url_for('document_judges_guide') }}">Judge's Guide</a>.
         </p>
         <h3 id="H3-5-conceding-games">3.5. Conceding Games
             <a class="link-secondary" rel="bookmark" href="#H3-5-conceding-games"><i class="bi bi-link-45deg"></i></a>
@@ -785,8 +785,8 @@
         </h3>
         <p>
             A player receives a Game Win at the end of a game in which they have received at least two
-            (2) Victory Points and have more Victory Points than any other player in the game. (No game win is
-            awarded in the case of ties.)
+            (2) Victory Points and have more Victory Points than any other player in the game (no game win is
+            awarded in the case of ties).
         </p>
         <h3 id="H3-7-2-victory-point-scoring">3.7.2. Victory Point Scoring
             <a class="link-secondary" rel="bookmark" href="#H3-7-2-victory-point-scoring">
@@ -970,7 +970,7 @@
             interpreted according to their most recent printing. If the head judge determines that a player is using
             older cards and/or misprints to create an advantage by using misleading text or artwork, that player
             will be subject to the appropriate provisions of the
-            <a href="{{ url_for('document_judges_guide') }}">Judge's Guide</a>
+            <a href="{{ url_for('document_judges_guide') }}">Judge's Guide</a>.
         </p>
         <h3 id="H4-3-new-releases">4.3. New Releases
             <a class="link-secondary" rel="bookmark" href="#H4-3-new-releases"><i class="bi bi-link-45deg"></i></a>
@@ -1451,8 +1451,8 @@
             Players who have an abnormal number of cards in the decks or booster packs they receive must
             inform the head judge, who may replace the deck or booster pack at his or her discretion. If a player
             receives a "marked" card (see <a href="#H5-4-marked-cards">5.4. Marked Cards</a>),
-            the head judge may replace that card with a proxy card at his or her discretion.
-            (See <a href="#H4-5-proxy-cards">4.5. Proxy Cards</a>)
+            the head judge may replace that card with a proxy card at his or her discretion
+            (see <a href="#H4-5-proxy-cards">4.5. Proxy Cards</a>).
         </p>
         <p>
             Neither White Wolf nor the tournament organizer guarantees any specific distribution of card
@@ -1936,14 +1936,16 @@
             The VEKN produces stats-based ratings for the VTES tournament results grouped as follows:
         </p>
         <ul>
-            <li>Standard Constructed</li>
-            <li>Limited (all formats together in one group)</li>
+            <li>Standard Constructed (on site)</li>
+            <li>Standard Constructed Online</li>
+            <li>Limited (on site, all formats together in one group)</li>
+            <li>Limited Online</li>
         </ul>
         <p>
             The VEKN maintains a rating for each registered player which provides an estimate of the player's
             experience in his or her most recent VEKN sanctioned tournaments. The VEKN maintains performance
             statistics for each player as well (number of games, GW, VP).
-            See the <a href="{{ url_for('index') }}">World Ranking</a> for the current ratings of prominent players.
+            See the <a href="{{ url_for('index') }}">World Rankings</a> for the current ratings of prominent players.
         </p>
         <h3 id="Ha-1-the-rating">A.1 The Rating
             <a rel="bookmark" href="a-1-the-rating"><i class="bi bi-link-45deg"></i></a>
@@ -1987,7 +1989,8 @@
                 <strong>X RtP</strong> for finalists. X is computed based on the size (number of players) of the
                 tournament and the final standing (winner or finalist) of the player. A higher bonus is awarded for
                 making the finals of a Continental or National Championship than for other tournaments. See below for
-                the actual computation.
+                the actual computation. The players count includes disqualified players and players who left during the
+                event, as long as they played at least one round.
             </li>
         </ul>
         <h4 id="Ha-2-1-finalist-bonus">A.2.1 Finalist Bonus
@@ -2032,11 +2035,12 @@
         <p>
             For a national championship, <span class="font-monospace">0.25 </span>is added to the coefficient.<br>
             For a continental championship, <span class="font-monospace">1.0</span> is added to the coefficient.
+            Grand Prix and Qualifiers get no coefficient bonus.
         </p>
         <p>
             The number of points from the table above is multiplied by the coefficient to determine the number of
             additional ratings points awarded to the finalist. For example, in a qualifier with 50 players, the
-            coefficient is
+            coefficient is:
         </p>
         <blockquote class="blockquote">
             <p>log<sub><small>15</small></sub>(2500) - 1 + 0.25 = 2.889 - 0.75 = 2.139</p>
