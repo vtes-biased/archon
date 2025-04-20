@@ -863,7 +863,7 @@ async def upload_tournament(tournament: models.Tournament, rounds: int) -> None:
                 LOG.info("VEKN answered: %s", result)
                 if result["data"]["code"] != 200:
                     raise RuntimeError(
-                        f"VEKN error: {result["data"].get("message", "Unknown error")}"
+                        f"VEKN error: {result['data'].get('message', 'Unknown error')}"
                     )
                 event_id = result["data"]["id"]
                 tournament.extra["vekn_id"] = event_id
@@ -880,7 +880,7 @@ async def upload_tournament_result(
             if not token:
                 token = await get_token(session)
             async with session.post(
-                f"https://www.vekn.net/api/vekn/archon/{tournament.extra["vekn_id"]}",
+                f"https://www.vekn.net/api/vekn/archon/{tournament.extra['vekn_id']}",
                 headers={"Authorization": f"Bearer {token}"},
                 data=aiohttp.FormData({"archondata": to_archondata(tournament)}),
             ) as response:
@@ -889,7 +889,7 @@ async def upload_tournament_result(
                 LOG.info("VEKN Archon answered: %s", result)
                 if result["data"]["code"] != 200:
                     raise RuntimeError(
-                        f"VEKN error: {result["data"].get("message", "Unknown error")}"
+                        f"VEKN error: {result['data'].get('message', 'Unknown error')}"
                     )
                 tournament.extra["vekn_submitted"] = True
     except aiohttp.ClientError:
