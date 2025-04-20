@@ -79,6 +79,12 @@ async def init():
                 "ON members "
                 "USING BTREE ((data ->> 'email'))"
             )
+            # Index vekn ID#
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_member_vekn "
+                "ON members "
+                "USING BTREE (vekn)"
+            )
             # Index roles
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_member_roles "
@@ -97,7 +103,7 @@ async def init():
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
                 "data jsonb)"
             )
-            # Index on tournaments players (and all other JSON keys and paths)
+            # Index on tournaments JSON keys and paths
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_json "
                 "ON tournaments "
@@ -107,6 +113,11 @@ async def init():
                 "CREATE INDEX IF NOT EXISTS idx_tournament_players "
                 "ON tournaments "
                 "USING GIN ((data->'players'))"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_vekn "
+                "ON tournaments "
+                "USING BTREE ((data->'extra'->>'vekn_id'))"
             )
             # timetz function to help index tournaments by date
             await cursor.execute(
