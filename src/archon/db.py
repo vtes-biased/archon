@@ -109,12 +109,8 @@ async def init():
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
                 "data jsonb)"
             )
-            # Index on tournaments JSON keys and paths
-            await cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_tournament_json "
-                "ON tournaments "
-                "USING GIN (data jsonb_path_ops)"
-            )
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_json")
             # TODO: remove after migration
             await cursor.execute("DROP INDEX IF EXISTS idx_tournament_players")
             await cursor.execute(
@@ -259,7 +255,9 @@ class Operator:
         """
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "SELECT data FROM tournaments WHERE data->'extra'->>'vekn_id' = %s",
+                "SELECT data FROM tournaments "
+                "WHERE data->'extra'->>'vekn_id'::text = %s "
+                "FOR UPDATE",
                 [tournament.extra.get("vekn_id")],
             )
             data = await res.fetchone()
