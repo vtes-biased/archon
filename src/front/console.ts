@@ -2047,8 +2047,9 @@ class TournamentConsole {
             body: JSON.stringify(member)
         })
         if (res) {
-            member = await res.json()
+            member = await res.json() as d.Member
             member = (await this.assign_vekn(member)) || member
+            this.members_map.add([member])
             await this.register_player(member)
         }
         return
