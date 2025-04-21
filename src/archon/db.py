@@ -125,6 +125,12 @@ async def init():
                 "ON tournaments "
                 "USING BTREE ((data->'extra'->>'vekn_id'::text))"
             )
+            # state indexation (used for rankings computation)
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_state "
+                "ON tournaments "
+                "USING BTREE ((data->>'state'::text))"
+            )
             # timetz function to help index tournaments by date
             await cursor.execute(
                 "CREATE OR REPLACE FUNCTION timetz(text, text) RETURNS timestamptz "
@@ -855,7 +861,7 @@ class Operator:
             # first get all the tournaments and compute the ratings for everyone
             res = await cursor.execute(
                 """SELECT data FROM tournaments
-                WHERE data->>'state' = %s
+                WHERE data->>'state'::text = %s
                 """,
                 [models.TournamentState.FINISHED],
             )
