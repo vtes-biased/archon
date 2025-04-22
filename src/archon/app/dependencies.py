@@ -1,19 +1,16 @@
 import aiohttp
 import base64
-import dataclasses
 import datetime
 import dotenv
 import fastapi_mail
 import fastapi.security
-import fastapi.templating
 import functools
 import hashlib
 import hmac
-import importlib.resources
+import importlib
 import itsdangerous.url_safe
 import jwt
 import logging
-import orjson
 import os
 import pydantic.dataclasses
 import typing
@@ -23,7 +20,6 @@ import uuid
 
 from .. import db
 from .. import engine
-from .. import geo
 from .. import models
 from .. import vekn
 
