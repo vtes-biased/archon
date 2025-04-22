@@ -167,7 +167,7 @@ def engine_exception_handler(
 
 # members consistency errors
 @app.exception_handler(db.IndexError)
-def engine_exception_handler(
+def db_exception_handler(
     request: fastapi.Request, exc: engine.TournamentError
 ) -> fastapi.responses.JSONResponse:
     """

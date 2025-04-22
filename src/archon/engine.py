@@ -522,7 +522,7 @@ class InvalidTables(TournamentError):
 
 class NotJudge(TournamentError):
     def __str__(self):
-        return f"Only a judge can do this"
+        return "Only a judge can do this"
 
 
 class SeatingDuplicates(TournamentError):
@@ -552,12 +552,12 @@ class PredatorPreyDuplicate(TournamentError):
 
 class BadSeating(TournamentError):
     def __str__(self):
-        return f"Bad seating"
+        return "Bad seating"
 
 
 class BadSeeding(TournamentError):
     def __str__(self):
-        return f"Invalid seeding for finals"
+        return "Invalid seeding for finals"
 
 
 class NotFinalist(TournamentError):
@@ -570,52 +570,52 @@ class NotFinalist(TournamentError):
 
 class TournamentFinished(TournamentError):
     def __str__(self):
-        return f"Tournament is finished"
+        return "Tournament is finished"
 
 
 class RoundInProgress(TournamentError):
     def __str__(self):
-        return f"Round in progress"
+        return "Round in progress"
 
 
 class FinalsInProgress(TournamentError):
     def __str__(self):
-        return f"Finals are in progress"
+        return "Finals are in progress"
 
 
 class FinalsNotSeeded(TournamentError):
     def __str__(self):
-        return f"Finals are not seeded"
+        return "Finals are not seeded"
 
 
 class NoRoundInProgress(TournamentError):
     def __str__(self):
-        return f"There is no round in progress"
+        return "There is no round in progress"
 
 
 class EmptyRound(TournamentError):
     def __str__(self):
-        return f"No table: the round is empty"
+        return "No table: the round is empty"
 
 
 class CheckinClosed(TournamentError):
     def __str__(self):
-        return f"Check-in is closed"
+        return "Check-in is closed"
 
 
 class ResultRecorded(TournamentError):
     def __str__(self):
-        return f"Impossible: results have been recorded for this round"
+        return "Impossible: results have been recorded for this round"
 
 
 class SingleDeckEvent(TournamentError):
     def __str__(self):
-        return f"This is a single deck event"
+        return "This is a single deck event"
 
 
 class InvalidCheckInCode(TournamentError):
     def __str__(self):
-        return f"Invalid Check-in code"
+        return "Invalid Check-in code"
 
 
 class DeckIssue(TournamentError): ...
@@ -992,14 +992,16 @@ class TournamentOrchestrator(TournamentManager):
 
 
 def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
-    sort_key = lambda p: (
-        p.state == models.PlayerState.FINISHED,
-        -int(p.uid == tournament.winner),
-        -p.result.gw,
-        -p.result.vp,
-        -p.result.tp,
-        p.toss,
-    )
+    def sort_key(p):
+        return (
+            p.state == models.PlayerState.FINISHED,
+            -int(p.uid == tournament.winner),
+            -p.result.gw,
+            -p.result.vp,
+            -p.result.tp,
+            p.toss,
+        )
+
     sorted_players = sorted(
         (p for p in tournament.players.values() if p.rounds_played), key=sort_key
     )

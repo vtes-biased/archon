@@ -22,7 +22,7 @@ async def api_vekn_countries() -> list[models.Country]:
 
 @router.get("/country/{country}/city", summary="List cities of given country")
 async def api_vekn_country_cities(
-    country: typing.Annotated[str, fastapi.Path()]
+    country: typing.Annotated[str, fastapi.Path()],
 ) -> list[models.City]:
     """List cities of given country.
 

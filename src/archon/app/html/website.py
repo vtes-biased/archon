@@ -104,7 +104,7 @@ async def html_auth_discord(
     "/auth/email/reset",
     summary="Ask for a password reset for a given email",
 )
-async def html_auth_email(
+async def html_post_auth_email_reset(
     request: fastapi.Request,
     email: dependencies.EmailAddress,
 ):
@@ -119,7 +119,7 @@ async def html_auth_email(
     "/auth/email/reset",
     summary="Check the reset link is valid, then ask the user to set a new password",
 )
-async def html_auth_email(
+async def html_get_auth_email_reset(
     request: fastapi.Request,
     uid: dependencies.EmailReset,
 ):
@@ -395,7 +395,7 @@ async def tournament_console(
 
 
 @router.get("/tournament/{uid}/checkin.html")
-async def tournament_display(
+async def tournament_checkin(
     request: fastapi.Request,
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
@@ -444,7 +444,7 @@ async def tournament_print_seating(
 
 
 @router.get("/tournament/{uid}/print-standings.html")
-async def tournament_print_seating(
+async def tournament_print_standings(
     request: fastapi.Request,
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,

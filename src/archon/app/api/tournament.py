@@ -91,7 +91,7 @@ async def api_tournament_get_info(
 
 
 @router.get("/{uid}/decks", summary="Get tournament decks information")
-async def api_tournament_get(
+async def api_tournament_get_decks(
     tournament: dependencies.Tournament, _: dependencies.MemberUidFromToken
 ) -> models.TournamentDeckInfo:
     """Get tournament information
