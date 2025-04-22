@@ -25,6 +25,7 @@ LOG = logging.getLogger()
 
 
 async def get_token(session: aiohttp.ClientSession) -> str:
+    # http POST https://www.vekn.net/api/vekn/login -f username=<USER> password=<PWD>
     async with session.post(
         "https://www.vekn.net/api/vekn/login",
         data={"username": VEKN_LOGIN, "password": VEKN_PASSWORD},
@@ -494,6 +495,9 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
     async with aiohttp.ClientSession() as session:
         token = await get_token(session)
         while prefix:
+            # http GET "https://www.vekn.net/api/vekn/registry"
+            # "Authorization: Bearer <TOKEN>"
+            # filter=<PREFIX>
             async with session.get(
                 f"https://www.vekn.net/api/vekn/registry?filter={prefix}",
                 headers={"Authorization": f"Bearer {token}"},
@@ -555,36 +559,6 @@ async def get_events_parallel(
             del tasks
 
 
-async def get_events_parallel(
-    members: dict[str, models.Person],
-) -> typing.AsyncIterator[models.Tournament]:
-    async with aiohttp.ClientSession() as session:
-        token = await get_token(session)
-        # parallelize by batches of 10
-        for num in range(0, 1400):
-            tasks = []
-            async with asyncio.TaskGroup() as tg:
-                for digit in range(0, 10):
-                    event_id = 10 * num + digit
-                    # skip zero
-                    if not event_id:
-                        continue
-                    tasks.append(
-                        tg.create_task(get_event(session, token, event_id, members))
-                    )
-            for digit, task in enumerate(tasks, 1):
-                if not task.done() | task.cancelled():
-                    continue
-                exc = task.exception()
-                if exc:
-                    LOG.exception("Failed to retrieve event %s", event_id)
-                    continue
-                res = task.result()
-                if res:
-                    yield res
-            del tasks
-
-
 async def get_events_serial(
     members: dict[str, models.Person],
 ) -> typing.AsyncIterator[models.Tournament]:
@@ -602,6 +576,9 @@ async def get_event(
     num: int,
     members: dict[str, models.Person],
 ) -> models.Tournament | None:
+    data = None
+    # http GET "https://www.vekn.net/api/vekn/event/<NUM>"
+    # "Authorization: Bearer <TOKEN>"
     async with session.get(
         f"https://www.vekn.net/api/vekn/event/{num}",
         headers={"Authorization": f"Bearer {token}"},
@@ -609,21 +586,47 @@ async def get_event(
         response.raise_for_status()
         result = await response.json()
         data = result["data"]["events"]
-        if not data:
-            LOG.info("No data for event #%s: %s", num, result)
-            return
-        data = data[0]
-        ret = None
-        if data["players"]:
-            LOG.debug("Event #%s: %s", num, data)
-            ret = _tournament_from_vekn_data(data, members)
-        del data
-        del result
-        return ret
+    if not data:
+        LOG.info("No data for event #%s: %s", num, result)
+        return
+    data = data[0]
+    ret = None
+    if data["players"]:
+        LOG.debug("Event #%s: %s", num, data)
+        venue_data = {}
+        if data["venue_id"]:
+            venue_data = await get_venue(session, token, data["venue_id"])
+        ret = _tournament_from_vekn_data(data, members, venue_data)
+    del data
+    del result
+    return ret
+
+
+async def get_venue(
+    session: aiohttp.ClientSession, token: str, venue_id: str
+) -> dict[str, str]:
+    data = None
+    # http GET "https://www.vekn.net/api/vekn/venue/<ID>"
+    # "Authorization: Bearer <TOKEN>"
+    async with session.get(
+        f"https://www.vekn.net/api/vekn/venue/{venue_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    ) as response:
+        response.raise_for_status()
+        result = await response.json()
+    data = result["data"]["venues"]
+    if not data:
+        LOG.warning("No data for venue #%s: %s", venue_id, result)
+        return {}
+    data = data[0]
+    if not data:
+        LOG.warning("No data for venue #%s: %s", venue_id, result)
+        return {}
+    return data
 
 
 def _tournament_from_vekn_data(
-    data: any, members: dict[str, models.Person]
+    data: any, members: dict[str, models.Person], venue_data: dict[str, str]
 ) -> models.Tournament:
     try:
         fmt, rank = TOURNAMENT_TYPE_TO_FORMAT_RANK[int(data["eventtype_id"])]
@@ -668,6 +671,8 @@ def _tournament_from_vekn_data(
         rank=rank,
         country=country,
         venue=data["venue_name"] or "",
+        address=venue_data.get("address") or "",
+        venue_url=venue_data.get("website") or "",
         online=bool(int(data["event_isonline"])),
         state=models.TournamentState.FINISHED,
         decklist_required=False,
@@ -743,11 +748,14 @@ def increment(num: str) -> str:
 
 
 async def get_rankings() -> dict[str, dict[models.RankingCategoy, int]]:
+    """Unused now, kept for reference."""
     try:
         async with aiohttp.ClientSession() as session:
             token = await get_token(session)
+            # http GET "https://www.vekn.net/api/vekn/ranking"
+            # "Authorization: Bearer <TOKEN>"
             async with session.get(
-                f"https://www.vekn.net/api/vekn/ranking",
+                "https://www.vekn.net/api/vekn/ranking",
                 headers={"Authorization": f"Bearer {token}"},
             ) as response:
                 response.raise_for_status()
@@ -904,6 +912,9 @@ async def upload_tournament(tournament: models.Tournament, rounds: int) -> None:
                 }
             )
             event_id = None
+            # http POST https://www.vekn.net/api/vekn/event
+            # "Authorization: Bearer <TOKEN>"
+            # -f name=<NAME> type=<TYPE> <...>
             async with session.post(
                 "https://www.vekn.net/api/vekn/event",
                 headers={"Authorization": f"Bearer {token}"},
@@ -930,6 +941,9 @@ async def upload_tournament_result(
         async with aiohttp.ClientSession() as session:
             if not token:
                 token = await get_token(session)
+            # http POST https://www.vekn.net/api/vekn/archon
+            # "Authorization: Bearer <TOKEN>"
+            # -f archondata=<ARCHON_STRING>
             async with session.post(
                 f"https://www.vekn.net/api/vekn/archon/{tournament.extra['vekn_id']}",
                 headers={"Authorization": f"Bearer {token}"},
