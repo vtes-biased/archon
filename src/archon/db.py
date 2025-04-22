@@ -161,6 +161,22 @@ async def init():
         await conn.set_autocommit(False)
 
 
+# Query to consider for venue completion. Maybe a view?
+# select
+#     distinct on (data->>'country', lower(substring(data->>'venue' for 5)))
+#     data->>'country',
+#     trim(both from data->>'venue')
+# from tournaments
+# where
+#     data->>'venue' <> ''
+#     and substring(data->>'venue' for 1) not in ('"','(','''')
+# order by
+#     data->>'country',
+#     lower(substring(data->>'venue' for 5)),
+#     data->>'venue',
+#     timetz(data->>'start', data->>'timezone') DESC;
+
+
 class IsDataclass(typing.Protocol):
     # https://stackoverflow.com/a/55240861
     __dataclass_fields__: typing.ClassVar[dict[str, typing.Any]]
