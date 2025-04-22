@@ -45,12 +45,9 @@ def list() -> None:
 async def get_members() -> None:
     async with db.POOL:
         async with db.operator(autocommit=True) as op:
-            rankings = await vekn.get_rankings()
             prefixes_map = {}  # prefix owners
             count = 0
             async for members in vekn.get_members_batches():
-                for member in members:
-                    member.ranking = rankings.get(member.vekn, {})
                 # note insert members modifies the passed members list
                 # after this call, all members have the right DB uid and data
                 async with op.conn.transaction():
@@ -64,7 +61,6 @@ async def get_members() -> None:
                     if not count % 100:
                         print(f" {count}", end="\r", flush=True)
                 del members
-            del rankings
             print("Set sponsors...")
             for prefix, uid in prefixes_map.items():
                 async with op.conn.transaction():

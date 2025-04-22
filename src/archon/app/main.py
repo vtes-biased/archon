@@ -31,11 +31,8 @@ if __debug__ or os.getenv("DEBUG"):
 
 
 async def sync_vekn_members(op: db.Operator) -> None:
-    rankings = await vekn.get_rankings()
     prefixes_map = {}  # prefix owners
     async for members in vekn.get_members_batches():
-        for member in members:
-            member.ranking = rankings.get(member.vekn, {})
         # note insert members modifies the passed members list
         # after this call, all members have the right DB uid and data
         async with op.conn.transaction():
@@ -46,7 +43,6 @@ async def sync_vekn_members(op: db.Operator) -> None:
                     assert prefixes_map[member.prefix].vekn == member.vekn
                 prefixes_map[member.prefix] = member.uid
         del members
-    del rankings
     for prefix, uid in prefixes_map.items():
         async with op.conn.transaction():
             await op.set_sponsor_on_prefix(prefix, uid)
