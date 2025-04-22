@@ -1,9 +1,21 @@
 import * as d from "./d"
 import * as base from "./base"
 import * as bootstrap from 'bootstrap'
+import * as idb from 'idb'
 import * as uuid from 'uuid'
 import unidecode from 'unidecode'
+import { DateTime } from 'luxon'
 
+// Increment this number if/when the person model changes
+const VERSION = 1
+
+export interface LookupInfo {
+    name: string,
+    uid: string,
+    vekn: string,
+    country: string,
+    country_flag: string,
+}
 
 function normalize_string(s: string) {
     var res = unidecode(s).toLowerCase()
@@ -14,100 +26,162 @@ function normalize_string(s: string) {
     return res
 }
 
-
-export class PersonMap<Type extends d.Person> {
-    by_vekn: Map<string, Type>
-    by_uid: Map<string, Type>
-    trie: Map<string, Array<Type>>
-    constructor() {
-        this.by_vekn = new Map()
-        this.by_uid = new Map()
-        this.trie = new Map()
+export class MembersDB {
+    token: base.Token
+    db: idb.IDBPDatabase
+    trie: Map<string, Map<string, LookupInfo>>
+    constructor(token: base.Token) {
+        this.token = token
     }
 
-    add(persons: Type[]) {
-        for (const person of persons) {
-            if (person.vekn && person.vekn.length > 0) {
-                this.by_vekn.set(person.vekn, person)
+    async init() {
+        this.trie = new Map()
+        console.log("init members map")
+        var trigger_refresh = false
+        const perf_nav = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+        if (perf_nav.type == "reload") {
+            trigger_refresh = true
+            console.log("trigger refresh from reload")
+        }
+        const last_update_str = sessionStorage.getItem("members_refresh")
+        if (last_update_str) {
+            const last_update = DateTime.fromISO(last_update_str)
+            if (DateTime.now().minus({ hours: 1 }) > last_update) {
+                trigger_refresh = true
+                console.log("trigger refresh from expiry")
             }
-            this.by_uid.set(person.uid, person)
+        } else {
+            trigger_refresh = true
+        }
+        this.db = await idb.openDB("VEKN", VERSION, {
+            upgrade(db, oldVersion, newVersion, transaction, event) {
+                const membersStore = db.createObjectStore("members", { keyPath: "uid" })
+                membersStore.createIndex("vekn", "vekn", { unique: false })
+                trigger_refresh = true
+                console.log("re-created members db")
+            },
+            blocked(currentVersion, blockedVersion, event) {
+                window.location.reload()
+            },
+            blocking(currentVersion, blockedVersion, event) {
+                window.location.reload()
+            },
+            terminated() {
+                window.location.reload()
+            },
+        })
+        if (trigger_refresh) {
+            await this.refresh()
+        }
+        await this.build_trie()
+    }
+
+    async refresh() {
+        console.log("refreshing db")
+        const res = await base.do_fetch_with_token("/api/vekn/members", this.token, {})
+        if (!res) { return }
+        const members = await res.json() as d.Person[]
+        console.log("members", members.length)
+        const tr = this.db.transaction("members", "readwrite")
+        await tr.store.clear()
+        for (const member of members) {
+            tr.store.put(member)
+        }
+        await tr.done
+        console.log("members saved")
+        await this.build_trie()
+        sessionStorage.setItem("members_refresh", DateTime.now().toISO())
+    }
+
+    async build_trie() {
+        console.log("refreshing trie")
+        this.trie.clear()
+        for (const person of await this.db.getAll("members")) {
             const parts = normalize_string(person.name).split(" ")
             for (const part of parts) {
                 for (var i = 1; i < part.length + 1; i++) {
                     const piece = part.slice(0, i)
                     if (!this.trie.has(piece)) {
-                        this.trie.set(piece, [])
+                        this.trie.set(piece, new Map())
                     }
-                    this.trie.get(piece).push(person)
+                    this.trie.get(piece).set(person.uid, {
+                        name: person.name,
+                        uid: person.uid,
+                        vekn: person.vekn,
+                        country: person.country,
+                        country_flag: person.country_flag,
+                    })
                 }
             }
         }
     }
 
-    remove(s: string) {
-        if (!this.by_uid.has(s)) { return }
-        const person = this.by_uid.get(s)
-        this.by_uid.delete(person.uid)
-        if (person.vekn && person.vekn.length > 0) {
-            this.by_vekn.delete(person.vekn)
-        }
-        // we could through the name parts and pieces... not necessarily faster
-        for (const pieces of this.trie.values()) {
-            var idx = pieces.findIndex(p => p.uid == s)
-            while (idx >= 0) {
-                pieces.splice(idx, 1)
-                idx = pieces.findIndex(p => p.uid == s)
-            }
-            // it is fine to let empty arrays be 
-        }
+    async get_by_uid(uid: string) {
+        return await this.db.get("members", uid)
     }
 
-    complete_name(s: string): Type[] {
-        var members_list: Type[] | undefined = undefined
+    async get_by_vekn(vekn: string) {
+        return await this.db.getFromIndex("members", "vekn", vekn)
+    }
+
+    complete_name(s: string): LookupInfo[] {
+        var members_list: LookupInfo[] | undefined = undefined
         for (const part of normalize_string(s).toLowerCase().split(" ")) {
-            const members = this.trie.get(part)
-            if (members) {
+            const lookup = this.trie.get(part)
+            if (lookup) {
                 if (members_list) {
-                    members_list = members_list.filter(m => members.includes(m))
+                    members_list = members_list.filter(m => lookup.has(m.uid))
                 } else {
-                    members_list = members
+                    members_list = [...lookup.values()]
                 }
             }
         }
         return members_list ? members_list : []
     }
-}
 
-export class MemberMap extends PersonMap<d.Person> {
-    async init(token: base.Token) {
-        const res = await base.do_fetch("/api/vekn/members", {
-            method: "get",
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token.access_token}`
-            },
-        })
-        const members = await res.json() as d.Member[]
-        this.by_vekn.clear()
-        this.by_uid.clear()
-        this.trie.clear()
-        this.add(members)
+    async add_online(member: d.Person): Promise<d.Person | void> {
+        const res = await base.do_fetch_with_token("/api/vekn/members", this.token,
+            { method: "post", body: JSON.stringify(member) }
+        )
+        if (res) {
+            const ret = await res.json()
+            await this.db.put("members", ret)
+            return ret
+        }
+    }
+
+    async getAll() {
+        return await this.db.getAll("members")
+    }
+
+    async assign_vekn(uid: string): Promise<d.Person | void> {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${uid}/sponsor`, this.token, { method: "post" })
+        if (res) {
+            return await res.json()
+        }
     }
 }
 
-export class PersonLookup<Type extends d.Person> {
+export async function get_user(token: base.Token) {
+    const uid = base.user_uid_from_token(token)
+    const res = await base.do_fetch_with_token(`/api/vekn/members/${uid}`, token, {})
+    if (res) {
+        return await res.json()
+    }
+}
+
+export class PersonLookup {
     form: HTMLFormElement
     input_vekn_id: HTMLInputElement
     input_name: HTMLInputElement
     dropdown_menu: HTMLUListElement
     button: HTMLButtonElement
     dropdown: bootstrap.Dropdown
-    persons_map: PersonMap<Type>
-    person: Type | undefined
+    membersDB: MembersDB
+    person: d.Person | undefined
     focus: HTMLLIElement | undefined
-    constructor(persons_map: PersonMap<Type>, root: HTMLElement, label: string, inline: boolean = false) {
-        this.persons_map = persons_map
+    constructor(members_db: MembersDB, root: HTMLElement, label: string, inline: boolean = false) {
+        this.membersDB = members_db
         const form_uid = uuid.v4()
         // create an empty form on top of the body, so it can be used inside a "real" form
         this.form = base.create_prepend(document.body, "form", [], { id: form_uid })
@@ -167,8 +241,8 @@ export class PersonLookup<Type extends d.Person> {
         this.reset_focus()
     }
 
-    select_member_by_vekn() {
-        this.person = this.persons_map.by_vekn.get(this.input_vekn_id.value)
+    async select_member_by_vekn() {
+        this.person = await this.membersDB.get_by_vekn(this.input_vekn_id.value)
         if (this.person) {
             this.input_name.value = this.person.name
             this.button.disabled = false
@@ -179,9 +253,9 @@ export class PersonLookup<Type extends d.Person> {
         }
     }
 
-    select_member_name(ev: Event) {
+    async select_member_name(ev: Event) {
         const button = ev.currentTarget as HTMLButtonElement
-        this.person = this.persons_map.by_uid.get(button.dataset.memberUid)
+        this.person = await this.membersDB.get_by_uid(button.dataset.memberUid)
         if (this.person) {
             this.input_vekn_id.value = this.person.vekn
             this.input_name.value = this.person.name
@@ -213,7 +287,7 @@ export class PersonLookup<Type extends d.Person> {
                 { type: "button" }).innerText = "Type some more..."
             return
         }
-        const persons_list = this.persons_map.complete_name(this.input_name.value)
+        const persons_list = this.membersDB.complete_name(this.input_name.value)
         if (!persons_list || persons_list.length < 1) {
             base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
                 { type: "button" }).innerText = "No result"
@@ -224,16 +298,9 @@ export class PersonLookup<Type extends d.Person> {
             const button = base.create_append(li, "button", ["dropdown-item"],
                 { type: "button", "data-member-uid": person.uid }
             )
-            var tail: string[] = []
-            if (person.city) {
-                tail.push(person.city)
-            }
-            if (person.country) {
-                tail.push(person.country)
-            }
             button.innerText = person.name
-            if (tail.length > 0) {
-                button.innerText += ` (${tail.join(", ")})`
+            if (person.country) {
+                button.innerText += ` (${person.country_flag} ${person.country})`
             }
             button.addEventListener("click", (ev) => this.select_member_name(ev))
         }
@@ -402,6 +469,7 @@ export function can_contact(member: d.Person, target: d.Person): boolean {
 
 export class AddMemberModal extends base.Modal {
     token: base.Token | undefined
+    members_map: MembersDB
     countries: d.Country[] | undefined
     form: HTMLFormElement
     name: HTMLInputElement
@@ -410,8 +478,10 @@ export class AddMemberModal extends base.Modal {
     email: HTMLInputElement
     submit_button: HTMLButtonElement
     callback: { (member: d.Person): void }
-    constructor(el: HTMLElement, callback: { (member: d.Person): void }) {
+    assign_vekn: boolean
+    constructor(el: HTMLElement, members_map: MembersDB, callback: { (member: d.Person): void }) {
         super(el)
+        this.members_map = members_map
         this.callback = callback
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],
             { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "AddMemberModalLabel" }
@@ -445,7 +515,7 @@ export class AddMemberModal extends base.Modal {
         this.form.addEventListener("submit", (ev) => this.submit(ev))
     }
 
-    async init(token: base.Token | undefined = undefined, countries: d.Country[] | undefined = undefined) {
+    async init(token: base.Token | undefined = undefined, countries: d.Country[] | undefined = undefined, assign_vekn: boolean = false) {
         if (token) {
             this.token = token
         } else {
@@ -463,6 +533,7 @@ export class AddMemberModal extends base.Modal {
             option.label = country.country
             this.country.options.add(option)
         }
+        this.assign_vekn = assign_vekn
     }
 
     show() {
@@ -496,7 +567,7 @@ export class AddMemberModal extends base.Modal {
 
     async submit(ev: SubmitEvent) {
         ev.preventDefault()
-        var member = {
+        const member = {
             uid: uuid.v4(),
             name: this.name.value,
             vekn: "",
@@ -504,11 +575,12 @@ export class AddMemberModal extends base.Modal {
             city: this.city.value,
             email: this.email.value
         } as d.Member
-        const res = await base.do_fetch_with_token("/api/vekn/members", this.token,
-            { method: "post", body: JSON.stringify(member) }
-        )
-        if (res) {
-            this.callback(await res.json())
+        var person = await this.members_map.add_online(member)
+        if (person && this.assign_vekn) {
+            person = await this.members_map.assign_vekn(person.uid) || person
+        }
+        if (person) {
+            this.callback(person)
         }
         this.modal.hide()
     }

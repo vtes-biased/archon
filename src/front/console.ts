@@ -63,122 +63,6 @@ class PlayerSelectModal extends base.Modal {
     }
 }
 
-
-class AddMemberModal extends base.Modal {
-    countries: d.Country[] | undefined
-    form: HTMLFormElement
-    name: HTMLInputElement
-    country: HTMLSelectElement
-    city: HTMLSelectElement
-    email: HTMLInputElement
-    submit_button: HTMLButtonElement
-    console: TournamentConsole
-    constructor(el: HTMLElement, console: TournamentConsole, title: string = "Add member") {
-        super(el)
-        this.console = console
-        this.modal_title.innerText = title
-        this.form = base.create_append(this.modal_body, "form")
-        this.name = base.create_append(this.form, "input", ["form-control", "my-2"],
-            { type: "text", autocomplete: "new-name", name: "new-name" }
-        )
-        this.name.ariaAutoComplete = "none"
-        this.name.spellcheck = false
-        this.name.placeholder = "Name"
-        this.country = base.create_append(this.form, "select", ["form-select", "my-2"],
-            { name: "country", autocomplete: "none" }
-        )
-        this.city = base.create_append(this.form, "select", ["form-select", "my-2"], { name: "city" })
-        this.email = base.create_append(this.form, "input", ["form-control", "my-2"],
-            { type: "text", autocomplete: "new-email", name: "new-email" }
-        )
-        this.email.placeholder = "E-mail"
-        this.email.ariaAutoComplete = "none"
-        this.email.spellcheck = false
-        this.submit_button = base.create_append(this.form, "button", ["btn", "btn-primary", "my-2"], { type: "submit" })
-        this.submit_button.innerText = "Submit"
-        this.country.ariaLabel = "Country"
-        this.country.options.add(base.create_element("option", [], { value: "", label: "Country" }))
-        this.country.required = true
-        this.city.options.add(base.create_element("option", [], { value: "", label: "City" }))
-        this.city.required = false
-        this.country.addEventListener("change", (ev) => this.change_country())
-        this.form.addEventListener("submit", (ev) => this.submit(ev))
-    }
-
-    async init(countries: d.Country[] | undefined = undefined) {
-        if (countries) {
-            this.countries = countries
-        } else {
-            const res = await base.do_fetch("/api/vekn/country", {})
-            this.countries = await res.json() as d.Country[]
-        }
-        for (const country of this.countries) {
-            const option = document.createElement("option")
-            option.value = country.country
-            option.label = country.country
-            this.country.options.add(option)
-        }
-    }
-
-    show() {
-        this.name.value = ""
-        this.email.value = ""
-        this.country.selectedIndex = 0
-        this.city.selectedIndex = 0
-        this.city.disabled = true
-        this.modal.show()
-    }
-
-    async change_country() {
-        while (this.city.options.length > 1) {
-            this.city.options.remove(1)
-        }
-        if (this.country.selectedIndex < 1) {
-            this.city.disabled = true
-        } else {
-            // TODO deactivate this or something for offline mode
-            const res = await base.do_fetch(`/api/vekn/country/${this.country.value}/city`, {})
-            const cities = await res.json() as d.City[]
-            // find duplicate city names, add administrative divisions for distinction
-            const names_count = {}
-            for (const city of cities) {
-                var name = city.name
-                names_count[name] = (names_count[name] || 0) + 1
-                name += `, ${city.admin1}`
-                names_count[name] = (names_count[name] || 0) + 1
-            }
-            for (const city of cities) {
-                var name = city.name
-                if (names_count[name] > 1) {
-                    name += `, ${city.admin1}`
-                }
-                if (names_count[name] > 1) {
-                    name += `, ${city.admin2}`
-                }
-                const option = document.createElement("option")
-                option.value = name
-                option.label = name
-                this.city.options.add(option)
-            }
-            this.city.disabled = false
-        }
-    }
-
-    async submit(ev: SubmitEvent) {
-        ev.preventDefault()
-        var member = {
-            uid: uuid.v4(),
-            name: this.name.value,
-            vekn: "",
-            country: this.country.value,
-            city: this.city.value,
-            email: this.email.value
-        } as d.Member
-        await this.console.add_member(member)
-        this.modal.hide()
-    }
-}
-
 class SanctionPlayerModal extends base.Modal {
     deck_link: HTMLAnchorElement
     deck_submit: DeckSubmit
@@ -286,8 +170,8 @@ class SanctionPlayerModal extends base.Modal {
         this.cancel_button.innerText = "Cancel"
         this.cancel_button.addEventListener("click", (ev) => { this.member = null; this.modal.hide() })
     }
-    show(member_uid: string, round: number | undefined, seat: d.TableSeat | undefined) {
-        this.member = this.console.members_map.by_uid.get(member_uid)
+    async show(member_uid: string, round: number | undefined, seat: d.TableSeat | undefined) {
+        this.member = await this.console.members_map.get_by_uid(member_uid)
         this.round = round
         this.seat = seat
         this.modal_title.innerText = this.member.name
@@ -667,7 +551,7 @@ class Registration {
     toast_container: HTMLDivElement
     action_row: HTMLDivElement
     self_checkin: HTMLInputElement
-    register_element: member.PersonLookup<d.Person>
+    register_element: member.PersonLookup
     filter_switch: HTMLInputElement
     filter_label: HTMLLabelElement
     players_count: HTMLDivElement
@@ -690,7 +574,7 @@ class Registration {
         this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
         this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-4"])
         const registration_controls = base.create_append(this.panel, "div", ["d-md-flex", "my-2"])
-        this.register_element = new member.PersonLookup<d.Person>(
+        this.register_element = new member.PersonLookup(
             this.console.members_map, registration_controls, "Register", true
         )
         this.register_element.form.addEventListener("submit", (ev) => { this.add_player(ev) })
@@ -1670,7 +1554,7 @@ class ScoreModal {
 class TournamentConsole {
     root: HTMLDivElement
     token: base.Token
-    members_map: member.MemberMap | undefined
+    members_map: member.MembersDB | undefined
     tournament: d.Tournament | undefined
     message_div: HTMLDivElement
     nav: HTMLElement
@@ -1679,7 +1563,7 @@ class TournamentConsole {
     tabs: Map<string, bootstrap.Tab>
     confirmation: base.ConfirmationModal
     player_select: PlayerSelectModal
-    add_member_modal: AddMemberModal
+    add_member_modal: member.AddMemberModal
     sanction_player_modal: SanctionPlayerModal
     seed_finals_modal: SeedFinalsModal
     info: TournamentDisplay
@@ -1689,11 +1573,11 @@ class TournamentConsole {
     constructor(el: HTMLDivElement, token: base.Token) {
         this.root = el
         this.token = token
-        this.members_map = new member.MemberMap()
+        this.members_map = new member.MembersDB(token)
         this.confirmation = new base.ConfirmationModal(el)
         this.score_modal = new ScoreModal(el, this)
         this.player_select = new PlayerSelectModal(el)
-        this.add_member_modal = new AddMemberModal(el, this)
+        this.add_member_modal = new member.AddMemberModal(el, this.members_map, (m) => this.register_player(m))
         this.sanction_player_modal = new SanctionPlayerModal(el, this)
         this.seed_finals_modal = new SeedFinalsModal(el, this)
         this.message_div = base.create_append(el, "div", ["alert"], { role: "status" })
@@ -1751,11 +1635,11 @@ class TournamentConsole {
             const round_tab = new RoundTab(this, i + 1, finals)
             this.rounds.push(round_tab)
         }
-        await this.members_map.init(this.token)
+        await this.members_map.init()
         { // init countries in components using them
             const res = await base.do_fetch("/api/vekn/country", {})
             const countries = await res.json() as d.Country[]
-            await this.add_member_modal.init(countries)
+            await this.add_member_modal.init(this.token, countries, true)
             await this.info.init(this.token, this.members_map, countries)
         }
         await this.display()
@@ -1951,8 +1835,8 @@ class TournamentConsole {
         return seating.compute_issues(rounds)
     }
 
-    warn_about_player(player_uid: string): boolean {
-        const previous_sanctions = this.members_map.by_uid.get(player_uid)?.sanctions
+    async warn_about_player(player_uid: string): Promise<boolean> {
+        const previous_sanctions = (await this.members_map.get_by_uid(player_uid))?.sanctions
         if (previous_sanctions) {
             for (const sanction of previous_sanctions) {
                 if (sanction.tournament?.uid && sanction.tournament?.uid != this.tournament.uid) {
@@ -2033,35 +1917,6 @@ class TournamentConsole {
         this.tournament = response
         await this.display()
         return response
-    }
-
-    async add_member(member: d.Person) {
-        // TODO figure out what to do in offline mode
-        const res = await base.do_fetch("/api/vekn/members", {
-            method: "post",
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token.access_token}`
-            },
-            body: JSON.stringify(member)
-        })
-        if (res) {
-            member = await res.json() as d.Member
-            member = (await this.assign_vekn(member)) || member
-            this.members_map.add([member])
-            await this.register_player(member)
-        }
-        return
-    }
-
-    async assign_vekn(member: d.Person): Promise<d.Person | void> {
-        const res = await base.do_fetch_with_token(`/api/vekn/members/${member.uid}/sponsor`, this.token,
-            { method: "post" }
-        )
-        if (res) {
-            return await res.json()
-        }
     }
 
     async register_player(member: d.Person) {

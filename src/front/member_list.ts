@@ -25,14 +25,16 @@ class MemberListDisplay {
     token: base.Token
     member: d.Person | undefined
     countries: Map<string, d.Country>
-    members_map: m.MemberMap
+    members_map: m.MembersDB
     country_filter: HTMLSelectElement
     vekn_filter: HTMLInputElement
     name_filter: HTMLInputElement
     page: number
-    constructor(root: HTMLDivElement, page_size: number = 100) {
+    constructor(root: HTMLDivElement, token: base.Token, page_size: number = 100) {
         this.root = root
-        this.add_member_modal = new m.AddMemberModal(root, (member) => this.member_added(member))
+        this.token = token
+        this.members_map = new m.MembersDB(this.token)
+        this.add_member_modal = new m.AddMemberModal(root, this.members_map, (member) => this.member_added(member))
         this.page_size = page_size
         this.filters_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
         this.roles_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
@@ -41,18 +43,15 @@ class MemberListDisplay {
         this.pagination_row = base.create_append(controls_row, "div", ["d-lg-flex", "my-2", "align-items-center", "justify-content-end"])
         this.members_table = base.create_append(root, "table", ["table", "table-striped", "table-hover", "table-responsive"])
     }
-    async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
-        this.token = token
+    async init(url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.page = 0
-        this.members_map = new m.MemberMap()
-        await this.members_map.init(this.token)
+        await this.members_map.init()
         if (!countries) {
             const res = await base.do_fetch("/api/vekn/country", {})
             countries = await res.json() as d.Country[]
         }
         await this.add_member_modal.init(this.token, countries)
-        const user_id = JSON.parse(window.atob(token.access_token.split(".")[1]))["sub"]
-        this.member = this.members_map.by_uid.get(user_id)
+        this.member = await m.get_user(this.token)
         this.countries = new Map(countries.map(c => [c.country, c]))
         base.remove_children(this.filters_row)
         const country_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
@@ -85,7 +84,7 @@ class MemberListDisplay {
         )
         this.name_filter.ariaAutoComplete = "none"
         this.name_filter.spellcheck = false
-        base.create_append(name_div, "label", ["form-label"], { for: "nameFilter" }).innerText = "Name"
+        base.create_append(name_div, "label", ["form-label"], { for: "newNameFilter" }).innerText = "Name"
         this.name_filter.addEventListener("input", base.debounce((ev) => this.filters_changed()))
         // Roles
         this._add_role_checkbox(d.MemberRole.NC)
@@ -107,7 +106,6 @@ class MemberListDisplay {
         this.display()
     }
     member_added(member: d.Person) {
-        this.members_map.add([member])
         const url = new URL(`/member/${member.uid}/display.html`, window.location.origin)
         window.location.href = url.href
     }
@@ -119,7 +117,7 @@ class MemberListDisplay {
         checkbox.addEventListener("change", (ev) => this.filters_changed())
         base.create_append(div, "label", ["form-check-label"], { for: `role${role}` }).innerText = role
     }
-    display() {
+    async display() {
         base.remove_children(this.pagination_row)
         base.remove_children(this.members_table)
         const head = base.create_append(this.members_table, "thead")
@@ -130,7 +128,7 @@ class MemberListDisplay {
         base.create_append(row, "th", ["sm-hide"], { scope: "col" }).innerText = "City"
         const body = base.create_append(this.members_table, "tbody")
         var [total, skipped, displayed] = [0, 0, 0]
-        const [search_params, members] = this.get_filtered_members()
+        const [search_params, members] = await this.get_filtered_members()
         for (const member of members) {
             total += 1
             if (search_params.page && total <= search_params.page * this.page_size) {
@@ -280,11 +278,13 @@ class MemberListDisplay {
             }
         }
     }
-    get_filtered_members(): [MemberSearchParams, IteratorObject<d.Person>] {
-        var members: MapIterator<d.Person> = this.members_map.by_uid.values()
+    async get_filtered_members(): Promise<[MemberSearchParams, d.Person[]]> {
+        var members: d.Person[] = await this.members_map.getAll()
         const search_params = this.get_search_params()
         if (search_params.name) {
-            members = this.members_map.complete_name(search_params.name)[Symbol.iterator]()
+            const candidates = new Set()
+            this.members_map.complete_name(search_params.name).map(r => candidates.add(r.uid))
+            members = members.filter(m => candidates.has(m.uid))
         }
         if (search_params.vekn) {
             members = members.filter(m => m.vekn.startsWith(search_params.vekn))
@@ -314,7 +314,7 @@ class MemberListDisplay {
                         break
                     case d.MemberFilter.NO_SPONSOR:
                         if (m.can_organize(this.member)) {
-                            members = members.filter(m => !(m.sponsor && m.sponsor.length > 0 && this.members_map.by_uid.get(m.sponsor)))
+                            members = members.filter(m => !(m.sponsor && m.sponsor.length > 0))
                         }
                         break
                     default:  // d.MemberRole.ADMIN, d.MemberRole.NC, d.MemberRole.PRINCE
@@ -396,9 +396,9 @@ class MemberListDisplay {
 async function load() {
     const contentDiv = document.getElementById("contentDiv") as HTMLDivElement
     if (!contentDiv) { return }
-    const display = new MemberListDisplay(contentDiv)
     const token = await base.fetchToken()
-    await display.init(token, new URL(window.location.href))
+    const display = new MemberListDisplay(contentDiv, token)
+    await display.init(new URL(window.location.href))
 }
 
 

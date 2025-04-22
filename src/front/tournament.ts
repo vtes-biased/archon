@@ -348,7 +348,7 @@ export class TournamentDisplay {
     countries: Map<string, d.Country>
     token: base.Token
     user: d.Person
-    members_map: member.MemberMap
+    members_map: member.MembersDB
     alert: HTMLDivElement
     // form inputs
     name: HTMLInputElement
@@ -383,7 +383,7 @@ export class TournamentDisplay {
     }
     async init(
         token: base.Token | undefined = undefined,
-        members_map: member.MemberMap | undefined = undefined,
+        members_map: member.MembersDB | undefined = undefined,
         countries: d.Country[] | undefined = undefined,
     ) {
         this.token = token
@@ -399,11 +399,11 @@ export class TournamentDisplay {
         if (members_map) {
             this.members_map = members_map
         } else if (user_id) {
-            this.members_map = new member.MemberMap()
-            await this.members_map.init(token)
+            this.members_map = new member.MembersDB(token)
+            await this.members_map.init()
         }
         if (user_id) {
-            this.user = this.members_map.by_uid.get(user_id)
+            this.user = await this.members_map.get_by_uid(user_id)
             this.judges = [this.user]
         }
     }
