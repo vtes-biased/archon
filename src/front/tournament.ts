@@ -1419,7 +1419,7 @@ export class TournamentDisplay {
         { // venue
             const div = base.create_append(form, "div", ["col-md-6"])
             this.venue = base.create_append(div, "input", ["form-control"],
-                { type: "text", name: "venue", placeholder: "Venue", autocomplete: "off", spellcheck: "false" }
+                { type: "text", name: "venue", placeholder: "Venue", autocomplete: "section-venue organization", spellcheck: "false" }
             )
             this.venue.ariaLabel = "Venue"
             this.venue.ariaAutoComplete = "none"
@@ -1456,7 +1456,7 @@ export class TournamentDisplay {
             const group = base.create_append(div, "div", ["input-group"])
             base.create_append(group, "i", ["input-group-text", "bi", "bi-link-45deg"])
             this.venue_url = base.create_append(group, "input", ["form-control"],
-                { type: "text", name: "venue_url", placeholder: "Venue URL", autocomplete: "off", spellcheck: "false" }
+                { type: "text", name: "venue_url", placeholder: "Venue URL", autocomplete: "section-venue url", spellcheck: "false" }
             )
             this.venue_url.ariaLabel = "Venue URL"
             this.venue_url.ariaAutoComplete = "none"
@@ -1467,7 +1467,7 @@ export class TournamentDisplay {
         { // address
             const div = base.create_append(form, "div", ["col-md-4"])
             this.address = base.create_append(div, "input", ["form-control"],
-                { type: "text", name: "address", placeholder: "Address", autocomplete: "off", spellcheck: "false" }
+                { type: "text", name: "address", placeholder: "Address", autocomplete: "section-venue street-address", spellcheck: "false" }
             )
             this.address.ariaLabel = "Address"
             this.address.ariaAutoComplete = "none"
