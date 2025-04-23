@@ -217,7 +217,7 @@ export class PersonLookup {
         this.dropdown = bootstrap.Dropdown.getOrCreateInstance(this.input_name)
         this.input_vekn_id.addEventListener("input", (ev) => this.select_member_by_vekn())
         this.input_name.addEventListener("input", base.debounce((ev) => this.complete_member_name()))
-        dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev));
+        dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev))
     }
 
     reset_focus(new_focus: HTMLLIElement | undefined = undefined) {

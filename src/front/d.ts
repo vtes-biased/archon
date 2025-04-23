@@ -243,6 +243,13 @@ export interface Tournament extends TournamentConfig {
     extra: {},
 }
 
+export interface VenueCompletion {
+    venue: string,
+    venue_url?: string,
+    address?: string,
+    map_url?: string,
+}
+
 export interface TournamentInfo extends TournamentConfig {
     players: Record<string, PublicPerson>,
     finals_seeds: string[],

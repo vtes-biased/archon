@@ -661,6 +661,9 @@ def _tournament_from_vekn_data(
     person = members.get(data["organizer_veknid"])
     if person:
         judges = [models.PublicPerson(**dataclasses.asdict(person))]
+    address = venue_data.get("address") or ""
+    if address and venue_data.get("city"):
+        address += f", {venue_data['city']}"
     ret = models.Tournament(
         extra={"vekn_id": data["event_id"]},
         name=data["event_name"],
@@ -671,7 +674,7 @@ def _tournament_from_vekn_data(
         rank=rank,
         country=country,
         venue=data["venue_name"] or "",
-        address=venue_data.get("address") or "",
+        address=address,
         venue_url=venue_data.get("website") or "",
         online=bool(int(data["event_isonline"])),
         state=models.TournamentState.FINISHED,

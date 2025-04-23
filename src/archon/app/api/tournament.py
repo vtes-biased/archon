@@ -2,6 +2,7 @@ import dataclasses
 import fastapi
 import logging
 import typing
+import unidecode
 
 from .. import dependencies
 from ... import events
@@ -110,6 +111,44 @@ async def api_tournament_get_decks(
             if player.deck:
                 res.decks.append(player.deck)
     return res
+
+
+@router.get(
+    "/venue-completion/{country}/{prefix}",
+    summary="Get venue completion for given country and prefiw",
+)
+async def api_tournament_get_venue_completion(
+    _: dependencies.MemberUidFromToken,
+    op: dependencies.DbOperator,
+    country: str,
+    prefix: str,
+) -> list[models.VenueCompletion]:
+    if country.lower() == "online":
+        country = ""
+    res = await op.venue_completion(country)
+    # we do some cleanup, then filter on prefix parts
+    names = set()
+    ret = []
+    prefix_parts = set(unidecode.unidecode(p).lower() for p in prefix.split())
+    for r in res:
+        r.venue = r.venue.strip()
+        if not r.venue:
+            continue
+        if r.venue[0] in "(\"'":
+            continue
+        if unidecode.unidecode(r.venue[:6]).lower() in names:
+            continue
+        if not all(
+            [
+                p
+                in [unidecode.unidecode(rp)[: len(p)].lower() for rp in r.venue.split()]
+                for p in prefix_parts
+            ]
+        ):
+            continue
+        names.add(unidecode.unidecode(r.venue[:6]).lower())
+        ret.append(r)
+    return ret
 
 
 @router.post(

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
+import logging
+import os
 import typer
 import typing
 
@@ -9,6 +11,7 @@ from . import vekn
 
 
 app = typer.Typer()
+LOG = logging.getLogger()
 
 
 async def async_reset_db(keep_members) -> None:
@@ -139,4 +142,12 @@ def recompute_ratings() -> None:
 
 
 if __name__ == "__main__":
+    handler = logging.StreamHandler()
+    LOG.addHandler(handler)
+    if os.getenv("DEBUG"):
+        LOG.setLevel(logging.DEBUG)
+        handler.setLevel(logging.DEBUG)
+    else:
+        LOG.setLevel(logging.INFO)
+        handler.setLevel(logging.INFO)
     app()

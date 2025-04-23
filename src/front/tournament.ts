@@ -362,6 +362,9 @@ export class TournamentDisplay {
     decklist_required_label: HTMLLabelElement
     online: HTMLInputElement
     venue: HTMLInputElement
+    venue_dropdown: HTMLUListElement
+    venue_focus: HTMLLIElement | undefined
+    dropdown: bootstrap.Dropdown
     country: HTMLSelectElement
     venue_url: HTMLInputElement
     address: HTMLInputElement
@@ -1416,17 +1419,6 @@ export class TournamentDisplay {
                 this.online.checked = false
             }
         }
-        { // venue
-            const div = base.create_append(form, "div", ["col-md-6"])
-            this.venue = base.create_append(div, "input", ["form-control"],
-                { type: "text", name: "venue", placeholder: "Venue", autocomplete: "section-venue organization", spellcheck: "false" }
-            )
-            this.venue.ariaLabel = "Venue"
-            this.venue.ariaAutoComplete = "none"
-            if (tournament?.venue && tournament.venue.length > 0) {
-                this.venue.value = tournament.venue
-            }
-        }
         { // country
             const div = base.create_append(form, "div", ["col-md-4"])
             this.country = base.create_append(div, "select", ["form-select"], { name: "country" })
@@ -1449,6 +1441,27 @@ export class TournamentDisplay {
                 this.country.required = true
             }
             base.create_append(div, "div", ["invalid-feedback"]).innerText = "If not online, a country is required"
+            this.country.addEventListener("change", (ev) => this.change_country())
+        }
+        { // venue
+            const div = base.create_append(form, "div", ["col-md-6"])
+            this.venue = base.create_append(div, "input", ["form-control"],
+                { type: "text", name: "venue", placeholder: "Venue", autocomplete: "section-venue organization", spellcheck: "false" }
+            )
+            this.venue.ariaLabel = "Venue"
+            this.venue.ariaAutoComplete = "list"
+            if (tournament?.venue && tournament.venue.length > 0) {
+                this.venue.value = tournament.venue
+            } else if (!tournament?.online && !tournament?.country) {
+                this.venue.disabled = true
+            }
+            this.venue.addEventListener("change", (ev) => this.change_venue())
+            this.venue_dropdown = base.create_append(div, "ul", ["dropdown-menu"])
+            base.create_append(this.venue_dropdown, "li", ["dropdown-item", "disabled"], { type: "button" }
+            ).innerText = "Start typing..."
+            this.venue.addEventListener("input", base.debounce((ev) => this.complete_venue()))
+            this.dropdown = bootstrap.Dropdown.getOrCreateInstance(this.venue)
+            div.addEventListener("keydown", (ev) => this.keydown(ev));
         }
         // ------------------------------------------------------------------------------------------------------ line 4
         { // venue_url
@@ -1459,9 +1472,11 @@ export class TournamentDisplay {
                 { type: "text", name: "venue_url", placeholder: "Venue URL", autocomplete: "section-venue url", spellcheck: "false" }
             )
             this.venue_url.ariaLabel = "Venue URL"
-            this.venue_url.ariaAutoComplete = "none"
+            this.venue_url.ariaAutoComplete = "list"
             if (tournament?.venue_url && tournament.venue_url.length > 0) {
                 this.venue_url.value = tournament.venue_url
+            } else if (this.venue.disabled) {
+                this.venue_url.disabled = true
             }
         }
         { // address
@@ -1470,12 +1485,10 @@ export class TournamentDisplay {
                 { type: "text", name: "address", placeholder: "Address", autocomplete: "section-venue street-address", spellcheck: "false" }
             )
             this.address.ariaLabel = "Address"
-            this.address.ariaAutoComplete = "none"
+            this.address.ariaAutoComplete = "list"
             if (tournament?.address && tournament.address.length > 0) {
                 this.address.value = tournament.address
-            }
-            if (tournament?.online) {
-                this.address.value = ""
+            } else if (this.venue.disabled || tournament?.online) {
                 this.address.disabled = true
             }
         }
@@ -1490,9 +1503,7 @@ export class TournamentDisplay {
             this.map_url.ariaAutoComplete = "none"
             if (tournament?.map_url && tournament.map_url.length > 0) {
                 this.map_url.value = tournament.map_url
-            }
-            if (tournament?.online) {
-                this.map_url.value = ""
+            } else if (this.venue.disabled || tournament?.online) {
                 this.map_url.disabled = true
             }
         }
@@ -1736,7 +1747,149 @@ export class TournamentDisplay {
             this.map_url.disabled = false
         }
     }
-
+    change_country() {
+        this.venue.disabled = false
+        if (this.country.selectedIndex == 0) {
+            if (!this.venue.value || this.venue.value.length < 1) {
+                this.venue.disabled = true
+            }
+        }
+        this.change_venue()
+    }
+    change_venue() {
+        this.address.disabled = false
+        this.venue_url.disabled = false
+        this.map_url.disabled = false
+        if (!this.venue.value || this.venue.value.length < 1) {
+            if (!this.address.value || this.address.value.length < 1) {
+                this.address.disabled = true
+            }
+            if (!this.venue_url.value || this.venue_url.value.length < 1) {
+                this.venue_url.disabled = true
+            }
+            if (!this.map_url.value || this.map_url.value.length < 1) {
+                this.map_url.disabled = true
+            }
+        }
+    }
+    async complete_venue() {
+        base.remove_children(this.venue_dropdown)
+        this.reset_venue_focus()
+        if (this.venue.value.length < 1) {
+            base.create_append(this.venue_dropdown, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "Start typing..."
+            return
+        }
+        if (this.venue.value.length < 3) {
+            base.create_append(this.venue_dropdown, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "Type some more..."
+            return
+        }
+        var country = this.country.value
+        if (!country || country.length < 1) {
+            country = "online"
+        }
+        const res = await base.do_fetch_with_token(
+            "/api/tournaments/venue-completion/"
+            + encodeURIComponent(country)
+            + "/"
+            + encodeURIComponent(this.venue.value),
+            this.token, {}
+        )
+        var venues_list: d.VenueCompletion[]
+        if (res) {
+            venues_list = await res.json()
+        }
+        if (!venues_list || venues_list.length < 1) {
+            base.create_append(this.venue_dropdown, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "No result"
+            return
+        }
+        for (const venue of venues_list.slice(0, 10)) {
+            const li = base.create_append(this.venue_dropdown, "li")
+            const button = base.create_append(li, "button", ["dropdown-item"],
+                { type: "button", "data-venue": JSON.stringify(venue) }
+            )
+            button.innerText = venue.venue
+            button.addEventListener("click", (ev) => this.select_venue(ev))
+        }
+        this.dropdown.show()
+    }
+    reset_venue_focus(new_focus: HTMLLIElement | undefined = undefined) {
+        if (this.venue_focus && this.venue_focus.firstElementChild) {
+            this.venue_focus.firstElementChild.classList.remove("active")
+        }
+        this.venue_focus = new_focus
+        if (this.venue_focus && this.venue_focus.firstElementChild) {
+            this.venue_focus.firstElementChild.classList.add("active")
+        }
+    }
+    select_venue(ev: Event) {
+        const button = ev.currentTarget as HTMLButtonElement
+        const venue_completion = JSON.parse(button.dataset.venue) as d.VenueCompletion
+        this.venue.value = venue_completion.venue
+        if (venue_completion.address) {
+            this.address.value = venue_completion.address
+        } else {
+            this.address.value = ""
+        }
+        if (venue_completion.venue_url) {
+            this.venue_url.value = venue_completion.venue_url
+        } else {
+            this.venue_url.value = ""
+        }
+        if (venue_completion.map_url) {
+            this.map_url.value = venue_completion.map_url
+        } else {
+            this.map_url.value = ""
+        }
+        this.change_venue()
+        this.reset_venue_focus()
+        this.dropdown.hide()
+    }
+    keydown(ev: KeyboardEvent) {
+        var next_focus: HTMLLIElement | undefined = undefined
+        switch (ev.key) {
+            case "ArrowDown": {
+                if (this.venue_focus) {
+                    next_focus = this.venue_focus.nextElementSibling as HTMLLIElement
+                } else {
+                    next_focus = this.venue_dropdown.firstElementChild as HTMLLIElement
+                }
+                if (next_focus === null) {
+                    next_focus = this.venue_focus
+                }
+                break
+            }
+            case "ArrowUp": {
+                if (this.venue_focus) {
+                    next_focus = this.venue_focus.previousElementSibling as HTMLLIElement
+                } else {
+                    next_focus = this.venue_dropdown.lastElementChild as HTMLLIElement
+                }
+                if (next_focus === null) {
+                    next_focus = this.venue_focus
+                }
+                break
+            }
+            case "Escape": {
+                break
+            }
+            case "Enter": {
+                if (this.venue_focus) {
+                    this.venue_focus.firstElementChild.dispatchEvent(new Event("click"))
+                } else {
+                    return
+                }
+                break
+            }
+            default: return
+        }
+        ev.stopPropagation()
+        ev.preventDefault()
+        if (next_focus === this.venue_focus) { return }
+        this.reset_venue_focus(next_focus)
+    }
     async submit_tournament(ev: Event, tournament: d.Tournament | undefined) {
         // create or update tournament
         ev.preventDefault()

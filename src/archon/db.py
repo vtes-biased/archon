@@ -61,6 +61,7 @@ async def init():
         await conn.set_autocommit(True)
         async with conn.cursor() as cursor:
             LOG.debug("Initialising DB")
+            # ################################################################## members
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS members("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
@@ -89,7 +90,7 @@ async def init():
                 "ON members "
                 "USING BTREE (vekn)"
             )
-            # Index for fast ranking queries
+            # Indexes for fast ranking queries
             for category in models.RankingCategoy:
                 await cursor.execute(
                     f"CREATE INDEX IF NOT EXISTS idx_member_ranking_{category.name} "
@@ -111,6 +112,7 @@ async def init():
                 "ON members "
                 "USING GIST ((data ->> 'name') gist_trgm_ops)"
             )
+            # ############################################################## tournaments
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS tournaments("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
@@ -142,21 +144,31 @@ async def init():
             await cursor.execute(
                 "CREATE OR REPLACE FUNCTION timetz(text, text) RETURNS timestamptz "
                 "AS $$select ($1 || ' ' || $2)::timestamptz$$ "
-                "LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT;"
+                "LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT"
             )
             # TODO: remove after migration
             await cursor.execute("DROP INDEX IF EXISTS idx_tournament_start")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_start "
                 "ON tournaments "
-                "USING BTREE ((timetz(data ->> 'start'::text, data ->> 'timezone'::text)), (uid::text));"
+                "USING BTREE ("
+                "(timetz(data ->> 'start'::text, data ->> 'timezone'::text)), "
+                "(uid::text)"
+                ")"
             )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_country "
+                "ON tournaments "
+                "USING BTREE((data->>'country'::text))"
+            )
+            # ################################################################## clients
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
                 "secret_hash BYTEA,"
                 "data jsonb)"
             )
+            # ######################################################## tournament_events
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS tournament_events("
                 "uid UUID PRIMARY KEY, "
@@ -339,12 +351,12 @@ class Operator:
             "data ->> 'online', "
             "data ->> 'rank', "
             "data ->> 'state' "
-            "FROM tournaments "
+            "FROM tournaments"
         )
         pieces = []
         args = []
         if filter:
-            Q += "WHERE "
+            Q += " WHERE "
         # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
         # using cursor in the WHERE clause with the appropriate index is the way to go.
         if filter:
@@ -372,7 +384,6 @@ class Operator:
             "LIMIT 100"
         )
         async with self.conn.cursor() as cursor:
-            LOG.debug("Query: %s", Q)
             res = await cursor.execute(Q, args)
             ret = [models.TournamentMinimal(*row) for row in await res.fetchall()]
             ret_filter = models.TournamentFilter()
@@ -397,6 +408,32 @@ class Operator:
             if not data:
                 return None
             return cls(**(data[0]))
+
+    async def venue_completion(self, country: str) -> list[models.VenueCompletion]:
+        """Get recent venues in given country"""
+        Q = (
+            "SELECT "
+            "data->>'venue', "
+            "data->'venue_url', "
+            "data->>'address', "
+            "data->'map_url' "
+            "FROM tournaments "
+            "WHERE timetz(data->>'start', data->>'timezone') > %s::timestamptz "
+        )
+        cutoff = datetime.datetime.now()
+        cutoff = cutoff.replace(year=cutoff.year - 3)
+        args = [cutoff.isoformat()]
+        if country:
+            Q += "AND data->>'country'=%s "
+            args.append(country)
+        else:
+            Q += "AND (data->>'country' IS NULL OR data->>'country'='') "
+        Q += "ORDER BY timetz(data->>'start', data->>'timezone') DESC"
+        async with self.conn.cursor() as cursor:
+
+            res = await cursor.execute(Q, args)
+            data = await res.fetchall()
+            return [models.VenueCompletion(*row) for row in data]
 
     async def played_tournaments(self, uid: str) -> list[models.Tournament]:
         """Get all tournament played by a given member"""

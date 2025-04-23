@@ -311,6 +311,14 @@ class TournamentFilter(pydantic.BaseModel):
 
 
 @dataclasses.dataclass
+class VenueCompletion:
+    venue: str
+    venue_url: str | None
+    address: str | None
+    map_url: str | None
+
+
+@dataclasses.dataclass
 class DeckInfo:
     deck: KrcgDeck
     score: scoring.Score
