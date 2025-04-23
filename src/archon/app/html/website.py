@@ -219,7 +219,51 @@ async def html_vekn_abandon(
 
 @router.get("/")
 async def root(request: fastapi.Request):
-    return fastapi.responses.RedirectResponse(request.url_for("index"))
+    return fastapi.responses.RedirectResponse(
+        request.url_for("index"), fastapi.status.HTTP_308_PERMANENT_REDIRECT
+    )
+
+
+def _ranked(members: list[models.Person], category: models.RankingCategoy):
+    members.sort(key=lambda x: -x.ranking.get(category, 0))
+    rank, passed, rating = 0, 0, math.inf
+    for member in members:
+        member_rating = member.ranking.get(category, 0)
+        if member_rating == 0:
+            break
+        if member_rating < rating:
+            rank += 1 + passed
+            rating = member_rating
+            passed = 0
+        else:
+            passed += 1
+        if rank > 500:
+            break
+        yield rank, member
+
+
+@dependencies.async_timed_cache()
+async def _get_rankings(
+    op: dependencies.DbOperator,
+) -> dict[str, list[tuple[int, models.Person]]]:
+    members = await op.get_ranked_members()
+    return {
+        category.value: list(_ranked(members, category))
+        for category in models.RankingCategoy
+    }
+
+
+@dependencies.async_timed_cache()
+async def _get_rankings_anonymised(
+    op: dependencies.DbOperator,
+) -> dict[str, list[tuple[int, models.Person]]]:
+    members = await op.get_ranked_members()
+    for member in members:
+        member.name = ""
+    return {
+        category.value: list(_ranked(members, category))
+        for category in models.RankingCategoy
+    }
 
 
 @router.get("/index.html")
@@ -229,33 +273,11 @@ async def index(
     op: dependencies.DbOperator,
 ):
     request.session["next"] = str(request.url_for("index"))
-    members: list[models.Person] = await op.get_members()
     if "member" not in context:
-        for member in members:
-            member.name = ""
-
-    # compute rankings
-    def ranked(members, category):
-        members.sort(key=lambda x: -x.ranking.get(category, 0))
-        rank, passed, rating = 0, 0, math.inf
-        for member in members:
-            member_rating = member.ranking.get(category, 0)
-            if member_rating == 0:
-                break
-            if member_rating < rating:
-                rank += 1 + passed
-                rating = member_rating
-                passed = 0
-            else:
-                passed += 1
-            if rank > 500:
-                break
-            yield rank, member
-
-    context["members"] = {
-        category.value: list(ranked(members, category))
-        for category in models.RankingCategoy
-    }
+        rankings = await _get_rankings_anonymised(op)
+    else:
+        rankings = await _get_rankings(op)
+    context["members"] = rankings
     return TEMPLATES.TemplateResponse(
         request=request, name="index.html.j2", context=context
     )

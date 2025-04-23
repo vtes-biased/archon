@@ -89,6 +89,13 @@ async def init():
                 "ON members "
                 "USING BTREE (vekn)"
             )
+            # Index for fast ranking queries
+            for category in models.RankingCategoy:
+                await cursor.execute(
+                    f"CREATE INDEX IF NOT EXISTS idx_member_ranking_{category.name} "
+                    "ON members "
+                    f"USING BTREE (((data -> 'ranking' -> '{category.value}')::int))"
+                )
             # Index roles
             # TODO: remove after migration
             await cursor.execute("DROP INDEX IF EXISTS idx_member_roles")
@@ -540,6 +547,23 @@ class Operator:
                 )
             else:
                 res = await cursor.execute("SELECT data FROM members")
+            return [
+                self._instanciate_member(data[0], models.Person)
+                for data in await res.fetchall()
+            ]
+
+    async def get_ranked_members(self) -> list[models.Person]:
+        """Get members with a prominant rank in any category"""
+        async with self.conn.cursor() as cursor:
+            subqueries = []
+            for category in models.RankingCategoy:
+                subqueries.append(
+                    "(SELECT data FROM members "
+                    f"WHERE (data->'ranking'->'{category.value}')::int IS NOT NULL "
+                    f"ORDER BY (data->'ranking'->'{category.value}')::int DESC "
+                    "LIMIT 600)"
+                )
+            res = await cursor.execute(" UNION ".join(subqueries))
             return [
                 self._instanciate_member(data[0], models.Person)
                 for data in await res.fetchall()

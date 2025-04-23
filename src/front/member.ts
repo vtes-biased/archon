@@ -36,7 +36,6 @@ export class MembersDB {
 
     async init() {
         this.trie = new Map()
-        console.log("init members map")
         var trigger_refresh = false
         const perf_nav = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
         if (perf_nav.type == "reload") {
@@ -72,8 +71,9 @@ export class MembersDB {
         })
         if (trigger_refresh) {
             await this.refresh()
+        } else {
+            await this.build_trie()
         }
-        await this.build_trie()
     }
 
     async refresh() {
@@ -81,20 +81,17 @@ export class MembersDB {
         const res = await base.do_fetch_with_token("/api/vekn/members", this.token, {})
         if (!res) { return }
         const members = await res.json() as d.Person[]
-        console.log("members", members.length)
         const tr = this.db.transaction("members", "readwrite")
         await tr.store.clear()
         for (const member of members) {
             tr.store.put(member)
         }
         await tr.done
-        console.log("members saved")
         await this.build_trie()
         sessionStorage.setItem("members_refresh", DateTime.now().toISO())
     }
 
     async build_trie() {
-        console.log("refreshing trie")
         this.trie.clear()
         for (const person of await this.db.getAll("members")) {
             const parts = normalize_string(person.name).split(" ")

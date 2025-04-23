@@ -1,4 +1,5 @@
 import aiohttp
+import asyncio
 import base64
 import datetime
 import dotenv
@@ -148,6 +149,28 @@ async def vekn_sync(tournament: models.Tournament, rounds: int):
         await vekn.upload_tournament(tournament, rounds)
     if tournament.state == models.TournamentState.FINISHED:
         await vekn.upload_tournament_result(tournament)
+
+
+def async_timed_cache(duration: datetime.timedelta = datetime.timedelta(minutes=5)):
+    def wrapper(async_fun):
+        lock = asyncio.Lock()
+        cache = []
+
+        @functools.wraps(async_fun)
+        async def inner(*args, **kwargs):
+            if not cache or datetime.datetime.now() - cache[0] > duration:
+                async with lock:
+                    ret = await async_fun(*args, **kwargs)
+                    cache.clear()
+                    cache.append(datetime.datetime.now())
+                    cache.append(ret)
+            else:
+                LOG.debug("Using cached value for %s", async_fun.__name__)
+            return cache[1]
+
+        return inner
+
+    return wrapper
 
 
 # ################################################################################## Doc
