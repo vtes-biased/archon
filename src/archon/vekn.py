@@ -858,7 +858,9 @@ TOURNAMENT_TYPE_TO_FORMAT_RANK = {
 }
 
 
-async def upload_tournament(tournament: models.Tournament, rounds: int) -> None:
+async def upload_tournament(
+    tournament: models.Tournament, rounds: int, user_vekn: str
+) -> None:
     type = TournamentType.UNSANCTIONED_TOURNAMENT
     match (tournament.format, tournament.rank):
         case (models.TournamentFormat.Draft, _):
@@ -889,7 +891,7 @@ async def upload_tournament(tournament: models.Tournament, rounds: int) -> None:
     if tournament.finish:
         finish = tournament.finish.astimezone(tz=datetime.timezone.utc)
     else:
-        finish = start + datetime.timedelta(hours=6)
+        finish = start + datetime.timedelta(minutes=1)
     try:
         async with aiohttp.ClientSession() as session:
             token = await get_token(session)
@@ -917,10 +919,11 @@ async def upload_tournament(tournament: models.Tournament, rounds: int) -> None:
             event_id = None
             # http POST https://www.vekn.net/api/vekn/event
             # "Authorization: Bearer <TOKEN>"
+            # "Vekn-Id: <USER_VEKN>"
             # -f name=<NAME> type=<TYPE> <...>
             async with session.post(
                 "https://www.vekn.net/api/vekn/event",
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}", "Vekn-Id": user_vekn},
                 data=data,
             ) as response:
                 response.raise_for_status()

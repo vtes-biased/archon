@@ -144,9 +144,11 @@ TournamentOrchestrator = typing.Annotated[
 
 
 # ################################################################################ Utils
-async def vekn_sync(tournament: models.Tournament, rounds: int):
+async def vekn_sync(tournament: models.Tournament, rounds: int, user: models.Person):
+    if not user.vekn:
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
     if not tournament.extra.get("vekn_id"):
-        await vekn.upload_tournament(tournament, rounds)
+        await vekn.upload_tournament(tournament, rounds, user.vekn)
     if tournament.state == models.TournamentState.FINISHED:
         await vekn.upload_tournament_result(tournament)
 

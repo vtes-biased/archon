@@ -161,7 +161,7 @@ async def vekn_sync(
     rounds: typing.Annotated[int, fastapi.Path()],
 ) -> models.Tournament:
     dependencies.check_can_admin_tournament(member, tournament)
-    await dependencies.vekn_sync(tournament, rounds)
+    await dependencies.vekn_sync(tournament, rounds, member)
     await op.update_tournament(tournament)
     return tournament
 
@@ -243,6 +243,8 @@ async def api_tournament_event_post(
                 del member.sanctions[idx]
         await op.update_member(member)
     if event.type == events.EventType.FINISH_TOURNAMENT:
-        await dependencies.vekn_sync(orchestrator, max(1, len(orchestrator.rounds)))
+        await dependencies.vekn_sync(
+            orchestrator, max(1, len(orchestrator.rounds)), actor
+        )
         await op.update_tournament(orchestrator)
     return orchestrator
