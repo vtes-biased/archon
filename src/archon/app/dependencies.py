@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import base64
+import dataclasses
 import datetime
 import dotenv
 import fastapi_mail
@@ -100,11 +101,45 @@ async def get_db_op():
 DbOperator = typing.Annotated[db.Operator, fastapi.Depends(get_db_op)]
 
 
+def get_member_uid_from_session(request: fastapi.Request) -> str:
+    if not request.session.get("user_id", None):
+        anonymous_session(request)
+        raise LoginRequired()
+    return request.session["user_id"]
+
+
+#: Check we're in an authenticated session and return the member UID
+MemberUidFromSession = typing.Annotated[
+    str, fastapi.Depends(get_member_uid_from_session)
+]
+
+
+async def get_member_from_session(
+    request: fastapi.Request, member_uid: MemberUidFromSession, op: DbOperator
+) -> models.Person:
+    member = await op.get_member(member_uid, cls=models.Person)
+    # Valid user_id in session, but member not in DB
+    if not member:
+        anonymous_session(request)
+        raise LoginRequired()
+    return member
+
+
+#: Check we're in an authenticated session and return the member data from DB
+PersonFromSession = typing.Annotated[
+    models.Person, fastapi.Depends(get_member_from_session)
+]
+
+
 async def get_tournament(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
-) -> models.Tournament:
-    return await op.get_tournament(uid)
+    actor: PersonFromSession,
+) -> models.Tournament | models.TournamentInfo:
+    ret = await op.get_tournament(uid)
+    if not can_admin_tournament(actor, ret):
+        ret = models.TournamentInfo(**dataclasses.asdict(ret))
+    return ret
 
 
 async def get_tournament_config(
@@ -240,18 +275,25 @@ def can_organize(member: models.Person) -> bool:
     }
 
 
-def check_can_admin_tournament(member: models.Person, tournament: models.Tournament):
+def can_admin_tournament(member: models.Person, tournament: models.TournamentConfig):
     if models.MemberRole.ADMIN in member.roles:
-        return
+        return True
     if models.MemberRole.NC in member.roles and member.country == tournament.country:
-        return
+        return True
     if member.uid in [j.uid for j in tournament.judges]:
-        return
-    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+        return True
+    return False
 
 
 def check_organizer(member: models.Person) -> None:
     if not can_organize(member):
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
+def check_can_admin_tournament(
+    member: models.Person, tournament: models.TournamentConfig
+):
+    if not can_admin_tournament(member, tournament):
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
@@ -376,36 +418,6 @@ SessionContext = typing.Annotated[
 
 
 class LoginRequired(Exception): ...
-
-
-def get_member_uid_from_session(request: fastapi.Request) -> str:
-    if not request.session.get("user_id", None):
-        anonymous_session(request)
-        raise LoginRequired()
-    return request.session["user_id"]
-
-
-#: Check we're in an authenticated session and return the member UID
-MemberUidFromSession = typing.Annotated[
-    str, fastapi.Depends(get_member_uid_from_session)
-]
-
-
-async def get_member_from_session(
-    request: fastapi.Request, member_uid: MemberUidFromSession, op: DbOperator
-) -> models.Person:
-    member = await op.get_member(member_uid, cls=models.Person)
-    # Valid user_id in session, but member not in DB
-    if not member:
-        anonymous_session(request)
-        raise LoginRequired()
-    return member
-
-
-#: Check we're in an authenticated session and return the member data from DB
-PersonFromSession = typing.Annotated[
-    models.Person, fastapi.Depends(get_member_from_session)
-]
 
 
 # ############################################################### Security: Social Login

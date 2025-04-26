@@ -252,6 +252,7 @@ class TournamentMinimal:
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     country: str | None = None
     online: bool = False
+    league: str | None = None
     rank: TournamentRank = TournamentRank.BASIC
     state: TournamentState = TournamentState.REGISTRATION
 

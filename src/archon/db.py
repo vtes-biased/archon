@@ -349,6 +349,7 @@ class Operator:
             "uid::text, "
             "data ->> 'country', "
             "data ->> 'online', "
+            "data ->> 'league', "
             "data ->> 'rank', "
             "data ->> 'state' "
             "FROM tournaments"
