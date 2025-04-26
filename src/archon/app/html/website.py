@@ -332,7 +332,7 @@ def _filter(cls, filter_cls, obj):
 async def tournament_display(
     request: fastapi.Request,
     context: dependencies.SessionContext,
-    tournament: dependencies.Tournament,
+    tournament: dependencies.TournamentInfo,
 ):
     request.session["next"] = str(
         request.url_for("tournament_display", uid=tournament.uid)
@@ -405,9 +405,7 @@ async def tournament_console(
     request: fastapi.Request,
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
-    member: dependencies.PersonFromSession,
 ):
-    dependencies.check_can_admin_tournament(member, tournament)
     context["tournament"] = tournament
     return TEMPLATES.TemplateResponse(
         request=request,
@@ -421,9 +419,7 @@ async def tournament_checkin(
     request: fastapi.Request,
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
-    member: dependencies.PersonFromSession,
 ):
-    dependencies.check_can_admin_tournament(member, tournament)
     context["name"] = tournament.name
     context["code"] = tournament.checkin_code
     return TEMPLATES.TemplateResponse(
@@ -439,9 +435,7 @@ async def tournament_print_seating(
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
     round: typing.Annotated[int, fastapi.Query()],
-    member: dependencies.PersonFromSession,
 ):
-    dependencies.check_can_admin_tournament(member, tournament)
     context["round_number"] = round
     context["round"] = []
     if round == len(tournament.rounds) and tournament.finals_seeds:
@@ -470,9 +464,7 @@ async def tournament_print_standings(
     request: fastapi.Request,
     context: dependencies.SessionContext,
     tournament: dependencies.Tournament,
-    member: dependencies.PersonFromSession,
 ):
-    dependencies.check_can_admin_tournament(member, tournament)
     context["round_number"] = len(tournament.rounds)
     standings = engine.standings(tournament)
     finished = tournament.state == models.TournamentState.FINISHED

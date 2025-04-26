@@ -161,6 +161,29 @@ async def init():
                 "ON tournaments "
                 "USING BTREE((data->>'country'::text))"
             )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_league "
+                "ON tournaments "
+                "USING BTREE((data->>'league'::text))"
+            )
+            # ################################################################### league
+            await cursor.execute(
+                "CREATE TABLE IF NOT EXISTS leagues("
+                "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
+                "start TIMESTAMPTZ NOT NULL, "
+                "finish TIMESTAMPTZ, "
+                "data jsonb)"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_league_start "
+                "ON leagues "
+                "USING BTREE ((start), (uid::text))"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_league_finish "
+                "ON leagues "
+                "USING BTREE ((finish), (uid::text))"
+            )
             # ################################################################## clients
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
@@ -325,16 +348,6 @@ class Operator:
                 return str((await res.fetchone())[0])
 
     async def get_tournaments(
-        self, cls: typing.Type[T] = models.Tournament
-    ) -> list[models.Tournament]:
-        """List all tournaments.
-        TODO: paginate. We'll need an index on tournament.start
-        """
-        async with self.conn.cursor() as cursor:
-            res = await cursor.execute("SELECT data FROM tournaments")
-            return [cls(**row[0]) for row in await res.fetchall()]
-
-    async def get_tournaments_minimal(
         self,
         filter: models.TournamentFilter | None = None,
     ) -> tuple[models.TournamentFilter, list[models.TournamentMinimal]]:
@@ -1062,6 +1075,53 @@ class Operator:
         else:
             data["city"] = None
         return cls(**data)
+
+    async def create_league(self, league: models.League) -> str:
+        """Create a league, returns its uid"""
+        uid = uuid.uuid4()
+        league.uid = str(uid)
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "INSERT INTO leagues (uid, start, finish, data) "
+                "VALUES (%s, %s) RETURNING uid",
+                [uid, league.start, league.finish, jsonize(league)],
+            )
+            return str((await res.fetchone())[0])
+
+    async def update_league(self, league: models.League) -> str:
+        """Update a league, returns its uid"""
+        uid = uuid.UUID(league.uid)
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "UPDATE league SET (start, finish, data)=(%s, %s, %s) WHERE uid=%s",
+                [league.start, league.finish, jsonize(league), uid],
+            )
+            if res.rowcount < 1:
+                raise KeyError(f"League {uid} not found")
+            return str(uid)
+
+    async def delete_league(self, uid: str) -> str:
+        """Delete a league"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "DELETE FROM leagues WHERE uid=%s", [uuid.UUID(uid)]
+            )
+            if res.rowcount < 1:
+                raise KeyError(f"League {uid} not found")
+            await cursor.execute(
+                "UPDATE tournaments SET data->>'league' = NULL "
+                "WHERE data->>'league'::text = %s",
+                [uid],
+            )
+
+    async def get_leagues(self) -> list[models.League]:
+        """Get all leagues"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute("SELECT data FROM leagues")
+            data = await res.fetchall()
+            if not data:
+                return None
+            return [models.League(**(row[0])) for row in data]
 
 
 @contextlib.asynccontextmanager

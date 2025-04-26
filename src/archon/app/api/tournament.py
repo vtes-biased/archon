@@ -26,7 +26,7 @@ async def api_tournaments(
         filter = filter
     else:
         filter = None
-    return await op.get_tournaments_minimal(filter)
+    return await op.get_tournaments(filter)
 
 
 @router.post("/", summary="Create a new tournament")
@@ -82,23 +82,24 @@ async def api_tournament_get(
 
 @router.get("/{uid}/info", summary="Get tournament public information")
 async def api_tournament_get_info(
-    tournament: dependencies.Tournament, member: dependencies.PersonFromToken
-) -> models.Tournament | models.TournamentInfo:
+    tournament: dependencies.TournamentInfo, _: dependencies.PersonFromToken
+) -> models.TournamentInfo:
     """Get tournament information
 
     - **uid**: The tournament unique ID
     """
-    return models.TournamentInfo(**dataclasses.asdict(tournament))
+    return tournament
 
 
 @router.get("/{uid}/decks", summary="Get tournament decks information")
 async def api_tournament_get_decks(
-    tournament: dependencies.Tournament, _: dependencies.MemberUidFromToken
+    tournament: dependencies.TournamentConfig, member: dependencies.MemberFromToken
 ) -> models.TournamentDeckInfo:
-    """Get tournament information
+    """Get tournament decks (organizers only)
 
     - **uid**: The tournament unique ID
     """
+    dependencies.check_can_admin_tournament(member, tournament)
     res = models.TournamentDeckInfo(**dataclasses.asdict(tournament))
     if tournament.multideck:
         for round_ in tournament.rounds:
@@ -160,7 +161,6 @@ async def vekn_sync(
     op: dependencies.DbOperator,
     rounds: typing.Annotated[int, fastapi.Path()],
 ) -> models.Tournament:
-    dependencies.check_can_admin_tournament(member, tournament)
     await dependencies.vekn_sync(tournament, rounds, member)
     await op.update_tournament(tournament)
     return tournament
@@ -169,11 +169,9 @@ async def vekn_sync(
 @router.post("/{uid}/set-vekn/{vekn_id}", summary="Create tournament on vekn.net")
 async def set_vekn(
     tournament: dependencies.Tournament,
-    member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     vekn_id: typing.Annotated[str, fastapi.Path()],
 ) -> models.Tournament:
-    dependencies.check_can_admin_tournament(member, tournament)
     tournament.extra["vekn_id"] = vekn_id
     await op.update_tournament(tournament)
     return tournament

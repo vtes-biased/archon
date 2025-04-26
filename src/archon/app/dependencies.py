@@ -134,12 +134,11 @@ PersonFromSession = typing.Annotated[
 async def get_tournament(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
-    actor: PersonFromSession,
-) -> models.Tournament | models.TournamentInfo:
-    ret = await op.get_tournament(uid)
-    if not can_admin_tournament(actor, ret):
-        ret = models.TournamentInfo(**dataclasses.asdict(ret))
-    return ret
+    member: PersonFromSession,
+) -> models.Tournament:
+    tournament = await op.get_tournament(uid)
+    check_can_admin_tournament(member, tournament)
+    return tournament
 
 
 async def get_tournament_config(
@@ -166,13 +165,17 @@ async def get_tournament_orchestrator(
     return ret
 
 
+# This checks the member (from their token) can administrate the tournament
 Tournament = typing.Annotated[models.Tournament, fastapi.Depends(get_tournament)]
-TournamentConfig = typing.Annotated[
-    models.TournamentConfig, fastapi.Depends(get_tournament_config)
-]
+# This checks there is a member token (not public)
 TournamentInfo = typing.Annotated[
     models.TournamentConfig, fastapi.Depends(get_tournament_info)
 ]
+# This is public information
+TournamentConfig = typing.Annotated[
+    models.TournamentConfig, fastapi.Depends(get_tournament_config)
+]
+# This checks there is a member token, but data should never be returned as is
 TournamentOrchestrator = typing.Annotated[
     engine.TournamentOrchestrator, fastapi.Depends(get_tournament_orchestrator)
 ]
@@ -577,8 +580,7 @@ oauth2_scheme = fastapi.security.OAuth2AuthorizationCodeBearer(
 )
 
 
-# cache expected auth tokens in memory
-# TODO: remove the keys after an hour has passed
+# cache expected auth tokens in memory - this is reset on every reboot (eg. daily)
 EXPECTED_AUTH_TOKENS = set()
 
 
