@@ -561,3 +561,47 @@ async def member_display(
         name="member/display.html.j2",
         context=context,
     )
+
+
+@router.get("/league/{uid}/display.html")
+async def league_display(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    _: dependencies.MemberUidFromSession,
+    uid: typing.Annotated[str, fastapi.Path()],
+):
+    request.session["next"] = str(request.url_for("league_display", uid=uid))
+    context["league_uid"] = uid
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="league/display.html.j2",
+        context=context,
+    )
+
+
+@router.get("/league/list.html")
+async def league_list(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+):
+    request.session["next"] = str(request.url_for("league_list"))
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="league/list.html.j2",
+        context=context,
+    )
+
+
+@router.get("/league/create.html")
+async def league_create(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    member: dependencies.PersonFromSession,
+):
+    request.session["next"] = str(request.url_for("league_create"))
+    dependencies.check_organizer(member)
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="league/display.html.j2",
+        context=context,
+    )

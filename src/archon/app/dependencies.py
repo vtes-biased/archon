@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import base64
-import dataclasses
 import datetime
 import dotenv
 import fastapi_mail
@@ -78,7 +77,7 @@ class Token:
 
 
 @pydantic.dataclasses.dataclass
-class TournamentUrl:
+class ItemUrl:
     uid: str
     url: str
 
@@ -278,16 +277,6 @@ def can_organize(member: models.Person) -> bool:
     }
 
 
-def can_admin_tournament(member: models.Person, tournament: models.TournamentConfig):
-    if models.MemberRole.ADMIN in member.roles:
-        return True
-    if models.MemberRole.NC in member.roles and member.country == tournament.country:
-        return True
-    if member.uid in [j.uid for j in tournament.judges]:
-        return True
-    return False
-
-
 def check_organizer(member: models.Person) -> None:
     if not can_organize(member):
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
@@ -296,8 +285,23 @@ def check_organizer(member: models.Person) -> None:
 def check_can_admin_tournament(
     member: models.Person, tournament: models.TournamentConfig
 ):
-    if not can_admin_tournament(member, tournament):
-        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    if models.MemberRole.ADMIN in member.roles:
+        return
+    if models.MemberRole.NC in member.roles and member.country == tournament.country:
+        return
+    if member.uid in [j.uid for j in tournament.judges]:
+        return
+    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+
+
+def check_can_admin_league(member: models.Person, league: models.League):
+    if models.MemberRole.ADMIN in member.roles:
+        return
+    if models.MemberRole.NC in member.roles and member.country == league.country:
+        return
+    if member.uid in [j.uid for j in league.organizers]:
+        return
+    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
 def check_can_change_info(member: models.Person, target: models.Person):
@@ -662,6 +666,7 @@ def get_member_uid_from_token(
     return user_id
 
 
+# A lightweight uid-only info (no DB query)
 MemberUidFromToken = typing.Annotated[str, fastapi.Depends(get_member_uid_from_token)]
 
 
@@ -679,6 +684,7 @@ async def get_person_from_token(
     return member
 
 
+# The "normal" way of getting a member data (no lock)
 PersonFromToken = typing.Annotated[
     models.Person, fastapi.Depends(get_person_from_token)
 ]
@@ -698,6 +704,7 @@ async def get_member_from_token(
     return member
 
 
+# Get the complete Member data for update (locks)
 MemberFromToken = typing.Annotated[
     models.Member, fastapi.Depends(get_member_from_token)
 ]

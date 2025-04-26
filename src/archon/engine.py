@@ -668,7 +668,7 @@ class TournamentOrchestrator(TournamentManager):
         self, config: models.TournamentConfig, member: models.Person
     ) -> None:
         self._check_judge(None, member)
-        LOG.info("Updating tournament config: %s", config)
+        LOG.warning("Updating tournament config: %s", config)
         if not config.judges:
             raise ConfigError("A tournament must have at least one judge")
         if (
@@ -683,7 +683,7 @@ class TournamentOrchestrator(TournamentManager):
         if config.multideck and config.decklist_required:
             raise ConfigError("Multideck tournaments cannot require decklists")
         for field in dataclasses.fields(config):
-            if field.name == "uid":
+            if field.name in ["uid", "state"]:
                 continue
             value = getattr(config, field.name)
             setattr(self, field.name, value)
@@ -991,7 +991,7 @@ class TournamentOrchestrator(TournamentManager):
 # ################################################################ Convenience functions
 
 
-def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
+def standings(tournament: models.TournamentInfo) -> list[tuple[int, models.PlayerInfo]]:
     def sort_key(p):
         return (
             p.state == models.PlayerState.FINISHED,
@@ -1025,7 +1025,7 @@ def standings(tournament: models.Tournament) -> list[tuple[int, models.Player]]:
     return res
 
 
-def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]:
+def ratings(tournament: models.TournamentInfo) -> dict[str, models.TournamentRating]:
     """Returns a dict of {member_uid: TournamentRating}"""
     if tournament.state != models.TournamentState.FINISHED:
         return {}
@@ -1041,10 +1041,15 @@ def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]
         coef += 1
     for rank, player in standings(tournament):
         rating_points = 5 + 4 * player.result.vp + 8 * player.result.gw
+        gp_points = 3
         if rank == 1:
             rating_points += round(90 * coef)
+            gp_points = 25
         elif rank == 2:
             rating_points += round(30 * coef)
+            gp_points = 15
+        elif rank <= 10:
+            gp_points = (10 - rank) + 6
         ret[player.uid] = models.TournamentRating(
             tournament=models.TournamentMinimal(**dataclasses.asdict(tournament)),
             size=size,
@@ -1052,6 +1057,7 @@ def ratings(tournament: models.Tournament) -> dict[str, models.TournamentRating]
             result=player.result,
             rank=rank,
             rating_points=rating_points,
+            gp_points=gp_points,
         )
     return ret
 

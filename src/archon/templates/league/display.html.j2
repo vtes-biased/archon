@@ -1,0 +1,13 @@
+{% extends "layout.html.j2" %}
+
+{% block scripts %}
+<script async src="{{ url_for('static', path='league_display.js') }}" type="module"></script>
+{% endblock%}
+
+{% block content %}
+{% if league_uid %}
+<div id="leagueDisplay" data-league-uid='{{ league_uid }}'></div>
+{% else %}
+<div id="leagueDisplay"></div>
+{% endif %}
+{% endblock %}

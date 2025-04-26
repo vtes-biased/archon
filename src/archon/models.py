@@ -64,6 +64,12 @@ class RankingCategoy(enum.StrEnum):
     LIMITED_ONSITE = "Limited Onsite"
 
 
+class LeagueRanking(enum.StrEnum):
+    RTP = "RTP"
+    GP = "GP"
+    Score = "Score"
+
+
 class MemberRole(enum.StrEnum):
     ADMIN = "Admin"
     PRINCE = "Prince"
@@ -166,6 +172,14 @@ class PlayerInfo(PublicPerson):
     seat: int = 0  # non-zero when playing
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
     seed: int = 0  # Finals seed
+    toss: int = 0  # non-zero when draws for seeding finals
+
+
+@dataclasses.dataclass
+class LeaguePlayer(PublicPerson):
+    tournaments: list[str] = pydantic.Field(default_factory=list)
+    score: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    points: int = 0
 
 
 @dataclasses.dataclass
@@ -243,6 +257,26 @@ class Sanction:
 
 
 @dataclasses.dataclass
+class LeagueInfo:
+    name: str
+    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
+
+
+@dataclasses.dataclass(kw_only=True)
+class League(LeagueInfo):
+    start: datetime.datetime
+    timezone: str
+    format: TournamentFormat
+    ranking: LeagueRanking
+    finish: datetime.datetime | None = None
+    description: str = ""
+    online: bool = False
+    country: str | None = None
+    country_flag: str | None = None
+    organizers: list[PublicPerson] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass
 class TournamentMinimal:
     name: str
     format: TournamentFormat
@@ -251,8 +285,9 @@ class TournamentMinimal:
     timezone: str = "UTC"
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     country: str | None = None
+    country_flag: str | None = None
     online: bool = False
-    league: str | None = None
+    league: LeagueInfo | None = None
     rank: TournamentRank = TournamentRank.BASIC
     state: TournamentState = TournamentState.REGISTRATION
 
@@ -296,7 +331,7 @@ class Tournament(TournamentConfig):
 
 @dataclasses.dataclass
 class TournamentInfo(TournamentConfig):
-    players: dict[str, PublicPerson] = pydantic.Field(default_factory=dict)
+    players: dict[str, PlayerInfo] = pydantic.Field(default_factory=dict)
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[RoundInfo] = pydantic.Field(default_factory=list)
     winner: str = ""
@@ -329,6 +364,20 @@ class DeckInfo:
 @dataclasses.dataclass
 class TournamentDeckInfo(TournamentConfig):
     decks: list[DeckInfo] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass
+class LeagueWithTournaments(League):
+    tournaments: list[TournamentInfo] = pydantic.Field(default_factory=list)
+    rankings: list[tuple[int, LeaguePlayer]] = pydantic.Field(default_factory=list)
+
+
+# note: cannot use dataclass as query param
+class LeagueFilter(pydantic.BaseModel):
+    date: str = ""
+    uid: str = ""
+    country: str = ""
+    online: bool = True
 
 
 @dataclasses.dataclass
@@ -405,6 +454,7 @@ class TournamentRating:
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
     rank: int = 0
     rating_points: int = 0
+    gp_points: int = 0
 
 
 @dataclasses.dataclass

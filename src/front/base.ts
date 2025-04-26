@@ -46,6 +46,12 @@ export function remove_children(el: HTMLElement) {
     }
 }
 
+export function remove_but_one_children(el: HTMLElement) {
+    while (el.childElementCount > 1) {
+        el.removeChild(el.lastElementChild)
+    }
+}
+
 export function add_tooltip(el: HTMLElement, tip: string): bootstrap.Tooltip {
     el.dataset.bsToggle = "tooltip"
     el.dataset.bsTitle = tip

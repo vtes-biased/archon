@@ -9,6 +9,7 @@ import logging
 import orjson
 import os
 import psycopg
+import psycopg.rows
 import psycopg.types.json
 import psycopg_pool
 import secrets
@@ -161,10 +162,12 @@ async def init():
                 "ON tournaments "
                 "USING BTREE((data->>'country'::text))"
             )
+            # TODO: remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_league")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_league "
                 "ON tournaments "
-                "USING BTREE((data->>'league'::text))"
+                "USING BTREE((data->'league'->>'uid'::text))"
             )
             # ################################################################### league
             await cursor.execute(
@@ -308,7 +311,7 @@ class Operator:
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "INSERT INTO tournaments (uid, data) VALUES (%s, %s) RETURNING uid",
-                [uid, jsonize(tournament)],
+                [uid, self._jsonize(tournament)],
             )
             return str((await res.fetchone())[0])
 
@@ -333,7 +336,7 @@ class Operator:
                 tournament.extra["external"] = True
                 res = await cursor.execute(
                     "UPDATE tournaments SET data=%s WHERE uid=%s",
-                    [jsonize(tournament), uid],
+                    [self._jsonize(tournament), uid],
                 )
                 return str(uid)
             else:
@@ -343,7 +346,7 @@ class Operator:
                 res = await cursor.execute(
                     "INSERT INTO tournaments (uid, data) "
                     "VALUES (%s, %s) RETURNING uid",
-                    [uid, jsonize(tournament)],
+                    [uid, self._jsonize(tournament)],
                 )
                 return str((await res.fetchone())[0])
 
@@ -354,26 +357,26 @@ class Operator:
         """List all tournaments with minimal information"""
         Q = (
             "SELECT "
-            "data ->> 'name', "
-            "data ->> 'format', "
-            "data ->> 'start', "
-            "data ->> 'finish', "
-            "data ->> 'timezone', "
-            "uid::text, "
-            "data ->> 'country', "
-            "data ->> 'online', "
-            "data ->> 'league', "
-            "data ->> 'rank', "
-            "data ->> 'state' "
+            "(data ->> 'name') AS name, "
+            "(data ->> 'format') AS format, "
+            "(data ->> 'start') AS start, "
+            "(data ->> 'finish') AS finish, "
+            "(data ->> 'timezone') AS timezone, "
+            "(uid::text) AS uid, "
+            "(data ->> 'country') AS country, "
+            "(data ->> 'country_iso') AS country_iso, "
+            "(data ->> 'online') AS online, "
+            "(data -> 'league') AS league, "
+            "(data ->> 'rank') AS rank, "
+            "(data ->> 'state') AS state "
             "FROM tournaments"
         )
         pieces = []
         args = []
         if filter:
+            # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
+            # using cursor in the WHERE clause with the appropriate index is the way to go.
             Q += " WHERE "
-        # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
-        # using cursor in the WHERE clause with the appropriate index is the way to go.
-        if filter:
             if filter.uid:
                 pieces.append(
                     "(timetz(data ->> 'start', data ->> 'timezone') < %s::timestamptz "
@@ -397,9 +400,12 @@ class Operator:
             " ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC "
             "LIMIT 100"
         )
-        async with self.conn.cursor() as cursor:
+        async with self.conn.cursor(row_factory=psycopg.rows.dict_row) as cursor:
             res = await cursor.execute(Q, args)
-            ret = [models.TournamentMinimal(*row) for row in await res.fetchall()]
+            ret = [
+                self._instanciate(row, models.TournamentMinimal)
+                for row in await res.fetchall()
+            ]
             ret_filter = models.TournamentFilter()
             if filter:
                 ret_filter.country = filter.country
@@ -421,16 +427,16 @@ class Operator:
             data = await res.fetchone()
             if not data:
                 return None
-            return cls(**(data[0]))
+            return self._instanciate(data[0], cls)
 
     async def venue_completion(self, country: str) -> list[models.VenueCompletion]:
         """Get recent venues in given country"""
         Q = (
             "SELECT "
             "data->>'venue', "
-            "data->'venue_url', "
+            "data->>'venue_url', "
             "data->>'address', "
-            "data->'map_url' "
+            "data->>'map_url' "
             "FROM tournaments "
             "WHERE timetz(data->>'start', data->>'timezone') > %s::timestamptz "
         )
@@ -449,21 +455,13 @@ class Operator:
             data = await res.fetchall()
             return [models.VenueCompletion(*row) for row in data]
 
-    async def played_tournaments(self, uid: str) -> list[models.Tournament]:
-        """Get all tournament played by a given member"""
-        async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT data FROM tournaments WHERE data->'players' ? %s", [uid]
-            )
-            return [models.Tournament(**data[0]) for data in await res.fetchall()]
-
     async def update_tournament(self, tournament: models.Tournament) -> str:
         """Update a tournament, returns its uid"""
         uid = uuid.UUID(tournament.uid)
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "UPDATE tournaments SET data=%s WHERE uid=%s",
-                [jsonize(tournament), uid],
+                [self._jsonize(tournament), uid],
             )
             if res.rowcount < 1:
                 raise KeyError(f"Tournament {uid} not found")
@@ -524,7 +522,7 @@ class Operator:
                 [[m.vekn for m in members]],
             )
             existing = await res.fetchall()
-            existing = {e[0]: self._instanciate_member(e[1]) for e in existing}
+            existing = {e[0]: self._instanciate(e[1], models.Member) for e in existing}
             # do not overwrite local data & lose relevant info (sanctions, login, etc.)
             # don't revert changes on name
             # TODO: also don't revert country, city, roles and sponsor changes
@@ -544,17 +542,13 @@ class Operator:
             # cannot run two prepared statements in parallel, just wait
             await cursor.executemany(
                 "UPDATE members SET data=%s WHERE vekn=%s",
-                [
-                    [self._jsonize_member(m), m.vekn]
-                    for m in members
-                    if m.vekn in existing
-                ],
+                [[self._jsonize(m), m.vekn] for m in members if m.vekn in existing],
             )
             # insert new
             await cursor.executemany(
                 "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
                 [
-                    [uuid.UUID(m.uid), m.vekn, self._jsonize_member(m)]
+                    [uuid.UUID(m.uid), m.vekn, self._jsonize(m)]
                     for m in members
                     if m.vekn not in existing
                 ],
@@ -568,7 +562,7 @@ class Operator:
             # insert new
             await cursor.execute(
                 "INSERT INTO members (uid, data) VALUES (%s, %s)",
-                [uuid.UUID(member.uid), self._jsonize_member(member)],
+                [uuid.UUID(member.uid), self._jsonize(member)],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError("INSERT failed")
@@ -586,7 +580,7 @@ class Operator:
             res = await cursor.execute(query, [uuid.UUID(uid)])
             data = await res.fetchone()
             if data:
-                return self._instanciate_member(data[0], cls)
+                return self._instanciate(data[0], cls)
             return None
 
     async def get_members(self, uids: list[str] | None = None) -> list[models.Person]:
@@ -599,7 +593,7 @@ class Operator:
             else:
                 res = await cursor.execute("SELECT data FROM members")
             return [
-                self._instanciate_member(data[0], models.Person)
+                self._instanciate(data[0], models.Person)
                 for data in await res.fetchall()
             ]
 
@@ -616,7 +610,7 @@ class Operator:
                 )
             res = await cursor.execute(" UNION ".join(subqueries))
             return [
-                self._instanciate_member(data[0], models.Person)
+                self._instanciate(data[0], models.Person)
                 for data in await res.fetchall()
             ]
 
@@ -627,7 +621,7 @@ class Operator:
                 "SELECT vekn, data FROM members WHERE vekn <> ''"
             )
             return {
-                data[0]: self._instanciate_member(data[1], models.Person)
+                data[0]: self._instanciate(data[1], models.Person)
                 for data in await res.fetchall()
             }
 
@@ -642,7 +636,7 @@ class Operator:
                 [user.uid],
             )
             return [
-                self._instanciate_member(data[0], models.Person)
+                self._instanciate(data[0], models.Person)
                 for data in await res.fetchall()
             ]
 
@@ -667,11 +661,11 @@ class Operator:
             data = await res.fetchone()
             if not data:
                 raise RuntimeError(f"Unknown member {member_uid}")
-            member = self._instanciate_member(data[0])
+            member = self._instanciate(data[0], models.Member)
             self._update_discord_data(member, user)
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid = %s",
-                [self._jsonize_member(member), uuid.UUID(member_uid)],
+                [self._jsonize(member), uuid.UUID(member_uid)],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(
@@ -690,11 +684,11 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
-                member = self._instanciate_member(data[0])
+                member = self._instanciate(data[0], models.Member)
                 self._update_discord_data(member, user)
                 await cursor.execute(
                     "UPDATE members SET data=%s WHERE data -> 'discord' ->> 'id' = %s",
-                    [self._jsonize_member(member), user.id],
+                    [self._jsonize(member), user.id],
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError(f"Failed to update Discord ID# {user.id}")
@@ -708,11 +702,11 @@ class Operator:
                 )
                 data = await res.fetchone()
                 if data:
-                    member = self._instanciate_member(data[0])
+                    member = self._instanciate(data[0], models.Member)
                     self._update_discord_data(member, user)
                     await cursor.execute(
                         "UPDATE members SET data=%s WHERE data ->> 'email' = %s",
-                        [self._jsonize_member(member), user.email],
+                        [self._jsonize(member), user.email],
                     )
                     if cursor.rowcount < 1:
                         raise RuntimeError(f"Failed to update Discord ID# {user.id}")
@@ -730,7 +724,7 @@ class Operator:
             )
             await cursor.execute(
                 "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
-                [uid, member.vekn, self._jsonize_member(member)],
+                [uid, member.vekn, self._jsonize(member)],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError("INSERT failed")
@@ -744,11 +738,11 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
-                member = self._instanciate_member(data[0])
+                member = self._instanciate(data[0], models.Member)
                 member.verified = True
                 await cursor.execute(
                     "UPDATE members SET data=%s WHERE data ->> 'email' = %s",
-                    [self._jsonize_member(member), email],
+                    [self._jsonize(member), email],
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError(f"Failed to update email {email}")
@@ -764,7 +758,7 @@ class Operator:
                 )
                 await cursor.execute(
                     "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
-                    [uid, member.vekn, self._jsonize_member(member)],
+                    [uid, member.vekn, self._jsonize(member)],
                 )
                 if cursor.rowcount < 1:
                     raise RuntimeError("INSERT failed")
@@ -778,7 +772,7 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
-                member = self._instanciate_member(data[0])
+                member = self._instanciate(data[0], models.Member)
                 return member
             raise NotFound(f"Member not found by email: {email}")
 
@@ -786,7 +780,7 @@ class Operator:
         async with self.conn.cursor() as cursor, member_consistency():
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid=%s",
-                [self._jsonize_member(member), member.uid],
+                [self._jsonize(member), member.uid],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to update member {member.uid}")
@@ -817,7 +811,7 @@ class Operator:
             member.vekn = data[0]
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid=%s",
-                [self._jsonize_member(member), member.uid],
+                [self._jsonize(member), member.uid],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to update member {member.uid}")
@@ -842,7 +836,7 @@ class Operator:
             if not data:
                 return None
             old_vekn = data[0]
-            member = self._instanciate_member(data[1])
+            member = self._instanciate(data[1], models.Member)
             if old_vekn == vekn:
                 #  no change
                 LOG.info("%s claiming %s but already has it", uid, vekn)
@@ -857,7 +851,7 @@ class Operator:
             if not data:
                 LOG.warning("no VEKN record found for %s", vekn)
                 return None
-            vekn_member = self._instanciate_member(data[0])
+            vekn_member = self._instanciate(data[0], models.Member)
             if vekn_member.discord:
                 if vekn_member.discord.id != member.discord.id:
                     LOG.warning(
@@ -875,7 +869,7 @@ class Operator:
             # update the VEKN record
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE vekn=%s",
-                [self._jsonize_member(vekn_member), vekn],
+                [self._jsonize(vekn_member), vekn],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to update VEKN {vekn}")
@@ -893,7 +887,7 @@ class Operator:
                 LOG.warning("User not found: %s", uid)
                 return None
             vekn = data[0]
-            member = self._instanciate_member(data[1])
+            member = self._instanciate(data[1], models.Member)
             if not vekn:
                 LOG.info("No vekn for %s, nothing to do", uid)
                 return member
@@ -913,7 +907,7 @@ class Operator:
             member.verified = False
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid=%s",
-                [self._jsonize_member(member), uuid.UUID(uid)],
+                [self._jsonize(member), uuid.UUID(uid)],
             )
             if cursor.rowcount < 1:
                 raise RuntimeError(f"Failed to find Member {uid}")
@@ -926,7 +920,7 @@ class Operator:
                 new_member.verified = new_member.discord.verified
             await cursor.execute(
                 "INSERT INTO members (uid, data) VALUES (%s, %s)",
-                [new_uid, self._jsonize_member(new_member)],
+                [new_uid, self._jsonize(new_member)],
             )
             LOG.debug("New member created: %s - %s", new_member.uid, data)
             return new_member
@@ -938,16 +932,22 @@ class Operator:
                 [prefix.replace("%", "") + "%"],
             )
             recruits = [
-                self._instanciate_member(data[0]) for data in await res.fetchall()
+                self._instanciate(data[0], models.Member)
+                for data in await res.fetchall()
             ]
             for recruit in recruits:
                 recruit.sponsor = sponsor_uid
             await cursor.executemany(
                 "UPDATE members SET data=%s WHERE uid=%s",
-                [[self._jsonize_member(m), uuid.UUID(m.uid)] for m in recruits],
+                [[self._jsonize(m), uuid.UUID(m.uid)] for m in recruits],
             )
 
     async def recompute_all_ratings(self):
+        # Make sur not to lock everything - no transaction should be running
+        if not self.conn.autocommit:
+            raise RuntimeError(
+                "Operator.recompute_all_ratings() can only be called in autocommit mode"
+            )
         async with self.conn.cursor() as cursor:
             # first get all the tournaments and compute the ratings for everyone
             res = await cursor.execute(
@@ -960,7 +960,7 @@ class Operator:
                 collections.defaultdict(dict)
             )
             async for row in res:
-                tournament = models.Tournament(**row[0])
+                tournament = self._instanciate(row[0], models.Tournament)
                 for uid, rating in engine.ratings(tournament).items():
                     all_ratings[uid][tournament.uid] = rating
             # clean reset for all members
@@ -1047,23 +1047,27 @@ class Operator:
                 ],
             )
 
-    def _jsonize_member(self, member: models.Member):
-        data = dataclasses.asdict(member)
-        if member.country:
-            country = geo.COUNTRIES_BY_NAME[member.country]
-            data["country_flag"] = country.flag
-            data["country_iso"] = country.iso
-            data["country_geoname_id"] = country.geoname_id
+    def _jsonize(self, obj: any):
+        data = dataclasses.asdict(obj)
+        if "country" in data:
+            if data["country"]:
+                country = geo.COUNTRIES_BY_NAME[data["country"]]
+                data["country_flag"] = country.flag
+                data["country_iso"] = country.iso
+                data["country_geoname_id"] = country.geoname_id
+            else:
+                data.pop("country", None)
+                data.pop("city", None)
         else:
-            member.city = ""
-        if member.city:
-            data["city_geoname_id"] = geo.CITIES_BY_COUNTRY[member.country][
-                member.city
+            data.pop("city", None)
+        if "city" in data:
+            data["city_geoname_id"] = geo.CITIES_BY_COUNTRY[data["country"]][
+                data["city"]
             ].geoname_id
         return psycopg.types.json.Json(data)
 
-    def _instanciate_member(self, data: dict, cls: typing.Type[T] = models.Member) -> T:
-        if "country_iso" in data:
+    def _instanciate(self, data: dict, cls: typing.Type[T]) -> T:
+        if "country_iso" in data and data["country_iso"] in geo.COUNTRIES_BY_ISO:
             country = geo.COUNTRIES_BY_ISO[data["country_iso"]]
             data["country"] = country.country
             data["country_flag"] = country.flag
@@ -1073,7 +1077,7 @@ class Operator:
         ):
             data["city"] = geo.CITIES_BY_GEONAME_ID[data["city_geoname_id"]].unique_name
         else:
-            data["city"] = None
+            data.pop("city", None)
         return cls(**data)
 
     async def create_league(self, league: models.League) -> str:
@@ -1083,18 +1087,98 @@ class Operator:
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "INSERT INTO leagues (uid, start, finish, data) "
-                "VALUES (%s, %s) RETURNING uid",
-                [uid, league.start, league.finish, jsonize(league)],
+                "VALUES (%s, %s, %s, %s) RETURNING uid",
+                [uid, league.start, league.finish, self._jsonize(league)],
             )
             return str((await res.fetchone())[0])
+
+    async def get_league(self, uid: str) -> models.League:
+        """Get a single league for update (locks)"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM leagues WHERE uid=%s FOr UPDATE", [uuid.UUID(uid)]
+            )
+            data = await res.fetchone()
+            if not data:
+                raise NotFound("League %s not found", uid)
+            return self._instanciate(data[0], models.League)
+
+    async def get_league_with_tournaments(
+        self, uid: str
+    ) -> models.LeagueWithTournaments:
+        """Get a league, with tournaments and ranking data (no lock)"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM leagues WHERE uid=%s", [uuid.UUID(uid)]
+            )
+            data = await res.fetchone()
+            if not data:
+                raise NotFound("League %s not found", uid)
+            league: models.LeagueWithTournaments = self._instanciate(
+                data[0], models.LeagueWithTournaments
+            )
+            # get tournaments, latest first
+            res = await cursor.execute(
+                "SELECT data FROM tournaments "
+                "WHERE (data->'league'->>'uid')::text=%s "
+                "ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC",
+                [uid],
+            )
+            tournaments = await res.fetchall()
+            for row in tournaments:
+                league.tournaments.append(
+                    self._instanciate(row[0], models.TournamentInfo)
+                )
+            # count points
+            players: dict[str, models.LeaguePlayer] = {}
+            for tournament in league.tournaments:
+                if tournament.state != models.TournamentState.FINISHED:
+                    continue
+                ratings = engine.ratings(tournament)
+                for player in tournament.players.values():
+                    if player.uid not in players:
+                        players[player.uid] = models.LeaguePlayer(
+                            name=player.name,
+                            uid=player.uid,
+                            city=player.city,
+                            country=player.country,
+                            country_flag=player.country_flag,
+                            vekn=player.vekn,
+                        )
+                    players[player.uid].tournaments.append(tournament.uid)
+                    players[player.uid].score += player.result
+                    if league.ranking == models.LeagueRanking.RTP:
+                        players[player.uid].points += ratings[player.uid].rating_points
+                        key = "points"
+                    elif league.ranking == models.LeagueRanking.GP:
+                        players[player.uid].points += ratings[player.uid].gp_points
+                        key = "points"
+
+                    elif league.ranking == models.LeagueRanking.Score:
+                        players[player.uid].points = 0
+                        key = "score"
+
+            def sort(p):
+                return getattr(p, key)
+
+            sorted_players = sorted(players.values(), key=sort, reverse=True)
+            rank, passed, points = 1, 0, None
+            for player in sorted_players:
+                if points is None or sort(player) < points:
+                    rank += passed
+                    points = sort(player)
+                    passed = 0
+                league.rankings.append((rank, player))
+                passed += 1
+            return league
 
     async def update_league(self, league: models.League) -> str:
         """Update a league, returns its uid"""
         uid = uuid.UUID(league.uid)
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "UPDATE league SET (start, finish, data)=(%s, %s, %s) WHERE uid=%s",
-                [league.start, league.finish, jsonize(league), uid],
+                "UPDATE leagues SET (start, finish, data)=(%s, %s, %s) WHERE uid=%s",
+                [league.start, league.finish, self._jsonize(league), uid],
             )
             if res.rowcount < 1:
                 raise KeyError(f"League {uid} not found")
@@ -1109,19 +1193,54 @@ class Operator:
             if res.rowcount < 1:
                 raise KeyError(f"League {uid} not found")
             await cursor.execute(
-                "UPDATE tournaments SET data->>'league' = NULL "
-                "WHERE data->>'league'::text = %s",
+                "UPDATE tournaments SET data->>'league' = NULL::jsonb "
+                "WHERE data->'league'->>'uid'::text = %s",
                 [uid],
             )
 
-    async def get_leagues(self) -> list[models.League]:
-        """Get all leagues"""
+    async def get_leagues(
+        self, filter: models.LeagueFilter | None
+    ) -> list[models.League]:
+        """Get paginated leagues, filtered and ordered by start date, 100 per page"""
+        Q = "SELECT data FROM leagues "
+        pieces, args = [], []
+        if filter:
+            # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
+            # using cursor in the WHERE clause with the appropriate index is the way to go.
+            Q += "WHERE "
+            if filter.uid:
+                pieces.append(
+                    "(timetz(data ->> 'start', data ->> 'timezone') < %s::timestamptz "
+                    "OR ("
+                    "timetz(data ->> 'start', data ->> 'timezone') = %s::timestamptz "
+                    "AND uid < %s))"
+                )
+                args.extend([filter.date, filter.date, uuid.UUID(filter.uid)])
+            if filter.country:
+                pieces.append(
+                    "(data ->> 'country' IS NULL OR data ->> 'country' IN ('', %s))"
+                )
+                args.append(filter.country)
+            if not filter.online:
+                pieces.append("(data ->> 'online')::boolean IS FALSE")
+            Q += " AND ".join(pieces)
+        Q += (
+            " ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC "
+            "LIMIT 100"
+        )
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute("SELECT data FROM leagues")
-            data = await res.fetchall()
-            if not data:
-                return None
-            return [models.League(**(row[0])) for row in data]
+            res = await cursor.execute(Q, args)
+            ret = [
+                self._instanciate(row[0], models.League) for row in await res.fetchall()
+            ]
+            ret_filter = models.LeagueFilter()
+            if filter:
+                ret_filter.country = filter.country
+                ret_filter.online = filter.online
+            if ret and len(ret) == 100:
+                ret_filter.date = ret[-1].start.isoformat() + " " + ret[-1].timezone
+                ret_filter.uid = ret[-1].uid
+            return (ret_filter, ret)
 
 
 @contextlib.asynccontextmanager

@@ -1,0 +1,20 @@
+{% extends "layout.html.j2" %}
+
+{% block scripts %}
+<script async src="{{ url_for('static', path='league_list.js') }}" type="module"></script>
+{% endblock%}
+
+{% block content %}
+<div>
+    <h1>Leagues</h1>
+    <p>
+        Leagues are groups of tournaments. They offer players a chance to compete through multiple events,
+        and maintain a separate ranking for the league, either by using the standard Ranking Tournament Points (RTPs),
+        or a Grand Prix format.
+    </p>
+    {% if organizer %}
+    <a href="{{ url_for('league_create') }}" class="btn btn-primary my-2">Create League</a>
+    {% endif %}
+    <div id="contentDiv"></div>
+</div>
+{% endblock %}

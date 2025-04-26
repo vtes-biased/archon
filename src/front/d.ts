@@ -67,6 +67,12 @@ export enum RankingCategoy {
     LIMITED_ONSITE = "Limited Onsite",
 }
 
+export enum LeagueRanking {
+    RTP = "RTP",
+    GP = "GP",
+    Score = "Score",
+}
+
 export interface Score {
     gw: number,
     vp: number,
@@ -142,6 +148,22 @@ export interface Player extends Person {
     deck: KrcgDeck | undefined,
 }
 
+export interface PlayerInfo extends PublicPerson {
+    state: PlayerState,
+    rounds_played: number,
+    table: number,
+    seat: number,
+    result: Score,
+    seed: number,
+    toss: number,
+}
+
+export interface LeaguePlayer extends PublicPerson {
+    tournaments: string[],
+    score: Score,
+    points: number,
+}
+
 export interface SeatInfo {
     player_uid: string,
     result: Score,
@@ -203,16 +225,36 @@ export interface Sanction {
     comment: string
 }
 
+export interface LeagueInfo {
+    name: string,
+    uid: string,
+}
+
+export interface League extends LeagueInfo {
+    start: string,
+    finish: string,
+    timezone: string,
+    description: string,
+    online: boolean,
+    country: string,
+    country_flag: string,
+    format: TournamentFormat,
+    ranking: LeagueRanking,
+    organizers: PublicPerson[],
+}
+
 export interface TournamentMinimal {
     name: string
     format: TournamentFormat
     start: string
-    finish?: string | undefined
+    finish?: string | null
     timezone: string
-    uid: string | undefined
-    country?: string | undefined
+    uid?: string
+    country?: string | null
+    country_flag?: string | null
     online?: boolean,
-    rank: TournamentRank | undefined
+    league?: LeagueInfo | null
+    rank: TournamentRank
     state: TournamentState
 }
 
@@ -251,7 +293,7 @@ export interface VenueCompletion {
 }
 
 export interface TournamentInfo extends TournamentConfig {
-    players: Record<string, PublicPerson>,
+    players: Record<string, PlayerInfo>,
     finals_seeds: string[],
     rounds: RoundInfo[],
     winner: string,
@@ -263,6 +305,18 @@ export interface TournamentFilter {
     country: string,
     online: boolean,
     states: TournamentState[],
+}
+
+export interface LeagueWithTournaments extends League {
+    tournaments: TournamentInfo[]
+    rankings: [number, LeaguePlayer][]
+}
+
+export interface LeagueFilter {
+    date: string,
+    uid: string,
+    country: string,
+    online: boolean,
 }
 
 export interface RegisteredSanction extends Sanction {

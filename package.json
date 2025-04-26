@@ -33,6 +33,8 @@
         "src/front/checkin.ts",
         "src/front/console.ts",
         "src/front/d.ts",
+        "src/front/league_display.ts",
+        "src/front/league_list.ts",
         "src/front/login.ts",
         "src/front/member_display.ts",
         "src/front/member_list.ts",

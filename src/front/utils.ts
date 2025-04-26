@@ -27,6 +27,27 @@ export function tournament_rank_badge(tournament: d.TournamentMinimal): string {
     }
 }
 
+export function format_badge(event: d.TournamentMinimal | d.League): string {
+    var cls
+    const txt = event.format
+    switch (event.format) {
+        case d.TournamentFormat.Standard:
+            cls = "text-bg-secondary"
+            break;
+        case d.TournamentFormat.Limited:
+            cls = "text-bg-warning"
+            break;
+        case d.TournamentFormat.Draft:
+            cls = "text-bg-primary"
+            break;
+    }
+    if (cls && txt) {
+        return `<span class="badge ${cls} align-text-top text-nowrap">${txt}</span>`
+    } else {
+        return ""
+    }
+}
+
 export function score_string(score: d.Score): string {
     if (score.gw) {
         return `${score.gw}GW${score.vp}`
@@ -35,6 +56,19 @@ export function score_string(score: d.Score): string {
         return `${score.vp}VPs`
     }
     return `${score.vp}VP`
+}
+
+export function score_string_with_tp_badge(score: d.Score): string {
+    var ret: string
+    if (score.gw) {
+        ret = `${score.gw}GW${score.vp}`
+    } else if (score.vp > 1) {
+        ret = `${score.vp}VPs`
+    } else {
+        ret = `${score.vp}VP`
+    }
+    ret += ` <span class="badge text-bg-secondary align-text-top">${score.tp}TPs</span>`
+    return ret
 }
 
 export function full_score_string(player: d.Player, rank: number | undefined = undefined): string {
@@ -92,34 +126,50 @@ function _datetime(date: string, timezone: string): DateTime {
     )
 }
 
-export function datetime(tournament: d.TournamentMinimal): DateTime {
+export function datetime(tournament: d.TournamentMinimal | d.League): DateTime {
     return _datetime(tournament.start, tournament.timezone)
 }
 
-export function datetime_string(tournament: d.TournamentMinimal) {
+export function datetime_finish(tournament: d.TournamentMinimal | d.League): DateTime | void {
+    if (tournament.finish) {
+        return _datetime(tournament.finish, tournament.timezone)
+    }
+}
+
+export function datetime_string(tournament: d.TournamentMinimal | d.League) {
     if (!tournament) { return "" }
     const dt = datetime(tournament)
-    if (tournament.online) {
+    if (!tournament.country || tournament.country.length < 1) {
         return dt.toLocal().toLocaleString(DATETIME_UNAMBIGUOUS)
     } else {
         return dt.toLocaleString(DATETIME_UNAMBIGUOUS)
     }
 }
 
-export function datetime_string_finish(tournament: d.TournamentMinimal) {
+export function datetime_string_finish(tournament: d.TournamentMinimal | d.League) {
     if (!tournament || !tournament.finish) { return "" }
     const dt = _datetime(tournament.finish, tournament.timezone)
-    if (tournament.online) {
+    if (!tournament.country || tournament.country.length < 1) {
         return dt.toLocal().toLocaleString(DATETIME_UNAMBIGUOUS)
     } else {
         return dt.toLocaleString(DATETIME_UNAMBIGUOUS)
     }
 }
 
-export function date_string(tournament: d.TournamentMinimal) {
+export function date_string(tournament: d.TournamentMinimal | d.League) {
     if (!tournament) { return "" }
     const dt = datetime(tournament)
-    if (tournament.online) {
+    if (!tournament.country || tournament.country.length < 1) {
+        return dt.toLocal().toISODate()
+    } else {
+        return dt.toISODate()
+    }
+}
+
+export function date_string_finish(tournament: d.TournamentMinimal | d.League) {
+    if (!tournament || !tournament.finish || tournament.finish === "") { return "" }
+    const dt = _datetime(tournament.finish, tournament.timezone)
+    if (!tournament.country || tournament.country.length < 1) {
         return dt.toLocal().toISODate()
     } else {
         return dt.toISODate()

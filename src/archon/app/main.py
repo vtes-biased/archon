@@ -14,6 +14,7 @@ from .. import db
 from .. import engine
 from .. import vekn
 from . import dependencies
+from .api import league as api__league
 from .api import tournament as api__tournament
 from .api import vekn as api__vekn
 from .html import website as html__website
@@ -131,6 +132,7 @@ with (
 
 # mount routers
 app.include_router(html__website.router)
+app.include_router(api__league.router)
 app.include_router(api__tournament.router)
 app.include_router(api__vekn.router)
 

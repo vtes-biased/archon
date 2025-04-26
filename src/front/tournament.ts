@@ -349,6 +349,7 @@ export class TournamentDisplay {
     token: base.Token
     user: d.Person
     members_map: member.MembersDB
+    leagues: d.League[]
     alert: HTMLDivElement
     // form inputs
     name: HTMLInputElement
@@ -360,6 +361,7 @@ export class TournamentDisplay {
     multideck_label: HTMLLabelElement
     decklist_required: HTMLInputElement
     decklist_required_label: HTMLLabelElement
+    league: HTMLSelectElement
     online: HTMLInputElement
     venue: HTMLInputElement
     venue_dropdown: HTMLUListElement
@@ -408,6 +410,10 @@ export class TournamentDisplay {
         if (user_id) {
             this.user = await this.members_map.get_by_uid(user_id)
             this.judges = [this.user]
+        }
+        {
+            const res = await base.do_fetch("/api/leagues", {})
+            this.leagues = (await res.json())[1]
         }
     }
     set_alert(message: string, level: d.AlertLevel) {
@@ -620,6 +626,15 @@ export class TournamentDisplay {
                 ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Decklist required"
         }
+        // ------------------------------------------------------------------------------------------------------ League
+        if (tournament.league) {
+            const league_div = base.create_append(this.root, "div", ["alert", "mb-2", "fw-bold", "alert-warning"],
+                { role: "alert" })
+            const link = base.create_append(league_div, "a", ["me-1"])
+            link.innerText = tournament.league.name
+            link.href = `/league/${tournament.league.uid}/display.html`
+            base.create_append(league_div, "span").innerText = "tournament"
+        }
         // ------------------------------------------------------------------------------------------------- Date & Time
         const datetime_div = base.create_append(this.root, "div", ["d-md-flex", "mb-2"])
         const start = base.create_append(datetime_div, "div", ["me-2"])
@@ -683,7 +698,9 @@ export class TournamentDisplay {
                 ).innerHTML = '<i class="bi bi-globe"></i>'
             }
             if (tournament.address) {
-                base.create_append(venue_div, "div", ["me-2"]).innerText = tournament.address
+                base.create_append(venue_div, "div", ["me-2"]).innerText = (
+                    `${tournament.address}, ${tournament.country} ${tournament.country_flag}`
+                )
             }
             if (tournament.map_url) {
                 base.create_append(venue_div, "a", ["me-2"],
@@ -1301,7 +1318,7 @@ export class TournamentDisplay {
         { // format
             const div = base.create_append(form, "div", ["col-md-3"])
             const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
-            this.format = base.create_append(group, "select", ["form-select", "z-1"], { name: "format" })
+            this.format = base.create_append(group, "select", ["form-select", "z-1"], { name: "format", id: "format" })
             this.format.required = true
             for (const value of Object.values(d.TournamentFormat)) {
                 const option = base.create_append(this.format, "option")
@@ -1314,12 +1331,12 @@ export class TournamentDisplay {
                 this.format.value = d.TournamentFormat.Standard
             }
             this.format.addEventListener("change", (ev) => this.select_format())
-            base.create_append(group, "label", ["form-label"], { for: "tournamentName" }).innerText = "Format"
+            base.create_append(group, "label", ["form-label"], { for: "format" }).innerText = "Format"
         }
         { // rank
             const div = base.create_append(form, "div", ["col-md-3"])
             const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
-            this.rank = base.create_append(group, "select", ["form-select", "z-1"], { name: "rank" })
+            this.rank = base.create_append(group, "select", ["form-select", "z-1"], { name: "rank", id: "rank" })
             for (const value of Object.values(d.TournamentRank)) {
                 const option = base.create_append(this.rank, "option")
                 option.innerText = value
@@ -1340,7 +1357,7 @@ export class TournamentDisplay {
                 this.rank.disabled = true
             }
             this.rank.addEventListener("change", (ev) => this.select_rank())
-            base.create_append(group, "label", ["form-label"], { for: "tournamentName" }).innerText = "Rank"
+            base.create_append(group, "label", ["form-label"], { for: "rank" }).innerText = "Rank"
         }
         // ------------------------------------------------------------------------------------------------------ line 2
         { // proxies
@@ -1402,6 +1419,17 @@ export class TournamentDisplay {
                 this.decklist_required.disabled = true
             }
         }
+        { // league
+            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
+            this.league = base.create_append(group, "select", ["form-select", "z-1"],
+                { name: "league", id: "selectLeague" }
+            )
+            const option = base.create_append(this.league, "option")
+            option.value = ""
+            option.label = ""
+            base.create_append(group, "label", ["form-label"], { for: "format" }).innerText = "League"
+        }
         // filler
         base.create_append(form, "div", ["w-100"])
         // ------------------------------------------------------------------------------------------------------ line 3
@@ -1427,7 +1455,7 @@ export class TournamentDisplay {
             for (const country of this.countries.values()) {
                 const option = document.createElement("option")
                 option.value = country.country
-                option.label = country.country
+                option.label = `${country.country} ${country.flag}`
                 this.country.options.add(option)
                 if (tournament?.country == country.country) {
                     option.selected = true
@@ -1662,6 +1690,7 @@ export class TournamentDisplay {
                 cancel_button.addEventListener("click", (ev) => history.back())
             }
         }
+        await this.filter_leagues_options(tournament)
     }
 
     create_judge_row(member: d.Person, edit: boolean) {
@@ -1681,8 +1710,43 @@ export class TournamentDisplay {
         }
         return row
     }
-
-    select_format() {
+    async filter_leagues_options(tournament: d.TournamentConfig | undefined = undefined) {
+        const url = new URL("/api/leagues", window.location.origin)
+        if (this.country.value != "") {
+            url.searchParams.append("country", this.country.value)
+        }
+        if (!this.online.checked) {
+            url.searchParams.append("online", "false")
+        }
+        const res = await base.do_fetch(url.href, {})
+        this.leagues = (await res.json())[1]
+        var leagues = this.leagues
+        if (this.format.selectedOptions[0].value != "") {
+            leagues = leagues.filter(l => l.format === this.format.value)
+        }
+        var previous
+        if (this.league.selectedIndex > 0) {
+            previous = this.league.selectedOptions[0].value
+        } else if (tournament) {
+            previous = tournament.league
+        }
+        base.remove_but_one_children(this.league)
+        for (const league of leagues) {
+            const option = base.create_append(this.league, "option")
+            var name = league.name
+            if (name.length > 30) {
+                name = name.slice(0, 29) + "…"
+            }
+            option.innerText = league.name
+            option.value = league.uid
+            if (option.value === previous) {
+                option.selected = true
+            } else {
+                option.selected = false
+            }
+        }
+    }
+    async select_format() {
         // Ranks are only available for Standard constructed
         if (this.format.value == d.TournamentFormat.Standard) {
             this.rank.disabled = false
@@ -1691,6 +1755,7 @@ export class TournamentDisplay {
             this.rank.disabled = true
             this.rank.dispatchEvent(new Event('change', { bubbles: true }))
         }
+        await this.filter_leagues_options()
     }
     select_rank() {
         // No proxy and no multideck for national tournaments and above
@@ -1719,7 +1784,7 @@ export class TournamentDisplay {
             this.decklist_required.disabled = false
         }
     }
-    switch_online() {
+    async switch_online() {
         // No physical venue for online tournaments, pre-fill venue name and URL with official discord
         if (this.online.checked) {
             this.venue.value = "VTES Discord"
@@ -1746,8 +1811,9 @@ export class TournamentDisplay {
             this.address.disabled = false
             this.map_url.disabled = false
         }
+        await this.filter_leagues_options()
     }
-    change_country() {
+    async change_country() {
         this.venue.disabled = false
         if (this.country.selectedIndex == 0) {
             if (!this.venue.value || this.venue.value.length < 1) {
@@ -1755,6 +1821,7 @@ export class TournamentDisplay {
             }
         }
         this.change_venue()
+        await this.filter_leagues_options()
     }
     change_venue() {
         this.address.disabled = false
@@ -1903,8 +1970,16 @@ export class TournamentDisplay {
         form.classList.add('was-validated')
         const tournamentForm = ev.currentTarget as HTMLFormElement
         const data = new FormData(tournamentForm)
+        var league = null
+        if (data.get("league") != "") {
+            league = {
+                uid: this.league.selectedOptions[0].value,
+                name: this.league.selectedOptions[0].label,
+            }
+        }
         var json_data = Object.fromEntries(data.entries()) as unknown as d.TournamentConfig
         // fix fields that need some fixing
+        json_data.league = league
         if (json_data.finish.length < 1) { json_data.finish = undefined }
         json_data.judges = [...this.judges.values()]
         // checkboxes are "on" if checked, non-listed otherwise - do it by hand
@@ -1912,6 +1987,7 @@ export class TournamentDisplay {
         json_data.proxies = this.proxies.checked
         json_data.online = this.online.checked
         json_data.decklist_required = this.decklist_required.checked
+        console.log("posting", json_data)
         var url = "/api/tournaments/"
         var method = "post"
         if (tournament) {

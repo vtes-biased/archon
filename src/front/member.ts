@@ -167,6 +167,17 @@ export async function get_user(token: base.Token) {
     }
 }
 
+export function to_public_person(person: d.Person): d.PublicPerson {
+    return {
+        uid: person.uid,
+        name: person.name,
+        vekn: person.vekn,
+        country: person.country,
+        country_flag: person.country_flag,
+        city: person.city,
+    }
+}
+
 export class PersonLookup {
     form: HTMLFormElement
     input_vekn_id: HTMLInputElement
@@ -382,6 +393,13 @@ export function can_admin_tournament(member: d.Person, tournament: d.TournamentC
     if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
     if (member.roles.includes(d.MemberRole.NC) && member.country == tournament.country) { return true }
     if (tournament.judges.find(j => j.uid == member.uid)) { return true }
+    return false
+}
+
+export function can_admin_league(member: d.Person, league: d.League): boolean {
+    if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
+    if (member.roles.includes(d.MemberRole.NC) && member.country == league.country) { return true }
+    if (league.organizers.find(j => j.uid == member.uid)) { return true }
     return false
 }
 
