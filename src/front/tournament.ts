@@ -1361,7 +1361,7 @@ export class TournamentDisplay {
         }
         // ------------------------------------------------------------------------------------------------------ line 2
         { // proxies
-            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const div = base.create_append(form, "div", ["col-md-2", "d-flex", "align-items-center"])
             const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
             this.proxies = base.create_append(field_div, "input", ["form-check-input"],
                 { type: "checkbox", name: "proxies", id: "switchProxy" }
@@ -1379,7 +1379,7 @@ export class TournamentDisplay {
             }
         }
         { // multideck
-            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const div = base.create_append(form, "div", ["col-md-2", "d-flex", "align-items-center"])
             const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
             this.multideck = base.create_append(field_div, "input", ["form-check-input"],
                 { type: "checkbox", name: "multideck", id: "switchMultideck" }
@@ -1400,7 +1400,7 @@ export class TournamentDisplay {
             this.multideck.addEventListener("change", (ev) => this.switch_multideck())
         }
         { // decklist
-            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const div = base.create_append(form, "div", ["col-md-2", "d-flex", "align-items-center"])
             const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
             this.decklist_required = base.create_append(field_div, "input", ["form-check-input"],
                 { type: "checkbox", name: "decklist_required", id: "switchDecklistRequired" }
@@ -1420,7 +1420,7 @@ export class TournamentDisplay {
             }
         }
         { // league
-            const div = base.create_append(form, "div", ["col-md-3", "d-flex", "align-items-center"])
+            const div = base.create_append(form, "div", ["col-md-6", "d-flex", "align-items-center"])
             const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
             this.league = base.create_append(group, "select", ["form-select", "z-1"],
                 { name: "league", id: "selectLeague" }
@@ -1727,8 +1727,8 @@ export class TournamentDisplay {
         var previous
         if (this.league.selectedIndex > 0) {
             previous = this.league.selectedOptions[0].value
-        } else if (tournament) {
-            previous = tournament.league
+        } else if (tournament?.league) {
+            previous = tournament.league.uid
         }
         base.remove_but_one_children(this.league)
         for (const league of leagues) {
