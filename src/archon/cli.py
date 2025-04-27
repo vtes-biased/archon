@@ -57,8 +57,6 @@ async def get_members() -> None:
                     await op.insert_members(members)
                 for member in members:
                     if member.prefix and len(member.prefix) == 3:
-                        if member.prefix in prefixes_map:
-                            assert prefixes_map[member.prefix].vekn == member.vekn
                         prefixes_map[member.prefix] = member.uid
                     count += 1
                     if not count % 100:

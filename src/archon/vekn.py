@@ -597,6 +597,15 @@ async def get_event(
         if data["venue_id"]:
             venue_data = await get_venue(session, token, data["venue_id"])
         ret = _tournament_from_vekn_data(data, members, venue_data)
+    elif (
+        datetime.datetime.fromisoformat(data["event_startdate"]).date()
+        > datetime.date.today()
+    ):
+        LOG.info("Incoming Event #%s: %s", num, data)
+        venue_data = {}
+        if data["venue_id"]:
+            venue_data = await get_venue(session, token, data["venue_id"])
+        ret = _tournament_from_vekn_data(data, members, venue_data)
     del data
     del result
     return ret
@@ -682,6 +691,9 @@ def _tournament_from_vekn_data(
         proxies=bool(rank == models.TournamentRank.BASIC),
         judges=judges,
     )
+    if not data["players"]:
+        ret.state = models.TournamentState.REGISTRATION
+        return ret
     for idx, pdata in enumerate(data["players"], 1):
         member = members.get(pdata["veknid"])
         if not member:

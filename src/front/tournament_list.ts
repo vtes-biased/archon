@@ -103,7 +103,7 @@ class TournamentListDisplay {
             const location = base.create_append(row, "td", ["smaller-font"])
             if (tournament.online) {
                 location.innerText = "Online"
-            } else {
+            } else if (tournament.country) {
                 location.innerText = `${tournament.country} ${tournament.country_flag}`
             }
             base.create_append(row, "td", ["smaller-font"]).innerHTML = utils.tournament_rank_badge(tournament)

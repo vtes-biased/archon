@@ -697,10 +697,13 @@ export class TournamentDisplay {
                     { href: tournament.venue_url, target: "_blank" }
                 ).innerHTML = '<i class="bi bi-globe"></i>'
             }
+            const location = base.create_append(venue_div, "div", ["me-2"])
+            location.innerText = ""
             if (tournament.address) {
-                base.create_append(venue_div, "div", ["me-2"]).innerText = (
-                    `${tournament.address}, ${tournament.country} ${tournament.country_flag}`
-                )
+                location.innerText += `${tournament.address}`
+            }
+            if (tournament.country) {
+                location.innerText += `, ${tournament.country} ${tournament.country_flag}`
             }
             if (tournament.map_url) {
                 base.create_append(venue_div, "a", ["me-2"],
@@ -709,7 +712,7 @@ export class TournamentDisplay {
             }
         }
         // ------------------------------------------------------------------------------------------------------ Judges
-        if (this.user) {
+        if (this.user && this.judges.length > 0) {
             const table = base.create_append(this.root, "table", ["table", "table-striped", "my-2"])
             const head = base.create_append(table, "thead")
             const row = base.create_append(head, "tr", ["align-middle"])
