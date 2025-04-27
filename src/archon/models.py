@@ -73,9 +73,9 @@ class LeagueRanking(enum.StrEnum):
 class MemberRole(enum.StrEnum):
     ADMIN = "Admin"
     PRINCE = "Prince"
-    JUDGE = "Judge"  # Elder judge (event judges don't need to be official judges)
-    ANC_JUDGE = "Anc. Judge"  # Ancilla Judge
-    NEO_JUDGE = "Neo. Judge"  # Neonate Judge
+    RULEMONGER = "Rulemonger"  # Super-Judge
+    JUDGE = "Judge"  # Judge (event judges don't need to be official judges)
+    JUDGEKIN = "Judgekin"  # Judge in training
     NC = "NC"  # National Coordinator
     PTC = "PTC"  # Playtest Coordinator
     PLAYTESTER = "Playtester"
@@ -140,6 +140,17 @@ class Person(PublicPerson):
             v[RankingCategoy.LIMITED_ONSITE.value] = v["limited_onsite"]
             del v["limited_onsite"]
         return v
+
+    @pydantic.field_validator("roles", mode="before")
+    @classmethod
+    def convert_migration_2025_04_27(cls, v):
+        # TODO: drop after migration
+        roles = set(v)
+        if roles & {"Anc. Judge", "Neo. Judge"}:
+            roles.add(MemberRole.JUDGEKIN)
+        roles.discard("Anc. Judge")
+        roles.discard("Neo. Judge")
+        return list(roles)
 
 
 @dataclasses.dataclass
@@ -231,7 +242,7 @@ class SeatInfo:
 @dataclasses.dataclass
 class TableSeat(SeatInfo):
     deck: KrcgDeck | None = None  # card ID: card count
-    judge_uid: str = ""  # Result set by a judge cannot be modified by a player
+    judge: PublicPerson | None = None  # Players cannot modify results set by a judge
 
 
 @dataclasses.dataclass

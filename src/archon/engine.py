@@ -284,7 +284,7 @@ class TournamentManager(models.Tournament):
         player_seat.result = scoring.Score(vp=ev.vps)
         if self.is_judge(member):
             for seat in player_table.seating:
-                seat.judge_uid = member.uid
+                seat.judge = models.PublicPerson(**dataclasses.asdict(member))
         player.result += player_seat.result
         finals = False
         if self.state in [
@@ -888,7 +888,7 @@ class TournamentOrchestrator(TournamentManager):
             if (
                 ev.round != len(self.rounds)
                 or member.uid not in [s.player_uid for s in table.seating]
-                or seat.judge_uid
+                or seat.judge
             ):
                 # current round players are allowed to set their opponents results
                 self._check_judge(ev, member)

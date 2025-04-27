@@ -65,11 +65,11 @@ export enum LeagueRanking {
 export enum MemberRole {
     ADMIN = "Admin",
     PRINCE = "Prince",
+    RULEMONGER = "Rulemonger",  // Judge Coordinator
     JUDGE = "Judge",
-    ANC_JUDGE = "Anc. Judge",  // Ancilla Judge
-    NEO_JUDGE = "Neo. Judge",  // Neonate Judge
+    JUDGEKIN = "Judgekin",  // Judge in training
     NC = "NC",  // National Coordinator
-    PTC = "PTC",  // Platest Coordinator
+    PTC = "PTC",  // Playtest Coordinator
     PLAYTESTER = "Playtester",
     ETHICS = "Ethics",  // Member of the Ethics committee
 }

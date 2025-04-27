@@ -157,6 +157,9 @@ class MemberListDisplay {
                     case d.MemberRole.JUDGE:
                         role_badge.classList.add("text-bg-warning")
                         break
+                    case d.MemberRole.RULEMONGER:
+                        role_badge.classList.add("text-bg-warning")
+                        break
                     case d.MemberRole.PRINCE:
                         role_badge.classList.add("text-bg-info")
                         break
@@ -297,9 +300,9 @@ class MemberListDisplay {
             for (const role of search_params.roles) {
                 switch (role) {
                     case d.MemberRole.JUDGE:
+                        roles.add(d.MemberRole.RULEMONGER)
                         roles.add(d.MemberRole.JUDGE)
-                        roles.add(d.MemberRole.ANC_JUDGE)
-                        roles.add(d.MemberRole.NEO_JUDGE)
+                        roles.add(d.MemberRole.JUDGEKIN)
                         break
                     case d.MemberRole.PLAYTESTER:
                         if (m.can_playtest(this.member)) {

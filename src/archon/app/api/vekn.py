@@ -274,7 +274,7 @@ async def api_vekn_member_sanction(
 ) -> M:
     """Only Judges and Ethics Committee members can do that"""
     dependencies.check_can_sanction(member)
-    sanction.judge_uid = member.uid
+    sanction.judge = member
     target = await op.get_member(uid, True)
     if sanction.tournament:
         # for now, tournament sanctions should be delivered through tournament events

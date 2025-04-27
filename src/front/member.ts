@@ -451,6 +451,7 @@ export function can_change_info(member: d.Person, target: d.Person): boolean {
 
 export function can_sanction(member: d.Person): boolean {
     if (member.roles.includes(d.MemberRole.ADMIN)) { return true }
+    if (member.roles.includes(d.MemberRole.RULEMONGER)) { return true }
     if (member.roles.includes(d.MemberRole.JUDGE)) { return true }
     if (member.roles.includes(d.MemberRole.ETHICS)) { return true }
     return false

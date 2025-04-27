@@ -241,9 +241,7 @@ def check_can_change_role(
     match role:
         case (
             models.MemberRole.ADMIN
-            | models.MemberRole.JUDGE
-            | models.MemberRole.ANC_JUDGE
-            | models.MemberRole.NEO_JUDGE
+            | models.MemberRole.RULEMONGER
             | models.MemberRole.ETHICS
             | models.MemberRole.NC
             | models.MemberRole.PTC
@@ -263,6 +261,12 @@ def check_can_change_role(
             if models.MemberRole.ADMIN in initiator_roles:
                 return
             if models.MemberRole.PTC in initiator_roles:
+                return
+            raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+        case models.MemberRole.JUDGE | models.MemberRole.JUDGEKIN:
+            if models.MemberRole.ADMIN in initiator_roles:
+                return
+            if models.MemberRole.RULEMONGER in initiator_roles:
                 return
             raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
@@ -343,6 +347,7 @@ def check_can_sanction(member: models.Person):
     member_roles = set(member.roles)
     if member_roles & {
         models.MemberRole.ADMIN,
+        models.MemberRole.RULEMONGER,
         models.MemberRole.JUDGE,
         models.MemberRole.ETHICS,
     }:

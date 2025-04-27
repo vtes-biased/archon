@@ -168,6 +168,9 @@ class MemberDisplay {
                 case d.MemberRole.JUDGE:
                     role_badge.classList.add("text-bg-warning")
                     break
+                case d.MemberRole.RULEMONGER:
+                    role_badge.classList.add("text-bg-warning")
+                    break
                 case d.MemberRole.PRINCE:
                     role_badge.classList.add("text-bg-info")
                     break
@@ -276,7 +279,7 @@ class MemberDisplay {
                     { type: "text", placeholder: "Email", name: "email", "aria-label": "Email", autocomplete: "email" }
                 )
                 this.email.spellcheck = false
-                this.email.value = this.target.email
+                this.email.value = this.target.email ?? ""
                 if (cci) {
                     this.email.addEventListener("change", base.debounce((ev) => this.change_info()))
                 } else {
