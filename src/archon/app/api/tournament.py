@@ -225,7 +225,7 @@ async def api_tournament_event_post(
         member = await op.get_member(event.player_uid, for_update=True)
         member.sanctions.append(
             models.RegisteredSanction(
-                tournament=models.TournamentConfig(**dataclasses.asdict(orchestrator)),
+                tournament=models.TournamentRef(**dataclasses.asdict(orchestrator)),
                 uid=event.sanction_uid,
                 judge=actor,
                 level=event.level,
@@ -246,69 +246,3 @@ async def api_tournament_event_post(
         )
         await op.update_tournament(orchestrator)
     return orchestrator
-
-
-@router.get("/leagues", summary="Get all leagues")
-async def api_tournament_league_get_all(
-    filter: typing.Annotated[models.LeagueFilter, fastapi.Query()],
-    op: dependencies.DbOperator,
-) -> tuple[models.TournamentFilter, list[models.League]]:
-    if filter.uid or filter.country or not filter.online:
-        filter = filter
-    else:
-        filter = None
-    return await op.get_leagues(filter)
-
-
-@router.post("/leagues", summary="Add league")
-async def api_tournament_league_post(
-    request: fastapi.Request,
-    member: dependencies.PersonFromToken,
-    data: typing.Annotated[models.League, fastapi.Body()],
-    op: dependencies.DbOperator,
-) -> dependencies.ItemUrl:
-    dependencies.check_organizer(member)
-    data.organizers = await op.get_members(
-        list(set([j.uid for j in data.organizers]) | {member.uid})
-    )
-    LOG.info("Creating new league: %s", data)
-    uid = await op.create_league(data)
-    return dependencies.ItemUrl(
-        uid=uid, url=str(request.url_for("league_display", uid=uid))
-    )
-
-
-@router.get("/leagues/{uid}", summary="Get league")
-async def api_tournament_league_get(
-    _: dependencies.MemberUidFromToken,
-    op: dependencies.DbOperator,
-    uid: typing.Annotated[str, fastapi.Path()],
-) -> models.LeagueWithTournaments:
-    return await op.get_league_with_tournaments(uid)
-
-
-@router.put("/leagues/{uid}", summary="Update league")
-async def api_tournament_league_put(
-    request: fastapi.Request,
-    member: dependencies.PersonFromToken,
-    uid: typing.Annotated[str, fastapi.Path()],
-    data: typing.Annotated[models.League, fastapi.Body()],
-    op: dependencies.DbOperator,
-) -> dependencies.ItemUrl:
-    league = await op.get_league(uid)
-    dependencies.check_can_admin_league(member, league)
-    uid = await op.update_league(data)
-    return dependencies.ItemUrl(
-        uid=uid, url=str(request.url_for("league_display", uid=uid))
-    )
-
-
-@router.delete("/leagues/{uid}", summary="Delete league")
-async def api_tournament_league_delete(
-    member: dependencies.PersonFromToken,
-    op: dependencies.DbOperator,
-    uid: typing.Annotated[str, fastapi.Path()],
-):
-    league = await op.get_league(uid)
-    dependencies.check_can_admin_league(member, league)
-    await op.delete_league(uid)

@@ -106,7 +106,13 @@ tags_metadata = [
 ]
 
 
-app = fastapi.FastAPI(lifespan=lifespan, tags_metadata=tags_metadata, debug=__debug__)
+app = fastapi.FastAPI(
+    lifespan=lifespan,
+    tags_metadata=tags_metadata,
+    debug=__debug__,
+    swagger_ui_parameters={"favIconUrl": "/img/favicon.ico"},  # Set custom favicon path
+)
+
 app.add_middleware(
     starlette.middleware.sessions.SessionMiddleware,
     secret_key=SESSION_KEY,

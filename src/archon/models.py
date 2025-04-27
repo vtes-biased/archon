@@ -92,11 +92,35 @@ class PublicPerson:
     city: str | None = ""  # city name
 
 
+@dataclasses.dataclass(kw_only=True)
+class TournamentRef:
+    name: str
+    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
+    format: TournamentFormat
+    start: datetime.datetime
+    timezone: str = "UTC"
+    rank: TournamentRank = TournamentRank.BASIC
+
+
+@dataclasses.dataclass
+class Sanction:
+    judge: PublicPerson | None = None  # not set on endpoint, set before entering DB
+    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
+    level: events.SanctionLevel = events.SanctionLevel.CAUTION
+    category: events.SanctionCategory = events.SanctionCategory.NONE
+    comment: str = ""
+
+
+@dataclasses.dataclass(kw_only=True)
+class RegisteredSanction(Sanction):
+    tournament: TournamentRef | None = None
+
+
 @dataclasses.dataclass
 class Person(PublicPerson):
     roles: list[MemberRole] = pydantic.Field(default_factory=list)
     sponsor: str | None = ""  # useful for organizers, to find their recruits
-    sanctions: list["RegisteredSanction"] = pydantic.Field(default_factory=list)
+    sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
     ranking: dict[RankingCategoy, int] = pydantic.Field(default_factory=dict)
 
     @pydantic.field_validator("ranking", mode="before")
@@ -248,22 +272,13 @@ class LimitedFormat:
 
 
 @dataclasses.dataclass
-class Sanction:
-    judge: Person | None = None  # not set on web interfaces, set before entering DB
-    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
-    level: events.SanctionLevel = events.SanctionLevel.CAUTION
-    category: events.SanctionCategory = events.SanctionCategory.NONE
-    comment: str = ""
-
-
-@dataclasses.dataclass
-class LeagueInfo:
+class LeagueRef:
     name: str
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclasses.dataclass(kw_only=True)
-class League(LeagueInfo):
+class League(LeagueRef):
     start: datetime.datetime
     timezone: str
     format: TournamentFormat
@@ -276,23 +291,17 @@ class League(LeagueInfo):
     organizers: list[PublicPerson] = pydantic.Field(default_factory=list)
 
 
-@dataclasses.dataclass
-class TournamentMinimal:
-    name: str
-    format: TournamentFormat
-    start: datetime.datetime
+@dataclasses.dataclass(kw_only=True)
+class TournamentMinimal(TournamentRef):
     finish: datetime.datetime | None = None
-    timezone: str = "UTC"
-    uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     country: str | None = None
     country_flag: str | None = None
     online: bool = False
-    league: LeagueInfo | None = None
-    rank: TournamentRank = TournamentRank.BASIC
+    league: LeagueRef | None = None
     state: TournamentState = TournamentState.REGISTRATION
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class TournamentConfig(TournamentMinimal):
     judges: list[PublicPerson] = pydantic.Field(default_factory=list)
     venue: str = ""
@@ -308,7 +317,7 @@ class TournamentConfig(TournamentMinimal):
     limited: LimitedFormat | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Tournament(TournamentConfig):
     # active tournament console
     # # For now, rounds[-1] is always current.
@@ -355,6 +364,20 @@ class VenueCompletion:
 
 
 @dataclasses.dataclass
+class LeagueWithTournaments(League):
+    tournaments: list[TournamentInfo] = pydantic.Field(default_factory=list)
+    rankings: list[tuple[int, LeaguePlayer]] = pydantic.Field(default_factory=list)
+
+
+# note: cannot use dataclass as query param
+class LeagueFilter(pydantic.BaseModel):
+    date: str = ""
+    uid: str = ""
+    country: str = ""
+    online: bool = True
+
+
+@dataclasses.dataclass
 class DeckInfo:
     deck: KrcgDeck
     score: scoring.Score
@@ -367,17 +390,64 @@ class TournamentDeckInfo(TournamentConfig):
 
 
 @dataclasses.dataclass
-class LeagueWithTournaments(League):
-    tournaments: list[TournamentInfo] = pydantic.Field(default_factory=list)
-    rankings: list[tuple[int, LeaguePlayer]] = pydantic.Field(default_factory=list)
+class DiscordUser:
+    id: str  # the user's id (Discord snowflake)
+    username: str  # the user's username, not unique across the platform
+    discriminator: str  # the user's Discord-tag
+    global_name: str | None  # the user's display name, if it is set.
+    email: str | None  # the user's email
+    verified: bool | None  # whether the email has been verified
+    mfa_enabled: bool | None  # whether the user has two factor enabled
+    locale: str | None  # the user's chosen language option
+    # we ignore the rest:
+    # avatar: str | None  # the user's avatar hash
+    # bot: bool | None  # whether the user belongs to an OAuth2 application
+    # system: bool | None  # whether the user is an Official Discord System user
+    # banner: str | None  # the user's banner hash
+    # accent_color: int | None  # the user's banner color
+    # flags: int | None  # the flags on a user's account
+    # premium_type: int | None  # the type of Nitro subscription on a user's account
+    # public_flags: int | None  # the public flags on a user's account
+    # avatar_decoration_data: dict | None  # data for the user's avatar decoration
 
 
-# note: cannot use dataclass as query param
-class LeagueFilter(pydantic.BaseModel):
-    date: str = ""
-    uid: str = ""
-    country: str = ""
-    online: bool = True
+@dataclasses.dataclass
+class TournamentRating:
+    tournament: TournamentRef
+    size: int = 0
+    rounds_played: int = 0
+    result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    rank: int = 0
+    rating_points: int = 0
+    gp_points: int = 0
+
+
+@dataclasses.dataclass
+class MemberInfo:
+    name: str | None = None
+    country: str | None = None  # country name
+    city: str | None = None  # city name
+    nickname: str | None = None  # player nickname (on social, lackey, etc.)
+    email: str | None = None  # the user's email
+    whatsapp: str | None = None  # phone
+
+
+@dataclasses.dataclass
+class Member(Person):
+    nickname: str | None = None  # player nickname (on social, lackey, etc.)
+    email: str | None = None  # the user's email
+    verified: bool | None = None  # whether the email has been verified
+    discord: DiscordUser | None = None  # Discord data
+    password_hash: str = ""
+    whatsapp: str | None = None  # phone
+    ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
+    prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
+
+
+@dataclasses.dataclass
+class Client:
+    name: str
+    uid: str | None = None  # UUID assigned by the backend
 
 
 @dataclasses.dataclass
@@ -417,72 +487,6 @@ class City:
     admin2: str  # name of second administrative division (county)
     timezone: str  # iana timezone id
     modification_date: str  # date of last modification in ISO format
-
-
-@dataclasses.dataclass
-class DiscordUser:
-    id: str  # the user's id (Discord snowflake)
-    username: str  # the user's username, not unique across the platform
-    discriminator: str  # the user's Discord-tag
-    global_name: str | None  # the user's display name, if it is set.
-    email: str | None  # the user's email
-    verified: bool | None  # whether the email has been verified
-    mfa_enabled: bool | None  # whether the user has two factor enabled
-    locale: str | None  # the user's chosen language option
-    # we ignore the rest:
-    # avatar: str | None  # the user's avatar hash
-    # bot: bool | None  # whether the user belongs to an OAuth2 application
-    # system: bool | None  # whether the user is an Official Discord System user
-    # banner: str | None  # the user's banner hash
-    # accent_color: int | None  # the user's banner color
-    # flags: int | None  # the flags on a user's account
-    # premium_type: int | None  # the type of Nitro subscription on a user's account
-    # public_flags: int | None  # the public flags on a user's account
-    # avatar_decoration_data: dict | None  # data for the user's avatar decoration
-
-
-@dataclasses.dataclass(kw_only=True)
-class RegisteredSanction(Sanction):
-    tournament: TournamentConfig | None = None
-
-
-@dataclasses.dataclass
-class TournamentRating:
-    tournament: TournamentMinimal
-    size: int = 0
-    rounds_played: int = 0
-    result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
-    rank: int = 0
-    rating_points: int = 0
-    gp_points: int = 0
-
-
-@dataclasses.dataclass
-class MemberInfo:
-    name: str | None = None
-    country: str | None = None  # country name
-    city: str | None = None  # city name
-    nickname: str | None = None  # player nickname (on social, lackey, etc.)
-    email: str | None = None  # the user's email
-    whatsapp: str | None = None  # phone
-
-
-@dataclasses.dataclass
-class Member(Person):
-    nickname: str | None = None  # player nickname (on social, lackey, etc.)
-    email: str | None = None  # the user's email
-    verified: bool | None = None  # whether the email has been verified
-    discord: DiscordUser | None = None  # Discord data
-    password_hash: str = ""
-    whatsapp: str | None = None  # phone
-    ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
-    prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
-
-
-@dataclasses.dataclass
-class Client:
-    name: str
-    uid: str | None = None  # UUID assigned by the backend
 
 
 @dataclasses.dataclass

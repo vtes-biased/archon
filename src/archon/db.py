@@ -206,22 +206,6 @@ async def init():
         await conn.set_autocommit(False)
 
 
-# Query to consider for venue completion. Maybe a view?
-# select
-#     distinct on (data->>'country', lower(substring(data->>'venue' for 5)))
-#     data->>'country',
-#     trim(both from data->>'venue')
-# from tournaments
-# where
-#     data->>'venue' <> ''
-#     and substring(data->>'venue' for 1) not in ('"','(','''')
-# order by
-#     data->>'country',
-#     lower(substring(data->>'venue' for 5)),
-#     data->>'venue',
-#     timetz(data->>'start', data->>'timezone') DESC;
-
-
 class IsDataclass(typing.Protocol):
     # https://stackoverflow.com/a/55240861
     __dataclass_fields__: typing.ClassVar[dict[str, typing.Any]]
@@ -242,7 +226,8 @@ async def reset(keep_members: bool = True):
                 await cursor.execute("DROP TABLE IF EXISTS members")
 
 
-T = typing.TypeVar("T", bound=models.Tournament)
+T = typing.TypeVar("T", bound=models.TournamentMinimal)
+P = typing.TypeVar("T", bound=models.PublicPerson)
 
 
 @contextlib.asynccontextmanager
@@ -554,7 +539,7 @@ class Operator:
                 ],
             )
 
-    async def insert_member(self, member: models.Member) -> models.Member:
+    async def insert_member(self, member: P) -> P:
         """Insert a new member"""
         # vekn must not be set
         member.vekn = ""
@@ -569,7 +554,7 @@ class Operator:
             return member
 
     async def get_member(
-        self, uid: str, for_update=False, cls: typing.Type[T] = models.Member
+        self, uid: str, for_update=False, cls: typing.Type[P] = models.Member
     ) -> T:
         """Get a member from their uid"""
         async with self.conn.cursor() as cursor:
@@ -583,19 +568,23 @@ class Operator:
                 return self._instanciate(data[0], cls)
             return None
 
-    async def get_members(self, uids: list[str] | None = None) -> list[models.Person]:
-        """Get all members"""
+    async def get_members(self, uids: list[str]) -> list[models.PublicPerson]:
+        """Get multiple members by UID"""
         async with self.conn.cursor() as cursor:
-            if uids:
-                res = await cursor.execute(
-                    "SELECT data FROM members WHERE uid = ANY(%s)", [uids]
-                )
-            else:
-                res = await cursor.execute("SELECT data FROM members")
+            res = await cursor.execute(
+                "SELECT data FROM members WHERE uid = ANY(%s)", [uids]
+            )
             return [
-                self._instanciate(data[0], models.Person)
-                for data in await res.fetchall()
+                self._instanciate(row[0], models.PublicPerson)
+                for row in await res.fetchall()
             ]
+
+    async def get_members_gen(
+        self,
+    ) -> typing.AsyncGenerator[models.Person, None]:
+        async with self.conn.cursor() as cursor:
+            async for row in cursor.stream("SELECT data FROM members"):
+                yield self._instanciate(row[0], models.Person)
 
     async def get_ranked_members(self) -> list[models.Person]:
         """Get members with a prominant rank in any category"""
@@ -776,7 +765,7 @@ class Operator:
                 return member
             raise NotFound(f"Member not found by email: {email}")
 
-    async def update_member(self, member: models.Member) -> models.Member:
+    async def update_member(self, member: P) -> P:
         async with self.conn.cursor() as cursor, member_consistency():
             await cursor.execute(
                 "UPDATE members SET data=%s WHERE uid=%s",
@@ -1061,9 +1050,12 @@ class Operator:
         else:
             data.pop("city", None)
         if "city" in data:
-            data["city_geoname_id"] = geo.CITIES_BY_COUNTRY[data["country"]][
-                data["city"]
-            ].geoname_id
+            cities = geo.CITIES_BY_COUNTRY.get(data["country"], {})
+            geocity = cities.get(data["city"], None)
+            if geocity:
+                data["city_geoname_id"] = geocity.geoname_id
+            else:
+                data.pop("city", None)
         return psycopg.types.json.Json(data)
 
     def _instanciate(self, data: dict, cls: typing.Type[T]) -> T:

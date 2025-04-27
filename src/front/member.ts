@@ -80,13 +80,30 @@ export class MembersDB {
         console.log("refreshing db")
         const res = await base.do_fetch_with_token("/api/vekn/members", this.token, {})
         if (!res) { return }
-        const members = await res.json() as d.Person[]
-        const tr = this.db.transaction("members", "readwrite")
-        await tr.store.clear()
-        for (const member of members) {
-            tr.store.put(member)
+        if (res.headers.get("content-type") == "application/jsonl") {
+            // wait for the whole stream: we can refine later if needed
+            // but we cannot wait on the stream during the IndexDB transaction anyway
+            const data = await res.bytes()
+            const str = new TextDecoder().decode(data);
+            const tr = this.db.transaction("members", "readwrite")
+            await tr.store.clear()
+            var count = 0
+            for (const dic of str.split("\n")) {
+                if (dic === "") { break }
+                const member = JSON.parse(dic) as d.Person
+                tr.store.put(member)
+                count += 1
+            }
+            await tr.done
+        } else if (res.headers.get("content-type") == "application/json") {
+            const members = await res.json() as d.Person[]
+            const tr = this.db.transaction("members", "readwrite")
+            await tr.store.clear()
+            for (const member of members) {
+                tr.store.put(member)
+            }
+            await tr.done
         }
-        await tr.done
         await this.build_trie()
         sessionStorage.setItem("members_refresh", DateTime.now().toISO())
     }

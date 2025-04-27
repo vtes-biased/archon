@@ -91,3 +91,8 @@ tr.dragged>th {
 label.form-label {
     z-index: 6 !important;
 }
+
+// pointer for hoverable tables
+.table-hover tbody>tr:hover {
+    cursor: pointer;
+}

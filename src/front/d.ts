@@ -1,5 +1,18 @@
 import * as events from "./events"
 
+export enum TournamentFormat {
+    Standard = "Standard",
+    Limited = "Limited",
+    Draft = "Draft",
+}
+
+export enum TournamentRank {
+    BASIC = "",
+    NC = "National Championship",
+    CC = "Continental Championship",
+    GP = "Grand Prix",
+}
+
 export enum TournamentState {
     REGISTRATION = "Registration",
     WAITING = "Waiting",
@@ -36,30 +49,6 @@ export enum Barrier {
     MAX_ROUNDS = "Max Rounds",
 }
 
-export enum MemberRole {
-    ADMIN = "Admin",
-    PRINCE = "Prince",
-    JUDGE = "Judge",
-    ANC_JUDGE = "Anc. Judge",  // Ancilla Judge
-    NEO_JUDGE = "Neo. Judge",  // Neonate Judge
-    NC = "NC",  // National Coordinator
-    PTC = "PTC",  // Platest Coordinator
-    PLAYTESTER = "Playtester",
-    ETHICS = "Ethics",  // Member of the Ethics committee
-}
-
-export enum MemberFilter {
-    MY_RECRUITS = "My Recruits",
-    NO_SPONSOR = "No Sponsor",
-}
-
-export enum AlertLevel {
-    INFO = "Info",
-    SUCCESS = "Success",
-    WARNING = "Warning",
-    DANGER = "Danger",
-}
-
 export enum RankingCategoy {
     CONSTRUCTED_ONLINE = "Constructed Online",
     CONSTRUCTED_ONSITE = "Constructed Onsite",
@@ -73,6 +62,32 @@ export enum LeagueRanking {
     Score = "Score",
 }
 
+export enum MemberRole {
+    ADMIN = "Admin",
+    PRINCE = "Prince",
+    JUDGE = "Judge",
+    ANC_JUDGE = "Anc. Judge",  // Ancilla Judge
+    NEO_JUDGE = "Neo. Judge",  // Neonate Judge
+    NC = "NC",  // National Coordinator
+    PTC = "PTC",  // Platest Coordinator
+    PLAYTESTER = "Playtester",
+    ETHICS = "Ethics",  // Member of the Ethics committee
+}
+
+// ---------------------------------- frontend enums
+export enum MemberFilter {
+    MY_RECRUITS = "My Recruits",
+    NO_SPONSOR = "No Sponsor",
+}
+
+export enum AlertLevel {
+    INFO = "Info",
+    SUCCESS = "Success",
+    WARNING = "Warning",
+    DANGER = "Danger",
+}
+// ---------------------------------- end frontend enums
+
 export interface Score {
     gw: number,
     vp: number,
@@ -81,18 +96,39 @@ export interface Score {
 
 export interface PublicPerson {
     name: string,
-    vekn: string,
-    uid: string,
-    country: string | undefined,  // country name
-    country_flag: string | undefined,  // unicode flag char
-    city: string | undefined,  // city name
+    vekn?: string,
+    uid?: string,
+    country?: string | null,  // country name
+    country_flag?: string | null,  // unicode flag char
+    city?: string | null,  // city name
+}
+
+export interface TournamentRef {
+    name: string,
+    uid?: string,
+    format: TournamentFormat
+    start: string
+    timezone: string
+    rank?: TournamentRank
+}
+
+export interface Sanction {
+    uid?: string,
+    judge?: Person,
+    level?: events.SanctionLevel
+    category?: events.SanctionCategory
+    comment?: string
+}
+
+export interface RegisteredSanction extends Sanction {
+    tournament?: TournamentRef | null,
 }
 
 export interface Person extends PublicPerson {
-    roles: MemberRole[] | undefined,  // city name
-    sponsor: string | undefined,
-    sanctions: RegisteredSanction[],
-    ranking: Record<RankingCategoy, number>,
+    roles?: MemberRole[],  // city name
+    sponsor?: string | null,
+    sanctions?: RegisteredSanction[],
+    ranking?: Record<RankingCategoy, number>,
 }
 
 export interface KrcgCard {
@@ -119,63 +155,64 @@ export interface KrcgLibrary {
 }
 
 export interface KrcgDeck {
-    id: string,
+    id?: string,
     crypt: KrcgCrypt,
     library: KrcgLibrary,
-    vdb_link: string,
-    event: string | undefined,
-    event_link: string | undefined,
-    place: string | undefined,
-    date: string | undefined,
-    tournament_format: string | undefined,
-    players_count: number | undefined,
-    player: string | undefined,
-    score: string | undefined,
-    name: string | undefined,
-    author: string | undefined,
-    comments: string | undefined,
-}
-
-export interface Player extends Person {
-    state: PlayerState,
-    barriers: Barrier[],
-    rounds_played: number,
-    table: number,  // non-zero when playing
-    seat: number,  // non-zero when playing
-    toss: number,  // non-zero when draws for seeding finals
-    seed: number,  // Finals seed
-    result: Score,
-    deck: KrcgDeck | undefined,
+    vdb_link?: string,
+    event?: string,
+    event_link?: string,
+    place?: string,
+    date?: string | null,
+    tournament_format?: string,
+    players_count?: number,
+    player?: string,
+    score?: string,
+    name?: string,
+    author?: string,
+    comments?: string,
 }
 
 export interface PlayerInfo extends PublicPerson {
-    state: PlayerState,
-    rounds_played: number,
-    table: number,
-    seat: number,
-    result: Score,
-    seed: number,
-    toss: number,
+    state?: PlayerState,
+    rounds_played?: number,
+    table?: number,
+    seat?: number,
+    result?: Score,
+    seed?: number,
+    toss?: number,
 }
 
 export interface LeaguePlayer extends PublicPerson {
-    tournaments: string[],
-    score: Score,
-    points: number,
+    tournaments?: string[],
+    score?: Score,
+    points?: number,
+}
+
+export interface Player extends Person {
+    state?: PlayerState,
+    barriers?: Barrier[],
+    rounds_played?: number,
+    table?: number,  // non-zero when playing
+    seat?: number,  // non-zero when playing
+    toss?: number,  // non-zero when draws for seeding finals
+    seed?: number,  // Finals seed
+    result?: Score,
+    deck?: KrcgDeck | null,
 }
 
 export interface SeatInfo {
     player_uid: string,
-    result: Score,
+    result?: Score,
 }
 
 export interface TableSeat extends SeatInfo {
-    deck: KrcgDeck | undefined,
+    deck?: KrcgDeck | null,
+    judge_uid?: string
 }
 
 export interface ScoreOverride {
     judge: Person,
-    comment: string,
+    comment?: string,
 }
 
 export interface TableInfo {
@@ -184,8 +221,8 @@ export interface TableInfo {
 
 export interface Table {
     seating: TableSeat[],
-    state: TableState,
-    override: ScoreOverride | undefined,
+    state?: TableState,
+    override?: ScoreOverride | null,
 }
 
 export interface RoundInfo {
@@ -196,70 +233,42 @@ export interface Round {
     tables: Table[]
 }
 
-export enum TournamentFormat {
-    Standard = "Standard",
-    Limited = "Limited",
-    Draft = "Draft",
-}
-
-export enum TournamentRank {
-    BASIC = "",
-    NC = "National Championship",
-    CC = "Continental Championship",
-    GP = "Grand Prix",
-}
-
 export interface LimitedFormat {
-    mono_vampire: boolean,
-    mono_clan: boolean,
-    storyline: string,
-    include: number[],
-    exclude: number[],
+    mono_vampire?: boolean,
+    mono_clan?: boolean,
+    storyline?: string,
+    include?: number[],
+    exclude?: number[],
 }
 
-export interface Sanction {
-    uid: string,
-    judge: Person,
-    level: events.SanctionLevel
-    category: events.SanctionCategory
-    comment: string
-}
-
-export interface LeagueInfo {
+export interface LeagueRef {
     name: string,
-    uid: string,
+    uid?: string,
 }
 
-export interface League extends LeagueInfo {
+export interface League extends LeagueRef {
     start: string,
-    finish: string,
+    finish?: string | null,
     timezone: string,
-    description: string,
-    online: boolean,
-    country: string,
-    country_flag: string,
+    description?: string,
+    online?: boolean,
+    country?: string | null,
+    country_flag?: string | null,
     format: TournamentFormat,
     ranking: LeagueRanking,
-    organizers: PublicPerson[],
+    organizers?: PublicPerson[],
 }
 
-export interface TournamentMinimal {
-    name: string
-    format: TournamentFormat
-    start: string
+export interface TournamentMinimal extends TournamentRef {
     finish?: string | null
-    timezone: string
-    uid?: string
     country?: string | null
     country_flag?: string | null
     online?: boolean,
-    league?: LeagueInfo | null
-    rank: TournamentRank
-    state: TournamentState
+    league?: LeagueRef | null
+    state?: TournamentState
 }
 
 export interface TournamentConfig extends TournamentMinimal {
-    city?: string | undefined,
     venue?: string,
     venue_url?: string,
     address?: string,
@@ -269,93 +278,106 @@ export interface TournamentConfig extends TournamentMinimal {
     decklist_required?: boolean,
     description?: string,
     judges?: Person[],
+    standings_mode?: StandingsMode,
+    max_rounds?: number,
+    limited?: LimitedFormat | null
 }
 
 export interface Tournament extends TournamentConfig {
     // active tournament console
     // current_round: number,
-    limited: LimitedFormat | undefined,
-    checkin_code: boolean,
-    standings_mode: StandingsMode,
-    players: Record<string, Player>,
-    finals_seeds: string[],
-    rounds: Round[],
-    sanctions: Record<string, Sanction[]>,
-    winner: string,
-    extra: {},
+    checkin_code?: boolean,
+    players?: Record<string, Player>,
+    finals_seeds?: string[],
+    rounds?: Round[],
+    sanctions?: Record<string, Sanction[]>,
+    winner?: string,
+    extra?: any,
+}
+
+export interface TournamentInfo extends TournamentConfig {
+    players?: Record<string, PlayerInfo>,
+    finals_seeds?: string[],
+    rounds?: RoundInfo[],
+    winner?: string,
+}
+
+export interface TournamentFilter {
+    date?: string,
+    uid?: string,
+    country?: string,
+    online?: boolean,
+    states?: TournamentState[],
 }
 
 export interface VenueCompletion {
     venue: string,
-    venue_url?: string,
-    address?: string,
-    map_url?: string,
-}
-
-export interface TournamentInfo extends TournamentConfig {
-    players: Record<string, PlayerInfo>,
-    finals_seeds: string[],
-    rounds: RoundInfo[],
-    winner: string,
-}
-
-export interface TournamentFilter {
-    date: string,
-    uid: string,
-    country: string,
-    online: boolean,
-    states: TournamentState[],
+    venue_url: string | null,
+    address: string | null,
+    map_url: string | null,
 }
 
 export interface LeagueWithTournaments extends League {
-    tournaments: TournamentInfo[]
-    rankings: [number, LeaguePlayer][]
+    tournaments?: TournamentInfo[]
+    rankings?: [number, LeaguePlayer][]
 }
 
 export interface LeagueFilter {
-    date: string,
-    uid: string,
-    country: string,
-    online: boolean,
+    date?: string,
+    uid?: string,
+    country?: string,
+    online?: boolean,
 }
 
-export interface RegisteredSanction extends Sanction {
-    tournament: TournamentConfig,
+export interface DeckInfo {
+    deck: KrcgDeck,
+    score: Score,
+    winner?: boolean,
+}
+
+export interface TournamentDeckInfo extends TournamentConfig {
+    decks?: DeckInfo[]
 }
 
 export interface DiscordUser {
     id: string,  // the user's id (Discord snowflake)
     username: string,  // the user's username, not unique across the platform
     discriminator: string,  // the user's Discord-tag
-    global_name: string | undefined,  // the user's display name, if it is set
+    global_name: string | null,  // the user's display name, if it is set
+    // other fields should not be used
 }
 
 export interface TournamentRating {
-    tournament: TournamentMinimal,
-    size: number
-    rounds_played: number,
-    result: Score,
-    rank: number,
-    rating_points: number,
-}
-
-export interface Member extends Person {
-    nickname: string | undefined,  // player nickname
-    email: string | undefined,  // the user's email
-    verified: boolean | undefined,  // whether the email has been verified
-    discord: DiscordUser | undefined,
-    whatsapp: string | undefined,
-    ratings: Record<string, TournamentRating>
-    // prefix: string | undefined // Do not use - temporary field will be removed
+    tournament: TournamentRef,
+    size?: number
+    rounds_played?: number,
+    result?: Score,
+    rank?: number,
+    rating_points?: number,
 }
 
 export interface MemberInfo {
-    name: string | null,
-    country: string | null,  // country name
-    city: string | null,  // city name
-    nickname: string | null,  // player nickname (on social, lackey, etc.)
-    email: string | null,  // the user's email
-    whatsapp: string | null,  // phone
+    name?: string | null,
+    country?: string | null,  // country name
+    city?: string | null,  // city name
+    nickname?: string | null,  // player nickname (on social, lackey, etc.)
+    email?: string | null,  // the user's email
+    whatsapp?: string | null,  // phone
+}
+
+export interface Member extends Person {
+    nickname?: string | null,  // player nickname
+    email?: string | null,  // the user's email
+    verified?: boolean | null,  // whether the email has been verified
+    discord?: DiscordUser | null,
+    whatsapp?: string | null,
+    ratings?: Record<string, TournamentRating>
+    // prefix: string | undefined // Do not use - temporary field will be removed
+}
+
+export interface Client {
+    name: string,
+    uid?: string | null,  // UUID assigned by the backend
 }
 
 export interface Country {

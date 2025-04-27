@@ -1864,7 +1864,6 @@ class TournamentConsole {
             uid: this.tournament.uid,
             rank: this.tournament.rank,
             country: this.tournament.country,
-            city: this.tournament.city,
             venue: this.tournament.venue,
             venue_url: this.tournament.venue_url,
             address: this.tournament.address,

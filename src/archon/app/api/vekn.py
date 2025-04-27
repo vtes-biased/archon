@@ -1,5 +1,6 @@
 import dataclasses
 import fastapi
+import orjson
 import typing
 
 from .. import dependencies
@@ -13,10 +14,11 @@ router = fastapi.APIRouter(
     tags=["vekn"],
 )
 
+M = models.Member | models.Person | models.PublicPerson
+
 
 @router.get("/country", summary="List all countries")
 async def api_vekn_countries() -> list[models.Country]:
-    """List all countries"""
     return sorted(geo.COUNTRIES_BY_NAME.values(), key=lambda c: c.country)
 
 
@@ -24,8 +26,7 @@ async def api_vekn_countries() -> list[models.Country]:
 async def api_vekn_country_cities(
     country: typing.Annotated[str, fastapi.Path()],
 ) -> list[models.City]:
-    """List cities of given country.
-
+    """
     Only cities **over 15k population** are listed.
     Open-source information made availaible by [Geonames](https://geonames.org).
 
@@ -36,12 +37,13 @@ async def api_vekn_country_cities(
     return sorted(geo.CITIES_BY_COUNTRY[country].values(), key=lambda c: c.unique_name)
 
 
-@router.post("/claim")
+@router.post("/claim", summary="Claim a VEKN ID")
 async def api_vekn_claim(
     param: typing.Annotated[models.VeknParameter, fastapi.Body()],
     member_uid: dependencies.MemberUidFromToken,
     op: dependencies.DbOperator,
 ) -> dependencies.Token:
+    """This gets you a new token - the token used to do the query is disabled"""
     new_member = await op.claim_vekn(member_uid, param.vekn)
     if new_member is None:
         raise fastapi.HTTPException(
@@ -51,10 +53,11 @@ async def api_vekn_claim(
     return dependencies.Token(access_token=access_token, token_type="Bearer")
 
 
-@router.post("/abandon")
+@router.post("/abandon", summary="Abandon your VEKN ID")
 async def api_vekn_abandon(
     member_uid: dependencies.MemberUidFromToken, op: dependencies.DbOperator
 ) -> dependencies.Token:
+    """This gets you a new token - the token used to do the query is disabled"""
     new_member = await op.abandon_vekn(member_uid)
     if new_member is None:
         raise fastapi.HTTPException(
@@ -64,38 +67,74 @@ async def api_vekn_abandon(
     return dependencies.Token(access_token=access_token, token_type="Bearer")
 
 
-@router.get("/members")
+async def _json_l(
+    it: typing.AsyncGenerator[any, None],
+) -> typing.AsyncGenerator[str, None]:
+    async for obj in it:
+        yield orjson.dumps(
+            obj, option=orjson.OPT_NON_STR_KEYS | orjson.OPT_APPEND_NEWLINE
+        )
+
+
+class JSONLResponse(fastapi.responses.ORJSONResponse):
+    media_type = "application/jsonl"
+
+
+@router.get(
+    "/members",
+    response_class=JSONLResponse,
+    response_model=models.Person,
+    summary="Get all members",
+)
 async def api_vekn_members(
     member: dependencies.PersonFromToken, op: dependencies.DbOperator
-) -> list[models.Person]:
+) -> fastapi.Response:
+    """
+    - If you're a VEKN member, you get the whole list in a streaming response,
+      as [JSON Lines](https://jsonlines.org): `Content-Type: application/jsonl`
+    - If you're not, you get only the public officials (Princes and NCs) as normal JSON:
+      `Content-Type: application/json`
+    """
     if member.vekn:
-        return await op.get_members()
+        return fastapi.responses.StreamingResponse(
+            _json_l(op.get_members_gen()), media_type="application/jsonl"
+        )
     else:
-        return await op.get_externally_visible_members(member)
+        return fastapi.responses.ORJSONResponse(
+            await op.get_externally_visible_members(member)
+        )
 
 
-@router.get("/members/{uid}")
+def _filter_member_data(user: models.Person, target: models.Member) -> M:
+    data = dataclasses.asdict(target)
+    if user.uid == target.uid:
+        return target
+    if not user.vekn:
+        return models.PublicPerson(**data)
+    if dependencies.check_can_contact(user, target):
+        return target
+    return models.Person(**data)
+
+
+@router.get("/members/{uid}", summary="Get a member")
 async def api_vekn_member(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
-) -> models.Member:
-    ret = await op.get_member(uid)
-    if member.uid != uid and not member.vekn:
-        dependencies.check_can_contact(member, ret)
-    if not ret:
-        raise fastapi.HTTPException(
-            fastapi.status.HTTP_404_NOT_FOUND, detail="No VEKN token"
-        )
-    return ret
+) -> M:
+    """
+    Depending on your role and relationship to the member,
+    you get access to more or less information.
+    """
+    return _filter_member_data(member, await op.get_member(uid))
 
 
-@router.post("/members")
+@router.post("/members", summary="Add a member")
 async def api_vekn_add_member(
     posting_member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     member: typing.Annotated[models.Member, fastapi.Body()],
-) -> models.Member:
+) -> M:
     dependencies.check_organizer(posting_member)
     if member.country:
         if member.country in geo.COUNTRIES_BY_NAME:
@@ -112,10 +151,10 @@ async def api_vekn_add_member(
         member.city = city.unique_name
     else:
         member.city = ""
-    return await op.insert_member(member)
+    return _filter_member_data(await op.insert_member(member))
 
 
-@router.post("/members/password")
+@router.post("/members/password", summary="Change your password")
 async def api_vekn_set_member_password(
     member: dependencies.MemberFromToken,
     op: dependencies.DbOperator,
@@ -125,7 +164,7 @@ async def api_vekn_set_member_password(
     return await op.update_member(member)
 
 
-@router.post("/members/unlink_discord")
+@router.post("/members/unlink_discord", summary="Unlink your Discord account")
 async def api_vekn_unlink_discord(
     member: dependencies.MemberFromToken,
     op: dependencies.DbOperator,
@@ -134,75 +173,88 @@ async def api_vekn_unlink_discord(
     return await op.update_member(member)
 
 
-@router.post("/members/{uid}/add_role")
+@router.post("/members/{uid}/add_role", summary="Add a role to the member")
 async def api_vekn_member_add_role(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
     param: typing.Annotated[models.RoleParameter, fastapi.Body()],
-) -> models.Member:
+) -> M:
+    """Only Admins and NCs (for their country members) can do that"""
     target = await op.get_member(uid, True)
     dependencies.check_can_change_role(member, target, param.role)
     target.roles = list(set(target.roles) | {param.role})
-    return await op.update_member(target)
+    return _filter_member_data(member, await op.update_member(target))
 
 
-@router.post("/members/{uid}/remove_role")
+@router.post("/members/{uid}/remove_role", summary="Remove a role")
 async def api_vekn_member_remove_role(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
     param: typing.Annotated[models.RoleParameter, fastapi.Body()],
-) -> models.Member:
+) -> M:
+    """Only Admins and NCs (for their country members) can do that"""
     target = await op.get_member(uid, True)
     dependencies.check_can_change_role(member, target, param.role)
     target.roles = list(set(target.roles) - {param.role})
-    return await op.update_member(target)
+    return _filter_member_data(member, await op.update_member(target))
 
 
-@router.post("/members/{uid}/sponsor")
+@router.post(
+    "/members/{uid}/sponsor", summary="Sponsor a person to VEKN (attributes a VEKN ID)"
+)
 async def api_vekn_member_sponsor(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
-) -> models.Member:
+) -> M:
+    """Only Princes, Admins and NCs can do that"""
     dependencies.check_organizer(member)
     target = await op.get_member(uid, True)
     target.sponsor = member.uid
-    return await op.update_member_new_vekn(target)
+    return _filter_member_data(member, await op.update_member_new_vekn(target))
 
 
-@router.post("/members/{uid}/vekn")
+@router.post("/members/{uid}/vekn", summary="Assign an existing VEKN ID to a member")
 async def api_vekn_member_assign_vekn(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
     param: typing.Annotated[models.VeknParameter, fastapi.Body()],
-) -> models.Member:
+) -> M:
+    """Only Admins and NCs (for their country members) can do that"""
     target = await op.get_member(uid, True)
     dependencies.check_can_change_vekn(member, target)
     target.sponsor = member.uid
-    return await op.claim_vekn(target.uid, param.vekn)
+    ret = await op.claim_vekn(target.uid, param.vekn)
+    if not ret:
+        raise fastapi.HTTPException(fastapi.status.HTTP_400_BAD_REQUEST)
+    return _filter_member_data(member, ret)
 
 
-@router.delete("/members/{uid}/vekn")
+@router.delete("/members/{uid}/vekn", summary="Remove a VEKN ID from a member")
 async def api_vekn_member_delete_vekn(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
-) -> models.Member:
+) -> M:
+    """Only Admins and NCs (for their country members) can do that"""
     target = await op.get_member(uid, True)
     dependencies.check_can_change_vekn(member, target)
-    return await op.abandon_vekn(target.uid)
+    ret = await op.abandon_vekn(target.uid)
+    if not ret:
+        raise fastapi.HTTPException(fastapi.status.HTTP_400_BAD_REQUEST)
+    return _filter_member_data(member, ret)
 
 
-@router.post("/members/{uid}/info")
+@router.post("/members/{uid}/info", summary="Change a member's contact information")
 async def api_vekn_member_info(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
     info: typing.Annotated[models.MemberInfo, fastapi.Body()],
-) -> models.Member:
+) -> M:
     target = await op.get_member(uid, True)
     dependencies.check_can_change_info(member, target)
     for field in dataclasses.fields(info):
@@ -210,16 +262,17 @@ async def api_vekn_member_info(
         if value is None:
             continue
         setattr(target, field.name, value)
-    return await op.update_member(target)
+    return _filter_member_data(member, await op.update_member(target))
 
 
-@router.post("/members/{uid}/sanction")
+@router.post("/members/{uid}/sanction", summary="Sanction a member")
 async def api_vekn_member_sanction(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
     sanction: typing.Annotated[models.RegisteredSanction, fastapi.Body()],
-) -> models.Member:
+) -> M:
+    """Only Judges and Ethics Committee members can do that"""
     dependencies.check_can_sanction(member)
     sanction.judge_uid = member.uid
     target = await op.get_member(uid, True)
@@ -227,19 +280,20 @@ async def api_vekn_member_sanction(
         # for now, tournament sanctions should be delivered through tournament events
         raise fastapi.HTTPException(fastapi.status.HTTP_400_BAD_REQUEST)
     target.sanctions.append(sanction)
-    return await op.update_member(target)
+    return _filter_member_data(member, await op.update_member(target))
 
 
-@router.delete("/members/{uid}/sanction/{sanction_uid}")
+@router.delete("/members/{uid}/sanction/{sanction_uid}", summary="Remove a sanction")
 async def api_vekn_member_sanction_delete(
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
     sanction_uid: typing.Annotated[str, fastapi.Path()],
-) -> models.Member:
+) -> M:
+    """Only Judges and Ethics Committee members can do that"""
     dependencies.check_can_sanction(member)
     target = await op.get_member(uid, True)
     if not any(s.uid == sanction_uid for s in target.sanctions):
         raise fastapi.HTTPException(fastapi.status.HTTP_404_NOT_FOUND)
     target.sanctions = [s for s in target.sanctions if s.uid != sanction_uid]
-    return await op.update_member(target)
+    return _filter_member_data(member, await op.update_member(target))

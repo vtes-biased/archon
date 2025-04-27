@@ -253,20 +253,18 @@ def check_can_change_role(
         case models.MemberRole.PRINCE:
             if models.MemberRole.ADMIN in initiator_roles:
                 return
-            elif (
+            if (
                 models.MemberRole.NC in initiator_roles
                 and member.country == target.country
             ):
                 return
-            else:
-                raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+            raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
         case models.MemberRole.PLAYTESTER:
             if models.MemberRole.ADMIN in initiator_roles:
                 return
-            elif models.MemberRole.PTC in initiator_roles:
+            if models.MemberRole.PTC in initiator_roles:
                 return
-            else:
-                raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+            raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
 def can_organize(member: models.Person) -> bool:
