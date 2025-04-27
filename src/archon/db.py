@@ -93,6 +93,10 @@ async def init():
             )
             # Indexes for fast ranking queries
             for category in models.RankingCategoy:
+                # TODO: remove drop after migration
+                await cursor.execute(
+                    f"DROP INDEX IF EXISTS idx_member_ranking_{category.name}"
+                )
                 await cursor.execute(
                     f"CREATE INDEX IF NOT EXISTS idx_member_ranking_{category.name} "
                     "ON members "
@@ -586,21 +590,19 @@ class Operator:
             async for row in cursor.stream("SELECT data FROM members"):
                 yield self._instanciate(row[0], models.Person)
 
-    async def get_ranked_members(self) -> list[models.Person]:
+    async def get_ranked_members(
+        self, category: models.RankingCategoy
+    ) -> list[models.Person]:
         """Get members with a prominant rank in any category"""
         async with self.conn.cursor() as cursor:
-            subqueries = []
-            for category in models.RankingCategoy:
-                subqueries.append(
-                    "(SELECT data FROM members "
-                    f"WHERE (data->'ranking'->'{category.value}')::int IS NOT NULL "
-                    f"ORDER BY (data->'ranking'->'{category.value}')::int DESC "
-                    "LIMIT 600)"
-                )
-            res = await cursor.execute(" UNION ".join(subqueries))
             return [
                 self._instanciate(data[0], models.Person)
-                for data in await res.fetchall()
+                async for data in cursor.stream(
+                    "SELECT data FROM members "
+                    f"WHERE (data->'ranking'->'{category.value}')::int IS NOT NULL "
+                    f"ORDER BY (data->'ranking'->'{category.value}')::int DESC "
+                    "LIMIT 600"
+                )
             ]
 
     async def get_members_vekn_dict(self) -> dict[str, models.Person]:

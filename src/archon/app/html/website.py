@@ -246,24 +246,24 @@ def _ranked(members: list[models.Person], category: models.RankingCategoy):
 async def _get_rankings(
     op: dependencies.DbOperator,
 ) -> dict[str, list[tuple[int, models.Person]]]:
-    members = await op.get_ranked_members()
-    return {
-        category.value: list(_ranked(members, category))
-        for category in models.RankingCategoy
-    }
+    ret = {}
+    for category in models.RankingCategoy:
+        members = await op.get_ranked_members(category)
+        ret[category.value] = list(_ranked(members, category))
+    return ret
 
 
 @dependencies.async_timed_cache()
 async def _get_rankings_anonymised(
     op: dependencies.DbOperator,
 ) -> dict[str, list[tuple[int, models.Person]]]:
-    members = await op.get_ranked_members()
-    for member in members:
-        member.name = ""
-    return {
-        category.value: list(_ranked(members, category))
-        for category in models.RankingCategoy
-    }
+    ret = {}
+    for category in models.RankingCategoy:
+        members = await op.get_ranked_members(category)
+        for member in members:
+            member.name = ""
+        ret[category.value] = list(_ranked(members, category))
+    return ret
 
 
 @router.get("/index.html")
