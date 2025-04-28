@@ -97,6 +97,7 @@ class TournamentRef:
     name: str
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     format: TournamentFormat
+    online: bool = False
     start: datetime.datetime
     timezone: str = "UTC"
     rank: TournamentRank = TournamentRank.BASIC
@@ -307,7 +308,6 @@ class TournamentMinimal(TournamentRef):
     finish: datetime.datetime | None = None
     country: str | None = None
     country_flag: str | None = None
-    online: bool = False
     league: LeagueRef | None = None
     state: TournamentState = TournamentState.REGISTRATION
 

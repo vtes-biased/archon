@@ -93,7 +93,7 @@ export function tournament_result_string(result: d.TournamentRating): string {
 }
 
 
-export function ranking_category(tournament: d.TournamentMinimal) {
+export function ranking_category(tournament: d.TournamentRef) {
     if (tournament.format == d.TournamentFormat.Standard) {
         if (tournament?.online) {
             return d.RankingCategoy.CONSTRUCTED_ONLINE

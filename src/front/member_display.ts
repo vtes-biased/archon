@@ -493,7 +493,6 @@ class MemberDisplay {
                     "aria-controls": `nav${category_str}`,
                     "aria-selected": "false",
                 })
-                console.log()
                 nav_tab.innerHTML = (category + " " +
                     `<span class="badge text-bg-primary align-text-top">${this.target.ranking[category] ?? 0}</span>`
                 )

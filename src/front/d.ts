@@ -106,18 +106,19 @@ export interface PublicPerson {
 export interface TournamentRef {
     name: string,
     uid?: string,
-    format: TournamentFormat
-    start: string
-    timezone: string
-    rank?: TournamentRank
+    format: TournamentFormat,
+    online?: boolean,
+    start: string,
+    timezone: string,
+    rank?: TournamentRank,
 }
 
 export interface Sanction {
     uid?: string,
     judge?: Person,
-    level?: events.SanctionLevel
-    category?: events.SanctionCategory
-    comment?: string
+    level?: events.SanctionLevel,
+    category?: events.SanctionCategory,
+    comment?: string,
 }
 
 export interface RegisteredSanction extends Sanction {
@@ -260,12 +261,11 @@ export interface League extends LeagueRef {
 }
 
 export interface TournamentMinimal extends TournamentRef {
-    finish?: string | null
-    country?: string | null
-    country_flag?: string | null
-    online?: boolean,
-    league?: LeagueRef | null
-    state?: TournamentState
+    finish?: string | null,
+    country?: string | null,
+    country_flag?: string | null,
+    league?: LeagueRef | null,
+    state?: TournamentState,
 }
 
 export interface TournamentConfig extends TournamentMinimal {
@@ -280,7 +280,7 @@ export interface TournamentConfig extends TournamentMinimal {
     judges?: Person[],
     standings_mode?: StandingsMode,
     max_rounds?: number,
-    limited?: LimitedFormat | null
+    limited?: LimitedFormat | null,
 }
 
 export interface Tournament extends TournamentConfig {
