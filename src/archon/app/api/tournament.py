@@ -156,7 +156,7 @@ async def api_tournament_get_venue_completion(
     "/{uid}/vekn-sync/{rounds}", summary="Sync finished tournament to vekn.net"
 )
 async def vekn_sync(
-    tournament: dependencies.Tournament,
+    tournament: dependencies.TournamentOrchestrator,  # lock for update
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     rounds: typing.Annotated[int, fastapi.Path()],
@@ -168,7 +168,7 @@ async def vekn_sync(
 
 @router.post("/{uid}/set-vekn/{vekn_id}", summary="Create tournament on vekn.net")
 async def set_vekn(
-    tournament: dependencies.Tournament,
+    tournament: dependencies.TournamentOrchestrator,  # lock for update
     op: dependencies.DbOperator,
     vekn_id: typing.Annotated[str, fastapi.Path()],
 ) -> models.Tournament:
@@ -179,7 +179,7 @@ async def set_vekn(
 
 @router.delete("/{uid}", summary="Delete tournament")
 async def api_tournament_delete(
-    tournament: dependencies.Tournament,
+    tournament: dependencies.TournamentOrchestrator,  # lock for update
     actor: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
 ) -> None:

@@ -144,29 +144,30 @@ async def get_tournament_config(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
 ) -> models.Tournament:
-    return await op.get_tournament(uid, models.TournamentConfig)
+    return await op.get_tournament(uid, cls=models.TournamentConfig)
 
 
 async def get_tournament_info(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
 ) -> models.Tournament:
-    return await op.get_tournament(uid, models.TournamentInfo)
+    return await op.get_tournament(uid, cls=models.TournamentInfo)
 
 
+# the only one that locks, always use that for updates
 async def get_tournament_orchestrator(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
 ) -> engine.TournamentOrchestrator:
-    ret = await op.get_tournament(uid, engine.TournamentOrchestrator)
+    ret = await op.get_tournament(uid, True, engine.TournamentOrchestrator)
     if not ret:
         raise fastapi.HTTPException(fastapi.status.HTTP_404_NOT_FOUND)
     return ret
 
 
-# This checks the member (from their token) can administrate the tournament
+# Check the member (from their token) can administrate the tournament
 Tournament = typing.Annotated[models.Tournament, fastapi.Depends(get_tournament)]
-# This checks there is a member token (not public)
+# Check there is a member token (not public) or filter data (players names)
 TournamentInfo = typing.Annotated[
     models.TournamentConfig, fastapi.Depends(get_tournament_info)
 ]
@@ -174,7 +175,7 @@ TournamentInfo = typing.Annotated[
 TournamentConfig = typing.Annotated[
     models.TournamentConfig, fastapi.Depends(get_tournament_config)
 ]
-# This checks there is a member token, but data should never be returned as is
+# Locks tournament for update
 TournamentOrchestrator = typing.Annotated[
     engine.TournamentOrchestrator, fastapi.Depends(get_tournament_orchestrator)
 ]

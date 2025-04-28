@@ -13,6 +13,7 @@ import psycopg.rows
 import psycopg.types.json
 import psycopg_pool
 import secrets
+import textwrap
 import typing
 import uuid
 import zoneinfo
@@ -390,10 +391,9 @@ class Operator:
             "LIMIT 100"
         )
         async with self.conn.cursor(row_factory=psycopg.rows.dict_row) as cursor:
-            res = await cursor.execute(Q, args)
             ret = [
                 self._instanciate(row, models.TournamentMinimal)
-                for row in await res.fetchall()
+                async for row in cursor.stream(Q, args)
             ]
             ret_filter = models.TournamentFilter()
             if filter:
@@ -406,13 +406,14 @@ class Operator:
             return (ret_filter, ret)
 
     async def get_tournament(
-        self, uid: str, cls: typing.Type[T] = models.Tournament
+        self, uid: str, for_update=False, cls: typing.Type[T] = models.Tournament
     ) -> T:
-        """Get a tournament by its uid"""
+        """Get a tournament by its uid, None if not found"""
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT data FROM tournaments WHERE uid=%s", [uuid.UUID(uid)]
-            )
+            Q = "SELECT data FROM tournaments WHERE uid=%s"
+            if for_update:
+                Q += " FOR UPDATE"
+            res = await cursor.execute(Q, [uuid.UUID(uid)])
             data = await res.fetchone()
             if not data:
                 return None
@@ -439,10 +440,9 @@ class Operator:
             Q += "AND (data->>'country' IS NULL OR data->>'country'='') "
         Q += "ORDER BY timetz(data->>'start', data->>'timezone') DESC"
         async with self.conn.cursor() as cursor:
-
-            res = await cursor.execute(Q, args)
-            data = await res.fetchall()
-            return [models.VenueCompletion(*row) for row in data]
+            return [
+                models.VenueCompletion(*row) async for row in cursor.stream(Q, args)
+            ]
 
     async def update_tournament(self, tournament: models.Tournament) -> str:
         """Update a tournament, returns its uid"""
@@ -471,10 +471,23 @@ class Operator:
         """Delete a tournament"""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
+                "SELECT jsonb_object_keys(data->'players') "
+                "FROM tournaments WHERE uid=%s FOR UPDATE",
+                [uuid.UUID(uid)],
+            )
+            player_uids = res.fetchall()
+            res = await cursor.execute(
                 "DELETE FROM tournaments WHERE uid=%s", [uuid.UUID(uid)]
             )
             if res.rowcount < 1:
                 raise KeyError(f"Tournament {uid} not found")
+            await cursor.executemany(
+                f"""UPDATE members 
+                    SET data=jsonb_set(data, '{{ratings}}', (data->'ratings') - '{uid}') 
+                    WHERE uid=%s
+                    """,
+                [[uuid.UUID(p)] for p in player_uids],
+            )
 
     async def record_event(
         self, tournament_uid: str, member_uid: str, event: events.TournamentEvent
@@ -575,12 +588,11 @@ class Operator:
     async def get_members(self, uids: list[str]) -> list[models.PublicPerson]:
         """Get multiple members by UID"""
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT data FROM members WHERE uid = ANY(%s)", [uids]
-            )
             return [
                 self._instanciate(row[0], models.PublicPerson)
-                for row in await res.fetchall()
+                async for row in cursor.stream(
+                    "SELECT data FROM members WHERE uid = ANY(%s)", [uids]
+                )
             ]
 
     async def get_members_gen(
@@ -606,14 +618,13 @@ class Operator:
             ]
 
     async def get_members_vekn_dict(self) -> dict[str, models.Person]:
-        """Get all members"""
+        """Get all members with a VEKN"""
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT vekn, data FROM members WHERE vekn <> ''"
-            )
             return {
                 data[0]: self._instanciate(data[1], models.Person)
-                for data in await res.fetchall()
+                async for data in cursor.stream(
+                    "SELECT vekn, data FROM members WHERE vekn <> ''"
+                )
             }
 
     async def get_externally_visible_members(
@@ -621,14 +632,13 @@ class Operator:
     ) -> list[models.Person]:
         """Get all members that can be contacted by non-vekn members"""
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                "SELECT data FROM members "
-                "WHERE data->'roles' ? 'NC' OR data->'roles' ? 'Prince' OR uid=%s",
-                [user.uid],
-            )
             return [
                 self._instanciate(data[0], models.Person)
-                for data in await res.fetchall()
+                async for data in cursor.stream(
+                    "SELECT data FROM members "
+                    "WHERE data->'roles' ? 'NC' OR data->'roles' ? 'Prince' OR uid=%s",
+                    [user.uid],
+                )
             ]
 
     def _update_discord_data(self, member: models.Member, user: models.DiscordUser):
@@ -784,28 +794,31 @@ class Operator:
         """
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                """UPDATE members
-                SET vekn=next_vekn.n
-                FROM (
-                    SELECT n from generate_series(1000001, 9999999) as n
-                    WHERE n NOT IN (select vekn::int from members where vekn <> '')
-                    LIMIT 1
-                ) as next_vekn 
-                WHERE uid=%s
-                RETURNING vekn
-                """,
+                textwrap.dedent(
+                    """
+                    WITH next_vekn AS ((
+                            SELECT (vekn::int + 1)::text AS value
+                            FROM members
+                            WHERE vekn <> '' AND vekn::int >= 1000000
+                        ) EXCEPT (
+                            SELECT vekn FROM members 
+                        ) LIMIT 1
+                    )
+                    UPDATE members
+                    SET (vekn, data) = (
+                        next_vekn.value, 
+                        jsonb_set(data, '{vekn}', to_jsonb(next_vekn.value))
+                    )
+                    FROM next_vekn
+                    WHERE uid = %s AND vekn = ''
+                    RETURNING vekn"""
+                ),
                 [uuid.UUID(member.uid)],
             )
             data = await res.fetchone()
             if not data:
                 raise RuntimeError(f"Failed to assign a new VEKN to {member.uid}")
             member.vekn = data[0]
-            await cursor.execute(
-                "UPDATE members SET data=%s WHERE uid=%s",
-                [self._jsonize(member), member.uid],
-            )
-            if cursor.rowcount < 1:
-                raise RuntimeError(f"Failed to update member {member.uid}")
             # also set the vekn in all tournaments the player has been in
             await cursor.execute(
                 f"""UPDATE tournaments
@@ -814,7 +827,7 @@ class Operator:
                 """,
                 [psycopg.types.json.Jsonb(member.vekn), member.uid],
             )
-            return await self.update_member(member)
+            return member
 
     async def claim_vekn(self, uid: str, vekn: str) -> models.Member | None:
         """Claim an existing vekn ID: returns a **new uid** for the member."""
@@ -941,7 +954,7 @@ class Operator:
             )
         async with self.conn.cursor() as cursor:
             # first get all the tournaments and compute the ratings for everyone
-            res = await cursor.execute(
+            res = cursor.stream(
                 """SELECT data FROM tournaments
                 WHERE data->>'state'::text = %s
                 """,
@@ -1090,7 +1103,7 @@ class Operator:
         """Get a single league for update (locks)"""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "SELECT data FROM leagues WHERE uid=%s FOr UPDATE", [uuid.UUID(uid)]
+                "SELECT data FROM leagues WHERE uid=%s FOR UPDATE", [uuid.UUID(uid)]
             )
             data = await res.fetchone()
             if not data:
@@ -1223,9 +1236,9 @@ class Operator:
             "LIMIT 100"
         )
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(Q, args)
             ret = [
-                self._instanciate(row[0], models.League) for row in await res.fetchall()
+                self._instanciate(row[0], models.League)
+                async for row in cursor.stream(Q, args)
             ]
             ret_filter = models.LeagueFilter()
             if filter:
