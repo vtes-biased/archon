@@ -70,16 +70,12 @@ async def init():
                 "vekn TEXT DEFAULT '', "
                 "data jsonb)"
             )
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_member_discord_id")
             # Unique index on discord ID
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_discord_id "
                 "ON members "
                 "USING BTREE ((data -> 'discord' ->> 'id'::text))"
             )
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_member_email")
             # Unique index on email
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_email "
@@ -94,18 +90,12 @@ async def init():
             )
             # Indexes for fast ranking queries
             for category in models.RankingCategoy:
-                # TODO: remove drop after migration
-                await cursor.execute(
-                    f"DROP INDEX IF EXISTS idx_member_ranking_{category.name}"
-                )
                 await cursor.execute(
                     f"CREATE INDEX IF NOT EXISTS idx_member_ranking_{category.name} "
                     "ON members "
                     f"USING BTREE (((data -> 'ranking' -> '{category.value}')::int))"
                 )
             # Index roles
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_member_roles")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_member_roles "
                 "ON members "
@@ -124,17 +114,11 @@ async def init():
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
                 "data jsonb)"
             )
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_json")
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_players")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_players "
                 "ON tournaments "
                 "USING GIN ((data->'players'::text))"
             )
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_vekn")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_vekn "
                 "ON tournaments "
@@ -152,8 +136,6 @@ async def init():
                 "AS $$select ($1 || ' ' || $2)::timestamptz$$ "
                 "LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT"
             )
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_start")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_start "
                 "ON tournaments "
@@ -167,8 +149,6 @@ async def init():
                 "ON tournaments "
                 "USING BTREE((data->>'country'::text))"
             )
-            # TODO: remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_tournament_league")
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_league "
                 "ON tournaments "

@@ -306,7 +306,6 @@ class MemberDisplay {
             }
             // _________________________________________________________________________________________________ Discord
             if (this.member.uid == this.target.uid) {
-                // TODO add 'link/unlink discord" buttons. But only once we have a clean email login
                 if (this.target.discord?.id) {
                     const discord = base.create_append(row_2, "button",
                         ["btn", "btn-discord", "me-2", "mb-2", "text-nowrap"],

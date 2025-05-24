@@ -428,7 +428,6 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
     var best_seating = new Seating(default_seating(players))
     var best_issues = E.issues(add3(base_measure, E.measure(best_seating.seating)))
     // keep it simple, guided monte-carlo
-    // TODO: use online API when not offline for better seating? May not be necessary
     for (var it = 0; it < 1000; it++) {
         var seating = new Seating(best_seating.seating)
         const players_to_switch: Set<string> = new Set()
