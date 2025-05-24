@@ -412,7 +412,7 @@ export class TournamentDisplay {
             this.judges = [this.user]
         }
         {
-            const res = await base.do_fetch("/api/leagues", {})
+            const res = await base.do_fetch("/api/leagues/", {})
             this.leagues = (await res.json())[1]
         }
     }
@@ -1714,7 +1714,7 @@ export class TournamentDisplay {
         return row
     }
     async filter_leagues_options(tournament: d.TournamentConfig | undefined = undefined) {
-        const url = new URL("/api/leagues", window.location.origin)
+        const url = new URL("/api/leagues/", window.location.origin)
         if (this.country.value != "") {
             url.searchParams.append("country", this.country.value)
         }

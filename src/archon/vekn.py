@@ -476,8 +476,6 @@ def _member_from_vekn_data(data: dict[str, str]) -> models.Member:
     judge_role = JUDGES.get(data["veknid"], None)
     if judge_role:
         roles.append(judge_role)
-    # TODO maybe keep track of the sponsor/recruit relationship
-    # since we're dropping prince and nc prefixes
     return models.Member(
         vekn=data["veknid"],
         name=(data["firstname"] + " " + data["lastname"]).strip(),
@@ -999,3 +997,31 @@ def to_archondata(tournament: models.Tournament) -> str:
             f"§{player.result.tp}§{player.toss}§{ratings[player.uid].rating_points}§"
         )
     return ret
+
+
+async def create_member(member: models.Member) -> None:
+    try:
+        first, last = member.name.split(" ", 1)
+    except ValueError:
+        first = member.name
+        last = "N/A"
+    async with aiohttp.ClientSession() as session:
+        token = await get_token(session)
+        async with session.post(
+            "https://www.vekn.net/api/vekn/registry",
+            headers={"Authorization": f"Bearer {token}"},
+            params={
+                "veknid": member.vekn,
+                "firstname": first,
+                "lastname": last,
+                "email": member.email or f"{first}@example.com",
+                "country": member.country,
+                "state": "",
+                "city": member.city or "N/A",
+            },
+        ) as response:
+            response.raise_for_status()
+            result = await response.json()
+            result = result["data"]
+            if result["code"] != 200:
+                raise RuntimeError(f"Failed to create member on vekn.net: {result}")

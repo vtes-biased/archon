@@ -535,7 +535,6 @@ class Operator:
                     # TODO remove country & city
                     local.country = m.country
                     local.city = m.city
-                    local.ranking = m.ranking
                     local.roles = m.roles
                     local.prefix = m.prefix
                     local.sponsor = None

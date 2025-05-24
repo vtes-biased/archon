@@ -6,7 +6,7 @@ import typing
 from .. import dependencies
 from ... import geo
 from ... import models
-
+from ... import vekn as vekn_net
 
 router = fastapi.APIRouter(
     prefix="/api/vekn",
@@ -151,7 +151,8 @@ async def api_vekn_add_member(
         member.city = city.unique_name
     else:
         member.city = ""
-    return _filter_member_data(await op.insert_member(member))
+    ret = await op.insert_member(member)
+    return _filter_member_data(posting_member, ret)
 
 
 @router.post("/members/password", summary="Change your password")
@@ -213,7 +214,9 @@ async def api_vekn_member_sponsor(
     dependencies.check_organizer(member)
     target = await op.get_member(uid, True)
     target.sponsor = member.uid
-    return _filter_member_data(member, await op.update_member_new_vekn(target))
+    ret = await op.update_member_new_vekn(target)
+    await vekn_net.create_member(ret)
+    return _filter_member_data(member, ret)
 
 
 @router.post("/members/{uid}/vekn", summary="Assign an existing VEKN ID to a member")

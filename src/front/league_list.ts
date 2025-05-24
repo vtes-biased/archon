@@ -118,7 +118,7 @@ class LeagueListDisplay {
     }
     async get_filtered_leagues(): Promise<[d.LeagueFilter, d.League[]]> {
         const search_params = this.get_search_params()
-        const url = new URL("/api/leagues", window.location.origin)
+        const url = new URL("/api/leagues/", window.location.origin)
         if (search_params.country) {
             url.searchParams.append("country", search_params.country)
         }
