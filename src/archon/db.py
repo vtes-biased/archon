@@ -933,7 +933,7 @@ class Operator:
             )
         async with self.conn.cursor() as cursor:
             # prevent statement timeout: we are streaming a lot of tournaments here
-            await cursor.execute("SET statement_timeout='30s'")
+            await cursor.execute("SET statement_timeout='120s'")
             # first get all the tournaments and compute the ratings for everyone
             res = cursor.stream(
                 """SELECT data FROM tournaments
