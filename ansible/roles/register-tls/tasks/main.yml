@@ -1,0 +1,20 @@
+---
+- name: Add HTTP site configuration
+  ansible.builtin.template:
+    src: http.conf.j2
+    dest: "/etc/nginx/sites-enabled/{{ r.service_name }}.http.conf"
+    mode: '644'
+
+- name: Reload nginx
+  tags:
+    - certs
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded
+
+- name: Let certbot generate a certificate and serve it
+  tags:
+    - certs
+  ansible.builtin.command: "certbot certonly --webroot --email {{ r.contact_name }} --agree-tos --staple-ocsp --webroot-path=/usr/share/nginx/html -d {{ r.domain_name }}"
+  args:
+    creates: "/etc/letsencrypt/live/{{ r.domain_name }}/fullchain.pem"

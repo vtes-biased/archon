@@ -1,0 +1,10 @@
+---
+r:
+  package: "{{ package }}"
+  asgi_entrypoint: "{{ asgi_entrypoint }}"
+  open_location: "{{ open_location }}"
+  domain_name: "{{ domain_name }}"
+  service_name: "{{ service_name }}"
+  site_root: "{{ site_root }}"
+  service_port: "{{ service_port }}"
+  env_vars: "{{ env_vars | default({}) }}"

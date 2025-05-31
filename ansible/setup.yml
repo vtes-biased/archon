@@ -1,0 +1,8 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    username: ubuntu
+  roles:
+    - role: setup

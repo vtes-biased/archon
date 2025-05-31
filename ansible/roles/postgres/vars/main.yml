@@ -1,0 +1,6 @@
+---
+r:
+  database: "{{ db_name }}"
+  user: "{{ db_user }}"
+  password: "{{ db_password }}"
+  postgresql_version: "{{ postgresql_version }}"

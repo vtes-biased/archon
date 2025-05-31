@@ -1,0 +1,33 @@
+---
+- name: Update APT packages
+  apt:
+    update_cache: "yes"
+    cache_valid_time: "3600"
+    upgrade: full
+
+- name: Install required packages
+  apt:
+    state: present
+    name:
+      - gcc
+      - acl
+      - nginx
+      - certbot
+      - postgresql
+      - postgresql-client
+      - libpq-dev
+      - libpq5
+      - python3-psycopg2
+      - python3-certbot-nginx
+      - python3-venv
+      - python3-dev
+
+- name: Remove default nginx config
+  file:
+    name: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Reload nginx
+  service:
+    name: nginx
+    state: reloaded

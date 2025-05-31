@@ -39,6 +39,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "ansible",
     "black",
     "build",
     "check-manifest",

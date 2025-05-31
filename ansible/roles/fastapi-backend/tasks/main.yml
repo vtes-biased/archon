@@ -1,0 +1,41 @@
+---
+- name: Ensure site root folder is present
+  ansible.builtin.file:
+    state: directory
+    path: "{{ r.site_root }}"
+    owner: "{{ username }}"
+    mode: 0755
+
+- name: Install Python requirements
+  become: false
+  ansible.builtin.pip:
+    chdir: "{{ r.site_root }}"
+    name: "{{ r.package }}"
+    state: latest
+    extra_args: "--no-cache-dir"
+    virtualenv: "{{ r.site_root }}/venv"
+    virtualenv_command: /usr/bin/python3 -m venv
+
+- name: Add service
+  ansible.builtin.template:
+    src: service.j2
+    dest: "/etc/systemd/system/{{ r.service_name }}.service"
+
+- name: Restart the service
+  tags:
+    - restart
+  ansible.builtin.systemd:
+    name: "{{ r.service_name }}"
+    daemon_reload: "yes"
+    enabled: "yes"
+    state: restarted
+
+- name: Add HTTPS site configuration
+  ansible.builtin.template:
+    src: https.conf.j2
+    dest: "/etc/nginx/sites-enabled/{{ r.service_name }}.https.conf"
+
+- name: Reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded

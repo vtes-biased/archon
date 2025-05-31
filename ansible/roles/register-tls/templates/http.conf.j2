@@ -1,0 +1,21 @@
+server {
+  listen 80;
+  server_name {{r.domain_name}};
+
+  access_log syslog:server=unix:/dev/log,nohostname;
+  error_log syslog:server=unix:/dev/log,nohostname;
+
+  root /usr/share/nginx/html;
+  index index.html;
+  location ~ /.well-known {
+    root /usr/share/nginx/html;
+    allow all;
+  }
+  location ~ /.well-known/acme-challenge {
+    root /usr/share/nginx/html;
+    allow all;
+  }
+  location / {
+    return 301 https://$host$request_uri;
+  }
+}

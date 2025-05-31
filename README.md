@@ -211,6 +211,34 @@ export MAIL_FROM="codex.of.the.damned@gmail.com"
 export MAIL_FROM_NAME="Archon"
 ```
 
+## Deployment
+
+The project comes with a Linux [Ansible](https://docs.ansible.com) install.
+You need a a valid ssh access to the server with a sudoer to run the ansible playbooks.
+
+The secrets are ciphered with [Ansible Vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html), 
+the vault key is stored as a Github secret. You need to set this value as is in a `.vault-password` file
+at the project root to use vault locally.
+
+To add a secret value, cipher it with `ansible-vault`:
+
+```sh
+ansible-vault encrypt_string [SECRET]
+```
+
+If the server has just been reinstalled, 
+update [apt](https://en.wikipedia.org/wiki/APT_(software)) and install the required packages:
+
+```sh
+ansible-playbook ansible/setup.yml
+```
+
+To re-install (or update) the archon service, just run:
+
+```sh
+ansible-playbook ansible/archon.yml
+```
+
 ## Design 
 
 ### Offline mode and Source of Truth (SoT)

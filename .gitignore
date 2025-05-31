@@ -11,3 +11,5 @@ src/archon/static
 .vscode/
 # System
 *.DS_Store
+# Ansible vault
+.vault_password

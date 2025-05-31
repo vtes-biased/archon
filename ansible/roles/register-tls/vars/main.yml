@@ -1,0 +1,6 @@
+---
+r:
+  domain_name: "{{ domain_name }}"
+  service_name: "{{ service_name }}"
+  contact_name: "{{ username }}@{{ domain_name }}"
+  site_root: "{{ site_root }}"

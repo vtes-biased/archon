@@ -1,0 +1,93 @@
+---
+- name: Ensure Ansible temp directory exists for postgres
+  ansible.builtin.file:
+    path: /var/lib/postgresql/.ansible/tmp
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0700'
+  become: true
+
+- name: "Create database"
+  community.postgresql.postgresql_db:
+    state: present
+    name: "{{ r.database }}"
+    conn_limit: "50"
+    encoding: UTF8
+    lc_ctype: C.UTF-8
+    lc_collate: C.UTF-8
+  become: true
+  become_user: postgres
+
+- name: "Create user"
+  community.postgresql.postgresql_user:
+    state: present
+    name: "{{ r.user }}"
+    password: "{{ r.password }}"
+    expires: "infinity"
+  environment:
+    PGOPTIONS: "-c password_encryption=scram-sha-256"
+  become: true
+  become_user: postgres
+
+- name: Grant user local access using password auth
+  community.postgresql.postgresql_pg_hba:
+    dest: /etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf
+    contype: local
+    users: "{{ r.user }}"
+    databases: "{{ r.database }}"
+    method: scram-sha-256
+
+- name: Grant CREATE privilege on the database
+  community.postgresql.postgresql_privs:
+    type: database
+    login_db: "{{ r.database }}"
+    privs: CREATE
+    role: "{{ r.user }}"
+  become: true
+  become_user: postgres
+
+- name: Grant ALL privileges on schema public
+  community.postgresql.postgresql_privs:
+    login_db: "{{ r.database }}"
+    privs: ALL
+    type: schema
+    objs: public
+    role: "{{ r.user }}"
+  become: true
+  become_user: postgres
+
+- name: Set log destination to syslog
+  community.postgresql.postgresql_set:
+    name: log_destination
+    value: syslog
+  become: true
+  become_user: postgres
+
+- name: Set statement timeout to 30s
+  community.postgresql.postgresql_set:
+    name: statement_timeout
+    value: 30000
+  become: true
+  become_user: postgres
+
+- name: Set lock timeout to 5s
+  community.postgresql.postgresql_set:
+    name: lock_timeout
+    value: 5000
+  become: true
+  become_user: postgres
+
+- name: Set Idle in transaction timeout to 5min
+  community.postgresql.postgresql_set:
+    name: idle_in_transaction_session_timeout
+    value: 300000
+  become: true
+  become_user: postgres
+
+- name: Reload PostgreSQL service
+  tags:
+    - restart
+  ansible.builtin.service:
+    name: postgresql
+    state: reloaded
