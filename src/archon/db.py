@@ -179,6 +179,14 @@ async def init():
                 "secret_hash BYTEA,"
                 "data jsonb)"
             )
+            await cursor.execute(
+                "CREATE TABLE IF NOT EXISTS client_authorizations("
+                "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
+                "member UUID REFERENCES members(uid), "
+                "client UUID REFERENCES clients(uid), "
+                "revoked BOOLEAN DEFAULT FALSE, "
+                "data jsonb) "
+            )
             # ######################################################## tournament_events
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS tournament_events("
@@ -188,6 +196,7 @@ async def init():
                 "member_uid UUID REFERENCES members(uid) ON DELETE SET NULL, "
                 "data jsonb)"
             )
+
         await conn.set_autocommit(False)
 
 
@@ -239,9 +248,62 @@ class Operator:
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "INSERT INTO clients (uid, data) " "VALUES (%s, %s) RETURNING uid",
-                [client.uid, jsonize(client)],
+                [client.uid, self._jsonize(client)],
             )
             return str((await res.fetchone())[0])
+
+    async def get_client(self, client_uid: str) -> models.Client:
+        """Get a client by its uid"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM clients WHERE uid = %s",
+                [uuid.UUID(client_uid)],
+            )
+            return self._instanciate((await res.fetchone())[0], models.Client)
+
+    async def add_authorization_code(self, member_uid, client_uid, code: str) -> None:
+        """Add an authorization code"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "INSERT INTO client_authorizations "
+                "(token, member, client) "
+                "VALUES (%s, %s, %s)",
+                [code, uuid.UUID(member_uid), uuid.UUID(client_uid)],
+            )
+            if res.rowcount < 1:
+                raise RuntimeError("INSERT failed")
+
+    async def revoke_authorization_codes(self, member_uid, client_uid) -> None:
+        """Revoke all authorization codes for a given member and client"""
+        async with self.conn.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE client_authorizations "
+                "SET revoked = TRUE "
+                "WHERE member = %s AND client = %s",
+                [uuid.UUID(member_uid), uuid.UUID(client_uid)],
+            )
+
+    async def authorization_code_revoked(self, code: str) -> bool:
+        """Check if an authorization code is revoked"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT revoked FROM client_authorizations WHERE token = %s",
+                [code],
+            )
+            return bool((await res.fetchone())[0])
+
+    async def get_authorized_clients(self, member_uid: str) -> list[models.Client]:
+        """Get authorized clients for a given member"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT clients.data FROM client_authorizations "
+                "JOIN clients ON client_authorizations.client = clients.uid "
+                "WHERE member = %s AND revoked = FALSE ",
+                [uuid.UUID(member_uid)],
+            )
+            return [
+                self._instanciate(row, models.Client) for row in await res.fetchall()
+            ]
 
     async def reset_client_secret(self, client_uid: str) -> str:
         """Reset a client secret, store its hash, return the secret."""

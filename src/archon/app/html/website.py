@@ -47,41 +47,79 @@ router = fastapi.APIRouter(
 )
 
 
+def _oauth_authorize(
+    redirect_uri: str,
+    state: str,
+    client_id: str,
+    member_uid: str,
+    scopes: list[models.AuthScope],
+):
+    next_url = fastapi.datastructures.URL(redirect_uri)
+    next_url = next_url.include_query_params(
+        state=state,
+        code=dependencies.create_authorization_code(
+            client_id, member_uid, redirect_uri, scopes
+        ),
+    )
+    return fastapi.responses.RedirectResponse(next_url)
+
+
 @router.get(
     "/auth/oauth",
     summary="Get an authorization code with the user's approval",
     tags=["oauth"],
 )
-async def html_auth_oauth(
+async def html_get_auth_oauth(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    op: dependencies.DbOperator,
     client_id: typing.Annotated[str, fastapi.Query()],
     redirect_uri: typing.Annotated[str, fastapi.Query()],
     state: typing.Annotated[str, fastapi.Query()],
+    scopes: typing.Annotated[set[models.AuthScope], fastapi.Query()],
     member_uid: dependencies.MemberUidFromSession,
 ):
-    # TODO: display a page asking for the user's authorization
-    next = fastapi.datastructures.URL(redirect_uri)
-    next = next.include_query_params(
-        state=state, code=dependencies.create_authorization_code(client_id, member_uid)
+    member = await op.get_member(member_uid)
+    if client_id in member.clients:
+        return _oauth_authorize(
+            redirect_uri=redirect_uri,
+            state=state,
+            client_id=client_id,
+            member_uid=member_uid,
+            scopes=member.clients[client_id].scopes & scopes,
+        )
+    context["client"] = op.get_client(client_id)
+    authorize_url = request.url_for("html_post_auth_oauth").include_query_params(
+        redirect_uri=redirect_uri,
+        state=state,
+        client_id=client_id,
     )
-    return fastapi.responses.RedirectResponse(next)
+    context["authorize_url"] = authorize_url
+    return TEMPLATES.TemplateResponse(
+        request=request, name="oauth.html.j2", context=context
+    )
 
 
 @router.post(
-    "/auth/oauth/token",
-    summary="Use the authorization code to get a bearer token to use the API.",
-    response_class=fastapi.responses.ORJSONResponse,
+    "/auth/oauth",
+    summary="Get an authorization code with the user's approval",
     tags=["oauth"],
 )
-async def html_auth_oauth_token(
-    grant_type: typing.Annotated[str, fastapi.Form()],
-    code: typing.Annotated[str, fastapi.Form()],
-    client_uid: dependencies.ClientLogin,
+async def html_post_auth_oauth(
+    member_uid: dependencies.MemberUidFromSession,
+    client_id: typing.Annotated[str, fastapi.Query()],
+    redirect_uri: typing.Annotated[str, fastapi.Query()],
+    state: typing.Annotated[str, fastapi.Query()],
+    scopes: typing.Annotated[
+        list[models.AuthScope], fastapi.Form("scopes", default=[])
+    ],
 ):
-    if grant_type != "authorization_code":
-        raise fastapi.HTTPException(status_code=403)
-    member_uid = dependencies.check_authorization_code(client_uid, code)
-    access_token = dependencies.create_access_token(member_uid)
-    return dependencies.Token(access_token=access_token, token_type="Bearer")
+    return _oauth_authorize(
+        redirect_uri=redirect_uri,
+        state=state,
+        client_id=client_id,
+        member_uid=member_uid,
+    )
 
 
 @router.get(
@@ -157,7 +195,7 @@ async def html_auth_email(
     response_class=fastapi.responses.ORJSONResponse,
 )
 async def html_auth_token(request: fastapi.Request) -> dependencies.Token:
-    """Provide an OAuth 2.0 access token for web clients.
+    """Provide an OAuth 2.0 access token for our own web client.
 
     Requires an authenticated session (session cookie).
     This follows the Token-Mediating Backend (TMB) pattern from IETF draft

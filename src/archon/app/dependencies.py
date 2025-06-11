@@ -592,7 +592,7 @@ oauth2_scheme = fastapi.security.OAuth2AuthorizationCodeBearer(
 EXPECTED_AUTH_TOKENS = set()
 
 
-def create_authorization_code(client_id, member_uid, redirect_uri) -> str:
+def create_authorization_code(client_id, member_uid, redirect_uri, scopes) -> str:
     """Use RFC 9608 -like self-encoded JWT auth codes
     https://www.oauth.com/oauth2-servers/access-tokens/authorization-code-request/
     https://datatracker.ietf.org/doc/html/rfc9068#JWTATLRequest
@@ -602,24 +602,41 @@ def create_authorization_code(client_id, member_uid, redirect_uri) -> str:
     expiry = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
         hours=1
     )
+    # validate the redirect URI
+    parsed_url = urllib.parse.urlparse(redirect_uri)
+    if parsed_url.scheme != "https":
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="Redirect URI must be HTTPS",
+        )
+    if not parsed_url.netloc:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="Redirect URI must have a valid domain",
+        )
     to_encode = {
         "client_id": client_id,
         "sub": member_uid,
-        "aud": redirect_uri,
+        "aud": parsed_url.hostname,
         "jti": token_id,
         "exp": expiry,
+        "scope": "  ".join(scopes),
     }
     return jwt.encode(to_encode, TOKEN_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def check_authorization_code(client_id, code, redirect_uri) -> str:
+def check_authorization_code(op: db.Operator, client_id, code, redirect_uri) -> str:
     payload = jwt.decode(
         code, TOKEN_SECRET, algorithms=[JWT_ALGORITHM], audience=redirect_uri
     )
     expected = EXPECTED_AUTH_TOKENS.pop(payload.get("jti"), None)
     member_uid: str = payload.get("sub")
     payload_client_id: str = payload.get("client_id")
-    if not expected or payload_client_id != client_id:
+    if (
+        not expected
+        or payload_client_id != client_id
+        or op.authorization_code_revoked(code)
+    ):
         raise fastapi.HTTPException(status_code=403)
     return member_uid
 
@@ -642,12 +659,15 @@ async def client_login(
 ClientLogin = typing.Annotated[str, fastapi.Depends(client_login)]
 
 
-def create_access_token(user_id: str):
-    to_encode = {"sub": user_id}
-    expire = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
+def create_access_token(user_id: str, scopes: list[models.AuthScope]):
+    expiry = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
         days=7
     )
-    to_encode.update({"exp": expire})
+    to_encode = {
+        "sub": user_id,
+        "scope": "  ".join(scopes),
+        "exp": expiry,
+    }
     encoded_jwt = jwt.encode(to_encode, TOKEN_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 

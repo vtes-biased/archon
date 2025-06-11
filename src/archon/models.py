@@ -82,6 +82,13 @@ class MemberRole(enum.StrEnum):
     ETHICS = "Ethics"  # Member of the Ethics Comitee
 
 
+class AuthScope(enum.StrEnum):
+    DECKS = "decks"  # Access to deck lists
+    MEMBER = "member"  # Modify profile information
+    CONTACT = "contact"  # Access and modify contact information
+    TOURNAMENT = "tournament"  # Modify tournament data
+
+
 @dataclasses.dataclass
 class PublicPerson:
     name: str
@@ -444,6 +451,16 @@ class MemberInfo:
 
 
 @dataclasses.dataclass
+class Client:
+    name: str
+    uid: str | None = None  # UUID assigned by the backend
+
+
+class ClientAuthorization(Client):
+    scopes: set[AuthScope] = pydantic.Field(default_factory=set)
+
+
+@dataclasses.dataclass
 class Member(Person):
     nickname: str | None = None  # player nickname (on social, lackey, etc.)
     email: str | None = None  # the user's email
@@ -452,13 +469,8 @@ class Member(Person):
     password_hash: str = ""
     whatsapp: str | None = None  # phone
     ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
+    clients: dict[str, ClientAuthorization] = pydantic.Field(default_factory=dict)
     prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
-
-
-@dataclasses.dataclass
-class Client:
-    name: str
-    uid: str | None = None  # UUID assigned by the backend
 
 
 @dataclasses.dataclass

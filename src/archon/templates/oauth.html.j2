@@ -1,0 +1,13 @@
+{% extends "layout.html.j2" %}
+
+{% block content %}
+{% if message %}
+<div class="alert alert-info" role="alert">{{ message | safe }}</div>
+{% endif %}
+<h1 class="fs-5">Authorization</h1>
+<p>Authorize access for "{{ client.name }}" on your behalf</p>
+<a type="button" class="btn btn-sm btn-discord my-2" href="{{ next }}">
+    <i class="bi bi-discord"></i>
+    Authorize
+</a>
+{% endblock %}
