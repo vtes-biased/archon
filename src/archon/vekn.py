@@ -24,6 +24,10 @@ SITE_URL_BASE = os.getenv("SITE_URL_BASE", "http://127.0.0.1:8000")
 LOG = logging.getLogger()
 
 
+class NoVEKN(RuntimeError):
+    """Raised when VEKN is not configured or the login/password are not set."""
+
+
 async def get_token(session: aiohttp.ClientSession) -> str:
     # http POST https://www.vekn.net/api/vekn/login -f username=<USER> password=<PWD>
     async with session.post(
@@ -35,7 +39,7 @@ async def get_token(session: aiohttp.ClientSession) -> str:
             return result["data"]["auth"]
         except KeyError:
             LOG.exception("VEKN authentication failure")
-            raise
+            raise NoVEKN()
 
 
 ADMINS = {
