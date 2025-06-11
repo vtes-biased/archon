@@ -34,7 +34,7 @@
         </h2>
         <p>
             Users who create an account on the Archon have access to limited information: the list of upcoming
-            VTES events and a very limited list of VEKN representatives known as National Coordinators (NC) and Princes,
+            VTES events and a limited list of VEKN representatives known as National Coordinators (NC) and Princes,
             together with their contact information.
         </p>
         <p>
@@ -78,12 +78,12 @@
                 They organize regular gaming sessions at a store or public location, demos, and tournaments.
             </li>
             <li>
-                <span class="badge me-1 text-bg-warning">Judge</span> Elder Judges maintain cards rulings and advise
+                <span class="badge me-1 text-bg-warning">Rulemonger</span> Rulemongers maintain cards rulings and advise
                 the Inner Circle on rules changes and Judges designation
             </li>
             <li>
-                <span class="badge me-1 text-bg-secondary">Anc. Judge</span>
-                <span class="badge me-1 text-bg-secondary">Neo. Judge</span> Ancilla and Neonate Judges answer players
+                <span class="badge me-1 text-bg-warning">Judge</span>
+                <span class="badge me-1 text-bg-secondary">Judgekin</span> Judges and judgekins answer players
                 questions about the rules, and arbitrate issues during organized events.
             </li>
             <li>
@@ -173,40 +173,8 @@
             Judges guidelines, and cards rulings. They should be preferred as Judges in VEKN sanctionned tournaments,
             although <em>for now</em>, there is no obligation for a tournament judge to be an official VEKN judge.
             Official Judges make themselves available to events organizers (Princes and NCs) to act as
-            tournament judges when needed.
-        </p>
-        <p>
-            VEKN Judges have successfully passed the relevant exam. The period of Judge
-            accreditation is valid for three years, or until the release of a new rulebook, whichever comes first.
-            Upon completion of this term, accreditation is automatically renewed provided the Judge continues to judge
-            and/or play at VEKN-sanctioned tournament events regularily.
-        </p>
-        <p>
-            There are two types of Judge exams: the <strong>Elder Judge exam</strong> has 100 questions, 35 easy,
-            35 medium and 30 hard. The <strong>Ancilla Judge exam</strong> has 50 question, 35 easy, 10 medium,
-            and 5 hard.
-        </p>
-        <ul>
-            <li>
-                <strong>Neonate Judges</strong> have reached a 60% score on the Ancilla exam, or 50% on the Elder exam.
-            </li>
-            <li>
-                <strong>Ancilla Judges</strong> have reached an 80% score on the Ancilla exam, or 60% on the Elder exam,
-                and they have been appointed judge at at least one sanctionned VEKN tournament.
-            </li>
-            <li>
-                <strong>(Elder) Judges</strong> are appointed by the VEKN Inner Circle. They should have reach an 80%
-                score on the Elder exam and have been appointed judge at multiple sanctionned VEKN tournaments.
-            </li>
-        </ul>
-        <p>
-            Elder judges have additional responsibilities:
-        </p>
-        <ul>
-            <li>Maintaining and improving the judges exams</li>
-            <li>Maintaining and improving the <a href="https://rulings.krcg.org">cards rulings database</a></li>
-            <li>Advising the Inner Circle on VTES rules, tournament rules and Judges guide evolutions.</li>
-        </ul>
+            tournament judges when needed. Check out the
+            <a href="{{ url_for('document_judges_guide') }}">Judges Guide</a> for more information.
         </p>
         <h4>Ethics Commitee</h4>
         <p>
@@ -217,17 +185,17 @@
             <a class="link-secondary" rel="bookmark" href="#personal-information"><i class="bi bi-link-45deg"></i></a>
         </h3>
         <p>
-            Users of the Archon can register their personal information, like their Name, Email,
-            and various social networks identifiers, as well as the deck lists they use in tournaments.
+            Users of the Archon can register their personal information, like their name, e-mail,
+            various social networks identifiers, as well as the deck lists they use in tournaments.
             This information is made available to VEKN members under conditions detailed below, and users have a right
             to access, modify and delete it as they wish.
         </p>
         <p>
-            Their <strong>Name</strong> can be displayed to any Archon user.
+            Their <strong>name</strong> can be displayed to any Archon user.
             Their rating at official VEKN tournament, specifcally, is public information.
         </p>
         <p>
-            Their <strong>Contact information</strong> like their Email and social networks identifiers,
+            Their <strong>contact information</strong>, e-mail and social networks identifiers,
             is only accessible to Princes and NCs in their country, except if they're a Prince or NC themselves,
             in which case their contact information is made publicy available as part of their responsibilities.
         </p>
@@ -266,8 +234,8 @@
                 the finish is facultative.</li>
             <li><strong>Description:</strong> Markdown can be used to make a good-looking appealing description for the
                 event.</li>
-            <li><strong>Judges:</strong> List of judges and organizers who will have access to the Tournament Management
-                console.</li>
+            <li><strong>Judges & Organizers:</strong> List of judges and organizers who will have access to the
+                Tournament Management console.</li>
         </ul>
         <h3 id="registration-check-in">Registration & Check-In
             <a class="link-secondary" rel="bookmark" href="#registration-check-in"><i class="bi bi-link-45deg"></i></a>
@@ -280,7 +248,7 @@
         </p>
         <p>
             Players can also drop, or be dropped, from the players list at any time. They still appear
-            in the list of players for the event to avoid bugs and complications, and ensure proper tracking.
+            in the list of players for the event to avoid complications and ensure proper tracking.
             However, they will not score any rating nor contribute to the tournament players count
             if they have not played at least one round.
         </p>
@@ -367,8 +335,9 @@
         <p>
             The Archon validates that the result are consistent with the seating and number of players,
             and will not allow a round to finish with incomplete or invalid results.
-            Judges can, however, override this check in case they are faced with an odd situation: for example
-            if they award no VP or only half a VP after a player's urgent departure in the middle of a round.
+            Judges can, however, <strong>override</strong> this check in case they are faced with an odd situation:
+            for example if they award no VP or only half a VP after a player's urgent departure
+            in the middle of a round.
         </p>
         <h3 id="finals">Finals
             <a class="link-secondary" rel="bookmark" href="#finals"><i class="bi bi-link-45deg"></i></a>
