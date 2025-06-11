@@ -879,7 +879,7 @@ class Operator:
             new_member.vekn = ""
             new_member.roles = []
             new_member.sanctions = []
-            new_member.ranking = models.Ranking()
+            new_member.ranking = {}
             new_member.ratings = {}
             new_member.sponsor = ""
             new_member.uid = str(new_uid)
