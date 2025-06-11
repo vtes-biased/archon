@@ -1,6 +1,6 @@
 .PHONY: clean porcelain update geodata test serve-front serve serve-pdb build release
 
-NEXT_VERSION = `python -m setuptools_scm --strip-dev`
+NEXT_VERSION ?= `python -m setuptools_scm --strip-dev`
 
 clean:
 	rm src/archon/static/*
