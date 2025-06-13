@@ -126,6 +126,7 @@ export interface RegisteredSanction extends Sanction {
 }
 
 export interface Person extends PublicPerson {
+    nickname?: string | null,  // player nickname
     roles?: MemberRole[],  // city name
     sponsor?: string | null,
     sanctions?: RegisteredSanction[],
@@ -365,13 +366,15 @@ export interface MemberInfo {
     whatsapp?: string | null,  // phone
 }
 
-export interface Member extends Person {
-    nickname?: string | null,  // player nickname
+export interface PersonWithRatings extends Person {
+    ratings?: Record<string, TournamentRating>
+}
+
+export interface Member extends PersonWithRatings {
     email?: string | null,  // the user's email
     verified?: boolean | null,  // whether the email has been verified
     discord?: DiscordUser | null,
     whatsapp?: string | null,
-    ratings?: Record<string, TournamentRating>
     // prefix: string | undefined // Do not use - temporary field will be removed
 }
 

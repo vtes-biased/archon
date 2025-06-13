@@ -604,13 +604,13 @@ class Registration {
         this.filter_switch = base.create_append(filter_switch_div, "input", ["form-check-input"],
             { type: "checkbox", role: "switch", id: "filterSwitch" }
         )
-        base.add_tooltip(this.filter_switch, "Filter")
+        base.add_tooltip(this.filter_switch, "Filter out checked-in players")
         this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label", "text-nowrap"],
             { for: "filterSwitch" }
         )
         this.filter = PlayerFilter.ALL
         this.filter_switch.checked = false
-        this.filter_label.innerText = "All players"
+        this.filter_label.innerText = "Filter checked-in"
         this.filter_switch.addEventListener("change", (ev) => this.toggle_filter())
         this.players_count = base.create_append(table_controls, "div")
         this.players_table = base.create_append(table_div, "table", ["table", "table-striped", "table-sm", "table-responsive"])
@@ -658,10 +658,8 @@ class Registration {
     toggle_filter() {
         if (this.filter_switch.checked) {
             this.filter = PlayerFilter.UNCHECKED
-            this.filter_label.innerText = "Filter checked-in players out"
         } else {
             this.filter = PlayerFilter.ALL
-            this.filter_label.innerText = "All players"
         }
         this.display()
     }
@@ -819,25 +817,28 @@ class Registration {
         }
         if (this.console.tournament.state == d.TournamentState.WAITING) {
             const seat_span = base.create_append(this.action_row, "span", [], { tabindex: "0" })
-            const seat_button = base.create_append(seat_span, "button",
-                ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
-            )
-            seat_button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
+            var seat_button_text = `Seat Round ${this.console.tournament.rounds.length + 1}`
+            var seat_button_disabled = false
+            var seat_button_color_class = "btn-success"
             var tooltip_message: string
             if (checked_in_count == 0) {
-                seat_button.innerText += " (Empty)"
-                seat_button.disabled = false
-                seat_button.classList.add("btn-warning")
+                seat_button_text += " (Empty)"
+                seat_button_color_class = "btn-warning"
                 tooltip_message = "Start empty round (no player checked in)"
             } else if (checked_in_count < 4 || [6, 7, 11].includes(checked_in_count)) {
-                seat_button.disabled = true
-                seat_button.classList.add("btn-danger")
+                seat_button_disabled = true
+                seat_button_color_class = "btn-danger"
                 tooltip_message = `Invalid check-in (${checked_in_count})`
             } else {
-                seat_button.disabled = false
                 tooltip_message = "Start next round"
-                seat_button.classList.add("btn-success")
+                seat_button_color_class = "btn-success"
             }
+            const seat_button = base.create_append(seat_span, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", seat_button_color_class]
+            )
+            seat_button.innerText = `Seat Round ${this.console.tournament.rounds.length + 1}`
+            seat_button.disabled = seat_button_disabled
+            seat_button.innerText = seat_button_text
             const tooltip2 = base.add_tooltip(seat_span, tooltip_message)
             seat_button.addEventListener("click", (ev) => { tooltip2.hide(); this.console.start_round() })
         }

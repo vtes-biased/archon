@@ -14,7 +14,7 @@ router = fastapi.APIRouter(
     tags=["vekn"],
 )
 
-M = models.Member | models.Person | models.PublicPerson
+M = models.Member | models.PersonWithRatings | models.Person | models.PublicPerson
 
 
 @router.get("/country", summary="List all countries")
@@ -113,7 +113,7 @@ def _filter_member_data(user: models.Person, target: models.Member) -> M:
         return models.PublicPerson(**data)
     if dependencies.check_can_contact(user, target):
         return target
-    return models.Person(**data)
+    return models.PersonWithRatings(**data)
 
 
 @router.get("/members/{uid}", summary="Get a member")

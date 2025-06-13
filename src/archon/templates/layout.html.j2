@@ -82,19 +82,32 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <a type="button" class="btn btn-sm btn-discord my-2 w-100" href="{{ discord_oauth }}">
+                    <a type="button" class="btn btn-discord my-2 w-100" href="{{ discord_oauth }}">
                         <i class="bi bi-discord"></i>
-                        Discord login
+                        Login with Discord
                     </a>
                     <hr>
-                    <form action="/auth/email" method="post">
-                        <input class="form-control me-2 mb-2" type="email" name="email" autocomplete="email"
-                            placeholder="E-mail">
-                        <input class="form-control me-2 mb-2" type="password" name="password"
-                            autocomplete="current-password" placeholder="Password">
+                    <form id="loginModalForm" action="/auth/email" method="post" class="need-validation" novalidate>
+                        <div class="input-group mb-2">
+                            <input id="loginModalEmail" , class="form-control me-2" type="email" name="email"
+                                pattern="[^@]+@{1}[^\.]+\..+" autocomplete="email" placeholder="Email" required
+                                aria-required>
+                            <div class="invalid-feedback">
+                                Invalid email address
+                            </div>
+                        </div>
+                        <div class="input-group mb-2">
+                            <input id="loginModalPassword" class="form-control me-2" type="password" name="password"
+                                autocomplete="current-password" placeholder="Password">
+                            <div class="valid-feedback">
+                                No password or forgotten? Keep empty and "Reset Password"
+                            </div>
+                        </div>
                         <div class="d-flow">
-                            <button type="submit" class="btn btn-primary me-2 mb-2">Login</button>
-                            <button type="submit" class="btn btn-secondary me-2 mb-2" formaction="/auth/email/reset">
+                            <button id="loginModalLogin" type="submit" class="btn btn-primary me-2 mb-2"
+                                disabled>Login</button>
+                            <button id="loginModalReset" type="submit" class="btn btn-secondary me-2 mb-2"
+                                formaction="/auth/email/reset" disabled>
                                 Reset Password
                             </button>
                         </div>

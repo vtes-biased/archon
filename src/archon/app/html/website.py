@@ -125,7 +125,7 @@ async def html_get_auth_email_reset(
 ):
     if uid:
         return fastapi.responses.RedirectResponse(
-            request.url_for("member_display", uid=uid)
+            request.url_for("member_display", uid=uid).include_query_params(reset=True)
         )
     else:
         request.session["message"] = "Email verification URL is invalid or outdated"
@@ -552,6 +552,7 @@ async def member_display(
     member: dependencies.PersonFromSession,
     op: dependencies.DbOperator,
     uid: typing.Annotated[str, fastapi.Path()],
+    reset: typing.Annotated[bool, fastapi.Query()] | None = None,
 ):
     if member.uid != uid and not member.vekn:
         target = await op.get_member(uid)

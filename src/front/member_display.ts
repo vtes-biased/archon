@@ -85,6 +85,10 @@ class MemberDisplay {
         }
         await this.vekn_modal.init(this.token, user_id, this.target.uid)
         this.display()
+        // when coming from the reset password link, show the modal directly
+        if (url.searchParams.has("reset")) {
+            this.password_modal.show(this.token, this.member.email ?? "")
+        }
     }
     display() {
         base.remove_children(this.root)
@@ -475,6 +479,7 @@ class MemberDisplay {
             form.addEventListener("submit", (ev) => { ev.preventDefault(); this.add_sanction(new FormData(form)) })
         }
         // _____________________________________________________________________________________________________ Results
+        console.log(this.target.ratings)
         if (this.target.ratings && Object.keys(this.target.ratings).length > 0) {
             base.create_append(this.root, "h2", ["mt-4"]).innerText = "Events"
             const nav = base.create_append(this.root, "nav")

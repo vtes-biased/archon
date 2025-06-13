@@ -119,6 +119,7 @@ class RegisteredSanction(Sanction):
 
 @dataclasses.dataclass
 class Person(PublicPerson):
+    nickname: str | None = None  # player nickname (on social, lackey, etc.)
     roles: list[MemberRole] = pydantic.Field(default_factory=list)
     sponsor: str | None = ""  # useful for organizers, to find their recruits
     sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
@@ -444,14 +445,17 @@ class MemberInfo:
 
 
 @dataclasses.dataclass
-class Member(Person):
-    nickname: str | None = None  # player nickname (on social, lackey, etc.)
+class PersonWithRatings(Person):
+    ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
+
+
+@dataclasses.dataclass
+class Member(PersonWithRatings):
     email: str | None = None  # the user's email
     verified: bool | None = None  # whether the email has been verified
     discord: DiscordUser | None = None  # Discord data
     password_hash: str = ""
     whatsapp: str | None = None  # phone
-    ratings: dict[str, TournamentRating] = pydantic.Field(default_factory=dict)
     prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
 
 
