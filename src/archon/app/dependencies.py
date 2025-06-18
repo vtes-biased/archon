@@ -505,18 +505,10 @@ def _hash_password(password: str) -> str:
 
 
 def set_member_password(member: models.Member, password: str):
-    logging.warning("setting: %s", password)
     member.password_hash = _hash_password(password)
-    logging.warning("hash: %s", member.password_hash)
 
 
 def check_member_password(member: models.Member, password: str) -> bool:
-    logging.warning(
-        "recorded: %s, provided: %s, provided_hash: %s",
-        member.password_hash,
-        password,
-        _hash_password(password),
-    )
     return hmac.compare_digest(member.password_hash, _hash_password(password))
 
 
