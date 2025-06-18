@@ -668,7 +668,7 @@ class TournamentOrchestrator(TournamentManager):
         self, config: models.TournamentConfig, member: models.Person
     ) -> None:
         self._check_judge(None, member)
-        LOG.warning("Updating tournament config: %s", config)
+        LOG.info("Updating tournament config: %s", config)
         if not config.judges:
             raise ConfigError("A tournament must have at least one judge")
         if (
