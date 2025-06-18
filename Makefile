@@ -3,7 +3,7 @@
 NEXT_VERSION ?= `python -m setuptools_scm --strip-dev`
 
 clean:
-	rm src/archon/static/*
+	rm src/archon/static/* || true
 	rm -rf dist
 	rm -rf .parcel-cache
 
