@@ -299,7 +299,9 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
-                if not data[0]["extra"].get("external"):
+                # TODO remove the "players" check once the vekn sync is stabilized
+                # we don't want to overwrite, see update tournament
+                if not data[0]["extra"].get("external") or data[0]["players"]:
                     return
                 uid = uuid.UUID(data[0]["uid"])
                 tournament.uid = str(uid)
@@ -428,6 +430,9 @@ class Operator:
         """Update a tournament, returns its uid"""
         uid = uuid.UUID(tournament.uid)
         async with self.conn.cursor() as cursor:
+            # if we update it, we take ownership
+            # TODO: remove once we become source of truth
+            tournament.extra.pop("external", None)
             res = await cursor.execute(
                 "UPDATE tournaments SET data=%s WHERE uid=%s",
                 [self._jsonize(tournament), uid],
