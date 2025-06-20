@@ -199,9 +199,13 @@ export function standings(
 ): [number, d.Player][] {
     function standings_array(p: d.Player): number[] {
         return [
+            // dropouts go last (only matters when tournament in progress)
             +(p.state == d.PlayerState.FINISHED),
+            // winner always first if not DQ
             -(p.uid == tournament.winner),
-            -p.result.gw,
+            // then finalists (higher score can have dropped out)
+            -(tournament.finals_seeds.includes(p.uid)),
+            - p.result.gw,
             -p.result.vp,
             -p.result.tp,
             ignore_toss ? 0 : p.toss,

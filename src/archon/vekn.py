@@ -716,13 +716,15 @@ def _tournament_from_vekn_data(
         player_rounds = rounds
         # mark 1 round played for DQ, not 0
         # because no-shows are simply not listed in the vekn.net archon
-        # DQ or WD only happens if at least a round was played
+        # in VEKN archon, DQ or WD only happens if at least a round was played
         # so the player counts in the participants count
         # this matters for the ratings of finalists
         if pdata["dq"] != "0" or pdata["wd"] != "0":
             player_rounds = 1
         elif int(pdata["pos"]) < 6:
             player_rounds += 1
+            # seeds matter for standings
+            ret.finals_seeds.append(member.uid)
         ret.players[member.uid] = models.Player(
             name=member.name,
             vekn=member.vekn,

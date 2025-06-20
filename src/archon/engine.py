@@ -992,10 +992,14 @@ class TournamentOrchestrator(TournamentManager):
 
 
 def standings(tournament: models.TournamentInfo) -> list[tuple[int, models.PlayerInfo]]:
-    def sort_key(p):
+    def sort_key(p: models.Player):
         return (
-            p.state == models.PlayerState.FINISHED,
+            # dropouts go last (only matters when tournament in progress)
+            int(p.state == models.PlayerState.FINISHED),
+            # winner first
             -int(p.uid == tournament.winner),
+            # then finalists (higher score can have dropped out)
+            -int(p.uid in tournament.finals_seeds),
             -p.result.gw,
             -p.result.vp,
             -p.result.tp,
