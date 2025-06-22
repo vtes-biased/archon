@@ -1266,12 +1266,8 @@ export class TournamentDisplay {
     }
     async set_vekn(vekn_id: string, tournament: d.Tournament) {
         const res = await base.do_fetch_with_token(
-            `/api/tournaments/${tournament.uid}/set-vekn`,
-            this.token,
-            {
-                method: "post",
-                body: JSON.stringify({ vekn_id: vekn_id })
-            }
+            `/api/tournaments/${tournament.uid}/set-vekn/${vekn_id}`,
+            this.token, { method: "post" }
         )
         if (res) {
             const response = await res.json()
