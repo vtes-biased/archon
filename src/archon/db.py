@@ -301,7 +301,7 @@ class Operator:
             if data:
                 # TODO remove the "players" check once the vekn sync is stabilized
                 # we don't want to overwrite, see update tournament
-                if not data[0]["extra"].get("external") or data[0]["players"]:
+                if not data[0]["extra"].get("external"):
                     return
                 uid = uuid.UUID(data[0]["uid"])
                 tournament.uid = str(uid)
