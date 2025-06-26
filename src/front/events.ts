@@ -2,6 +2,7 @@
 export enum EventType {
     REGISTER = "REGISTER",
     OPEN_CHECKIN = "OPEN_CHECKIN",
+    CANCEL_CHECKIN = "CANCEL_CHECKIN",
     CHECK_IN = "CHECK_IN",
     CHECK_EVERYONE_IN = "CHECK_EVERYONE_IN",
     CHECK_OUT = "CHECK_OUT",
@@ -61,6 +62,10 @@ export interface Register extends Event {
 
 export interface OpenCheckin extends Event {
     type: EventType.OPEN_CHECKIN,
+}
+
+export interface CancelCheckin extends Event {
+    type: EventType.CANCEL_CHECKIN,
 }
 
 export interface CheckIn extends Event {
@@ -162,6 +167,7 @@ export interface FinishTournament extends Event {
 export type TournamentEvent = (
     Register |
     OpenCheckin |
+    CancelCheckin |
     CheckIn |
     CheckEveryoneIn |
     CheckOut |

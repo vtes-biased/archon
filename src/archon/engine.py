@@ -29,6 +29,8 @@ class TournamentManager(models.Tournament):
                 self.register(ev, member)
             case events.EventType.OPEN_CHECKIN:
                 self.open_checkin(ev, member)
+            case events.EventType.CANCEL_CHECKIN:
+                self.cancel_checkin(ev, member)
             case events.EventType.CHECK_IN:
                 self.check_in(ev, member)
             case events.EventType.CHECK_EVERYONE_IN:
@@ -139,6 +141,12 @@ class TournamentManager(models.Tournament):
 
     def open_checkin(self, ev: events.OpenCheckin, member: models.Person) -> None:
         self.state = models.TournamentState.WAITING
+
+    def cancel_checkin(self, ev: events.CancelCheckin, member: models.Person) -> None:
+        for player in self.players.values():
+            if player.state != models.PlayerState.FINISHED:
+                player.state = models.PlayerState.REGISTERED
+        self.state = models.TournamentState.REGISTRATION
 
     def check_in(self, ev: events.CheckIn, member: models.Person) -> None:
         self.players[ev.player_uid].state = models.PlayerState.CHECKED_IN
@@ -740,6 +748,11 @@ class TournamentOrchestrator(TournamentManager):
         self._check_not_playing(ev)
         self._check_judge(ev, member)
         super().open_checkin(ev, member)
+
+    def cancel_checkin(self, ev: events.CancelCheckin, member: models.Person) -> None:
+        self._check_not_playing(ev)
+        self._check_judge(ev, member)
+        super().cancel_checkin(ev, member)
 
     def check_in(self, ev: events.CheckIn, member: models.Person) -> None:
         self._check_not_playing(ev)

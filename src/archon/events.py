@@ -12,6 +12,7 @@ def uuid_str() -> str:
 class EventType(enum.StrEnum):
     REGISTER = "REGISTER"
     OPEN_CHECKIN = "OPEN_CHECKIN"
+    CANCEL_CHECKIN = "CANCEL_CHECKIN"
     CHECK_IN = "CHECK_IN"
     CHECK_EVERYONE_IN = "CHECK_EVERYONE_IN"
     CHECK_OUT = "CHECK_OUT"
@@ -69,6 +70,11 @@ class Register(Event):
 @dataclasses.dataclass(kw_only=True)
 class OpenCheckin(Event):
     type: typing.Literal[EventType.OPEN_CHECKIN]
+
+
+@dataclasses.dataclass(kw_only=True)
+class CancelCheckin(Event):
+    type: typing.Literal[EventType.CANCEL_CHECKIN]
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -187,6 +193,7 @@ class FinishTournament(Event):
 TournamentEvent = typing.Union[
     Register,
     OpenCheckin,
+    CancelCheckin,
     CheckIn,
     CheckEveryoneIn,
     CheckOut,
@@ -226,12 +233,19 @@ OPENAPI_EXAMPLES = {
     "Open Check-in": {
         "summary": "Open the check-in. JUDGE ONLY",
         "description": (
-            "Check a player in, signaling they are present "
-            "and ready to play the next round."
-            "You should perform the check-in just before the round starts to limit "
+            "Allows to check players in, signaling they are present and ready to play. "
+            "You should open the check-in just before the round starts to limit "
             "the number of players who do not show up to their table."
         ),
         "value": {"type": "OpenCheckin"},
+    },
+    "Cancel Check-in": {
+        "summary": "Cancel the check-in. JUDGE ONLY",
+        "description": (
+            "Cancel the check-in. Use it if you opened the check-in too early. "
+            "Puts the tournament back in the REGISTRATION state."
+        ),
+        "value": {"type": "CancelCheckin"},
     },
     "Appoint Judge": {
         "summary": "Appoint a judge. JUDGE ONLY",

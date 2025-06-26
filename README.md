@@ -302,15 +302,27 @@ If you do not provide one, a new UUID4 will be generated and an account created 
 
 #### OpenCheckin
 
-Check a player in, signaling they are present and ready to play the next round.
-You should perform the check-in just before the round starts to limit the number of players
-who do not show up to their table.
+Allows to check players in, signaling they are present and ready to play.
+You should open the check-in just before the round starts to limit
+the number of players who do not show up to their table.
 
 ```json
 {
-    "type": "OpenCheckin"
+    "type": "OPEN_CHECKIN"
 }
 ```
+
+#### CancelCheckin
+
+Cancel the check-in. Use it if you opened the check-in too early.
+Puts the tournament back in the REGISTRATION state.
+
+```json
+{
+    "type": "CANCEL_CHECKIN"
+}
+```
+
 
 #### CheckIn
 
@@ -318,8 +330,20 @@ Mark a player as ready to play. Players can self-check-in.
 
 ```json
 {
-    "type": "CheckIn",
+    "type": "CHECK_IN"
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
+}
+```
+
+#### CheckEveryoneIn
+
+When running registrations in situ, or after first round.
+It will not check-in players who have dropped (FINISHED state)
+or have an active barrier (missing deck, having been disqualified, etc.).
+
+```json
+{
+    "type": "CHECK_EVERYONE_IN"
 }
 ```
 
@@ -329,7 +353,7 @@ Move a player back to registration.
 
 ```json
 {
-    "type": "CheckOut",
+    "type": "CHECK_OUT",
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
 }
 ```
@@ -341,7 +365,7 @@ Each UID must match a VEKN member UID.
 
 ```json
 {
-    "type": "RoundStart",
+    "type": "ROUND_START",
     "seating": [
         ["238CD960-7E54-4A38-A676-8288A5700FC8",
         "796CD3CE-BC2B-4505-B448-1C2D42E9F140",
@@ -365,7 +389,7 @@ Change a round's seating. Note recorded VPs, if any, stay assigned to the player
 
 ```json
 {
-    "type": "RoundAlter",
+    "type": "ROUND_ALTER",
     "round": 1,
     "seating": [
         ["238CD960-7E54-4A38-A676-8288A5700FC8",
@@ -389,7 +413,7 @@ Finish the current round.
 
 ```json
 {
-    "type": "RoundFinish"
+    "type": "ROUND_FINISH"
 }
 ```
 
@@ -400,7 +424,7 @@ Only VPs are provided, the GW and TP computations are done by the engine.
 
 ```json
 {
-    "type": "SetResult",
+    "type": "SET_RESULT",
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
     "round": 1,
     "vps": 2.5
@@ -414,7 +438,7 @@ Accepts plain text decklist (any usual format) or decklists URL (VDB, Amaranth, 
 
 ```json
 {
-    "type": "SetDeck",
+    "type": "SET_DECK",
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
     "deck": "https://vdb.im/decks/11906"
 }
@@ -424,7 +448,7 @@ The `round` parameter is facultative and can only be used by a Judge for correct
 
 ```json
 {
-    "type": "SetDeck",
+    "type": "SET_DECK",
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
     "round": 1,
     "deck": "https://vdb.im/decks/11906"
@@ -439,7 +463,7 @@ To **disqualify** a player, use the [Sanction](#sanction) event.
 
 ```json
 {
-    "type": "Drop",
+    "type": "DROP",
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
 }
 ```
@@ -463,7 +487,7 @@ Sanction also have an optional category, one of:
 
 ```json
 {
-    "type": "Sanction",
+    "type": "SANCTION",
     "level": "WARNING",
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8",
     "comment": "Free comment",
@@ -477,7 +501,7 @@ Remove all sanctions of given level for a player.
 
 ```json
 {
-    "type": "Unsanction",
+    "type": "UNSANCTION",
     "level": "WARNING",
     "player_uid": "238CD960-7E54-4A38-A676-8288A5700FC8"
 }
@@ -492,7 +516,7 @@ Rounds and tables are counted starting from 1.
 
 ```json
 {
-    "type": "Override",
+    "type": "OVERRIDE",
     "round": 1,
     "table": 1,
     "comment": "Free form comment"
@@ -505,7 +529,7 @@ A finals is "seeded" first before players elect their seat in seed order.
 
 ```json
 {
-    "type": "SeedFinals",
+    "type": "SEED_FINALS",
     "seeds": ["238CD960-7E54-4A38-A676-8288A5700FC8",
         "796CD3CE-BC2B-4505-B448-1C2D42E9F140",
         "80E9FD37-AD8C-40AA-A42D-138065530F10",
@@ -521,7 +545,7 @@ Note what seating position finalists have elected.
 
 ```json
 {
-    "type": "SeatFinals",
+    "type": "SEAT_FINALS",
     "seating": ["238CD960-7E54-4A38-A676-8288A5700FC8",
         "796CD3CE-BC2B-4505-B448-1C2D42E9F140",
         "80E9FD37-AD8C-40AA-A42D-138065530F10",
@@ -538,6 +562,6 @@ is automatically computed.
 
 ```json
 {
-    "type": "Finish",
+    "type": "FINISH_TOURNAMENT",
 }
 ```

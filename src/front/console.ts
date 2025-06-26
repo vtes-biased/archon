@@ -808,6 +808,21 @@ class Registration {
             base.add_tooltip(checkin_code, "Display the QR code players can scan to check in")
         }
         if (this.console.tournament.state == d.TournamentState.WAITING) {
+            const cancel_checkin_button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
+            )
+            cancel_checkin_button.innerText = "Cancel Check-in"
+            const tooltip = base.add_tooltip(cancel_checkin_button, "Back to registration - checks everyone out.")
+            cancel_checkin_button.addEventListener("click", (ev) => {
+                tooltip.hide();
+                this.console.confirmation.show(
+                    "<strong>All player will be checked out</strong> <br>" +
+                    `<em>Close the check-in stage and go back to the previous step.</em>`,
+                    () => this.console.cancel_checkin()
+                )
+            })
+        }
+        if (this.console.tournament.state == d.TournamentState.WAITING) {
             const checkin_button = base.create_append(this.action_row, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"]
             )
@@ -1966,6 +1981,13 @@ class TournamentConsole {
     async open_checkin() {
         const event: events.OpenCheckin = {
             type: events.EventType.OPEN_CHECKIN,
+            uid: uuid.v4(),
+        }
+        await this.handle_tournament_event(event)
+    }
+    async cancel_checkin() {
+        const event: events.CancelCheckin = {
+            type: events.EventType.CANCEL_CHECKIN,
             uid: uuid.v4(),
         }
         await this.handle_tournament_event(event)
