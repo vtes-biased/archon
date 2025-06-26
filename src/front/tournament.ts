@@ -401,14 +401,15 @@ export class TournamentDisplay {
             countries = await res.json() as d.Country[]
         }
         this.countries = new Map(countries.map(c => [c.country, c]))
+        // do not init our own members map (only a console or creation thing)
         if (members_map) {
             this.members_map = members_map
-        } else if (user_id) {
-            this.members_map = new member.MembersDB(token)
-            await this.members_map.init()
+        } else {
+            this.members_map = undefined
         }
         if (user_id) {
-            this.user = await this.members_map.get_by_uid(user_id)
+            const res = await base.do_fetch_with_token(`/api/vekn/members/${user_id}`, this.token, {})
+            this.user = await res.json() as d.Person
             this.judges = [this.user]
         }
         {
@@ -1290,6 +1291,11 @@ export class TournamentDisplay {
     }
     async display_form(tournament: d.Tournament | undefined) {
         base.remove_children(this.root)
+        // if not called from console (root create), we need to init the members map
+        if (!this.members_map) {
+            this.members_map = new member.MembersDB(this.token)
+            this.members_map.init()
+        }
         const form = base.create_append(this.root, "form", ["row", "g-3", "mt-3", "needs-validation"])
         form.noValidate = true
         form.addEventListener("submit", (ev) => this.submit_tournament(ev, tournament))
