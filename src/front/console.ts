@@ -1651,7 +1651,7 @@ class TournamentConsole {
             const round_tab = new RoundTab(this, i + 1, finals)
             this.rounds.push(round_tab)
         }
-        await this.members_map.init()
+        this.members_map.init()
         { // init countries in components using them
             const res = await base.do_fetch("/api/vekn/country", {})
             const countries = await res.json() as d.Country[]

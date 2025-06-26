@@ -29,6 +29,7 @@ function normalize_string(s: string) {
 export class MembersDB {
     token: base.Token
     db: idb.IDBPDatabase
+    last_timestamp: string
     trie: Map<string, Map<string, LookupInfo>>
     constructor(token: base.Token) {
         this.token = token
@@ -36,27 +37,19 @@ export class MembersDB {
 
     async init() {
         this.trie = new Map()
-        var trigger_refresh = false
         const perf_nav = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-        if (perf_nav.type == "reload") {
-            trigger_refresh = true
-            console.log("trigger refresh from reload")
+        const last_timestamp_str = sessionStorage.getItem("members_refresh")
+        if (last_timestamp_str) {
+            this.last_timestamp = last_timestamp_str
         }
-        const last_update_str = sessionStorage.getItem("members_refresh")
-        if (last_update_str) {
-            const last_update = DateTime.fromISO(last_update_str)
-            if (DateTime.now().minus({ hours: 1 }) > last_update) {
-                trigger_refresh = true
-                console.log("trigger refresh from expiry")
-            }
-        } else {
-            trigger_refresh = true
+        if (perf_nav.type == "reload") {
+            this.last_timestamp = undefined
+            console.log("trigger full refresh from reload")
         }
         this.db = await idb.openDB("VEKN", VERSION, {
             upgrade(db, oldVersion, newVersion, transaction, event) {
                 const membersStore = db.createObjectStore("members", { keyPath: "uid" })
                 membersStore.createIndex("vekn", "vekn", { unique: false })
-                trigger_refresh = true
                 console.log("re-created members db")
             },
             blocked(currentVersion, blockedVersion, event) {
@@ -69,63 +62,138 @@ export class MembersDB {
                 window.location.reload()
             },
         })
-        if (trigger_refresh) {
-            await this.refresh()
-        } else {
-            await this.build_trie()
-        }
+        await this.refresh()
     }
 
     async refresh() {
         console.log("refreshing db")
-        const res = await base.do_fetch_with_token("/api/vekn/members", this.token, {})
+        const url = new URL("/api/vekn/members", window.location.origin)
+        if (this.last_timestamp) {
+            url.searchParams.set("since", this.last_timestamp)
+        }
+        const res = await base.do_fetch_with_token(url.href, this.token, {})
         if (!res) { return }
-        if (res.headers.get("content-type") == "application/jsonl") {
-            // wait for the whole stream: we can refine later if needed
-            // but we cannot wait on the stream during the IndexDB transaction anyway
-            const data = await res.bytes()
-            const str = new TextDecoder().decode(data);
+        if (res.status == 205) {
+            // reset trie & timestamp
+            this.trie.clear()
+            this.last_timestamp = undefined
+            // put the partial list
+            const update = await res.json() as d.Person[]
             const tr = this.db.transaction("members", "readwrite")
-            await tr.store.clear()
-            var count = 0
-            for (const dic of str.split("\n")) {
-                if (dic === "") { break }
-                const member = JSON.parse(dic) as d.Person
+            for (const member of update) {
                 tr.store.put(member)
-                count += 1
-            }
-            await tr.done
-        } else if (res.headers.get("content-type") == "application/json") {
-            const members = await res.json() as d.Person[]
-            const tr = this.db.transaction("members", "readwrite")
-            await tr.store.clear()
-            for (const member of members) {
-                tr.store.put(member)
+                this.trie_add(member)
             }
             await tr.done
         }
-        await this.build_trie()
-        sessionStorage.setItem("members_refresh", DateTime.now().toISO())
+        else if (res.headers.get("content-type") == "application/x-ndjson") {
+            // wait for the whole stream: we can refine later if needed
+            // but we cannot wait on the stream during the IndexDB transaction anyway
+            const old_keys = new Set(await this.db.getAllKeys("members"))
+            const reader = res.body.getReader()
+            const decoder = new TextDecoder()
+            const new_keys = new Set()
+            var buffer = ""
+            while (true) {
+                const { value, done } = await reader.read()
+                if (done) { break }
+                buffer += decoder.decode(value, { stream: true })
+                const parts = buffer.split("\n")
+                // last entry may be partial
+                buffer = parts.pop()
+                const tr = this.db.transaction("members", "readwrite")
+                for (const line of parts) {
+                    if (line.trim()) {
+                        try {
+                            if (new_keys.size == 0) {
+                                const timestamp = line.trim()
+                                // or should we use a header value?
+                            } else {
+                                const person = JSON.parse(line) as d.Person
+                                tr.store.put(person)
+                                this.trie_add(person)
+                                new_keys.add(person.uid)
+                            }
+                        } catch (e) {
+                            console.error("Invalid JSON:", line, e)
+                        }
+                    }
+                }
+                await tr.done
+            }
+            // process tail
+            if (buffer.trim()) {
+                // TODO remove if we have no tail
+                console.log("tail", buffer)
+                const tr = this.db.transaction("members", "readwrite")
+                try {
+                    const person = JSON.parse(buffer) as d.Person
+                    tr.store.put(person)
+                    this.trie_add(person)
+                    new_keys.add(person.uid)
+                } catch (e) {
+                    console.error("Invalid JSON at end:", buffer, e)
+                }
+                await tr.done
+            }
+            // remove persons that were not in stream
+            const tr = this.db.transaction("members", "readwrite")
+            for (const key of old_keys.difference(new_keys)) {
+                const person = await tr.store.get(key)
+                this.trie_remove(person)
+                tr.store.delete(key)
+            }
+            await tr.done
+            // record timestamp
+            this.last_timestamp = res.headers.get("Last-Modified")
+
+        } else if (res.headers.get("content-type") == "application/json") {
+            const update = await res.json() as d.PersonsUpdate
+            const tr = this.db.transaction("members", "readwrite")
+            for (const person of update.update) {
+                this.trie_add(person)
+                tr.store.put(person)
+            }
+            for (const uid of update.delete) {
+                const person = await tr.store.get(uid)
+                this.trie_remove(person)
+                tr.store.delete(uid)
+            }
+            await tr.done
+            // record timestamp
+            this.last_timestamp = res.headers.get("Last-Modified")
+        }
     }
 
-    async build_trie() {
-        this.trie.clear()
-        for (const person of await this.db.getAll("members")) {
-            const parts = normalize_string(person.name).split(" ")
-            for (const part of parts) {
-                for (var i = 1; i < part.length + 1; i++) {
-                    const piece = part.slice(0, i)
-                    if (!this.trie.has(piece)) {
-                        this.trie.set(piece, new Map())
-                    }
-                    this.trie.get(piece).set(person.uid, {
-                        name: person.name,
-                        uid: person.uid,
-                        vekn: person.vekn,
-                        country: person.country,
-                        country_flag: person.country_flag,
-                    })
+    _get_trie_parts(name: string) {
+        return normalize_string(name).split(" ")
+    }
+    trie_add(person: d.Person) {
+        for (const part of this._get_trie_parts(person.name)) {
+            for (var i = 1; i < part.length + 1; i++) {
+                const piece = part.slice(0, i)
+                if (!this.trie.has(piece)) {
+                    this.trie.set(piece, new Map())
                 }
+                this.trie.get(piece).set(person.uid, {
+                    name: person.name,
+                    uid: person.uid,
+                    vekn: person.vekn,
+                    country: person.country,
+                    country_flag: person.country_flag,
+                })
+            }
+        }
+    }
+    trie_remove(person: d.Person) {
+        for (const part of this._get_trie_parts(person.name)) {
+            for (var i = 1; i < part.length + 1; i++) {
+                const piece = part.slice(0, i)
+                const match = this.trie.get(piece)
+                if (!match) {
+                    continue
+                }
+                match.delete(person.uid)
             }
         }
     }

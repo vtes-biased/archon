@@ -5,11 +5,13 @@ import dataclasses
 import datetime
 import dotenv
 import hmac
+import io
 import logging
 import orjson
 import os
 import psycopg
 import psycopg.rows
+import psycopg.sql
 import psycopg.types.json
 import psycopg_pool
 import secrets
@@ -68,7 +70,15 @@ async def init():
                 "CREATE TABLE IF NOT EXISTS members("
                 "uid UUID DEFAULT gen_random_uuid() PRIMARY KEY, "
                 "vekn TEXT DEFAULT '', "
+                "last_updated TIMESTAMP WITH TIME ZONE "
+                "DEFAULT now(), "
                 "data jsonb)"
+            )
+            # TODO; remove after migration
+            await cursor.execute(
+                "ALTER TABLE members "
+                "ADD COLUMN IF NOT EXISTS "
+                "last_updated TIMESTAMP WITH TIME ZONE DEFAULT now()"
             )
             # Unique index on discord ID
             await cursor.execute(
@@ -107,6 +117,65 @@ async def init():
                 "CREATE INDEX IF NOT EXISTS idx_member_name_trgm "
                 "ON members "
                 "USING GIST ((data ->> 'name') gist_trgm_ops)"
+            )
+            # Index last_updated
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_member_last_updated "
+                "ON members "
+                "USING BTREE (last_updated)"
+            )
+            # keep last_updated up to date automatically
+            await cursor.execute(
+                "CREATE OR REPLACE FUNCTION update_last_updated_if_changed() "
+                "RETURNS TRIGGER AS $$ "
+                "DECLARE "
+                "new_json jsonb; "
+                "old_json jsonb; "
+                "BEGIN "
+                "new_json := to_jsonb(NEW) - 'last_updated'; "
+                "old_json := to_jsonb(OLD) - 'last_updated'; "
+                ""
+                "IF new_json IS DISTINCT FROM old_json THEN "
+                "    NEW.last_updated = now() at time zone 'UTC'; "
+                "END IF; "
+                ""
+                "RETURN NEW; "
+                "END; "
+                "$$ LANGUAGE plpgsql; "
+            )
+            await cursor.execute(
+                "CREATE OR REPLACE TRIGGER set_last_updated "
+                "BEFORE UPDATE ON members "
+                "FOR EACH ROW "
+                "EXECUTE FUNCTION update_last_updated_if_changed(); "
+            )
+            # log members deletions
+            await cursor.execute(
+                "CREATE TABLE IF NOT EXISTS member_deletions( "
+                "uid UUID PRIMARY KEY, "
+                "deleted_at TIMESTAMP WITH TIME ZONE)"
+            )
+            # Index deleted_at
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_member_deletions_deleted_at "
+                "ON member_deletions "
+                "USING BTREE (deleted_at)"
+            )
+            await cursor.execute(
+                "CREATE OR REPLACE FUNCTION log_member_deletion() "
+                "RETURNS TRIGGER AS $$ "
+                "BEGIN "
+                "INSERT INTO member_deletions (id, deleted_at) "
+                "VALUES (OLD.id, now() at time zone 'UTC'); "
+                "RETURN OLD; "
+                "END; "
+                "$$ LANGUAGE plpgsql; "
+            )
+            await cursor.execute(
+                "CREATE OR REPLACE TRIGGER track_member_deletion "
+                "AFTER DELETE ON members "
+                "FOR EACH ROW "
+                "EXECUTE FUNCTION log_member_deletion()"
             )
             # ############################################################## tournaments
             await cursor.execute(
@@ -505,31 +574,12 @@ class Operator:
         async with self.conn.cursor() as cursor:
             # get existing VEKN, lock the table
             res = await cursor.execute(
-                "SELECT vekn, data FROM members WHERE vekn=ANY(%s) FOR UPDATE",
+                "SELECT vekn FROM members WHERE vekn=ANY(%s)",
                 [[m.vekn for m in members]],
             )
-            existing = await res.fetchall()
-            existing = {e[0]: self._instanciate(e[1], models.Member) for e in existing}
-            # do not overwrite local data & lose relevant info (sanctions, login, etc.)
-            # don't revert changes on name
-            # TODO: also don't revert country, city, roles and sponsor changes
-            # once we're stable on this
-            for i, m in enumerate(members):
-                if m.vekn in existing:
-                    local: models.Member = existing[m.vekn]
-                    # TODO remove country & city
-                    local.country = m.country
-                    local.city = m.city
-                    local.roles = m.roles
-                    local.prefix = m.prefix
-                    local.sponsor = None
-                    members[i] = local
-            # update existing
-            # cannot run two prepared statements in parallel, just wait
-            await cursor.executemany(
-                "UPDATE members SET data=%s WHERE vekn=%s",
-                [[self._jsonize(m), m.vekn] for m in members if m.vekn in existing],
-            )
+            existing = {e[0] for e in await res.fetchall()}
+            # do not overwrite existing members
+            members = [m for m in members if m.vekn not in existing]
             # insert new
             await cursor.executemany(
                 "INSERT INTO members (uid, vekn, data) VALUES (%s, %s, %s)",
@@ -579,17 +629,63 @@ class Operator:
                 )
             ]
 
-    async def get_members_gen(
-        self,
-    ) -> typing.AsyncGenerator[models.Person, None]:
+    async def get_members_since(
+        self, timestamp: datetime.datetime
+    ) -> tuple[datetime.datetime, models.PersonsUpdate]:
         async with self.conn.cursor() as cursor:
-            async for row in cursor.stream("SELECT data FROM members"):
-                yield self._instanciate(row[0], models.Person)
+            updated = await cursor.execute(
+                "SELECT last_updated, data FROM members WHERE last_updated > %s",
+                [timestamp],
+            )
+            deleted = await cursor.execute(
+                "SELECT deleted_at, uid FROM member_deletions WHERE deleted_at > %s",
+                [timestamp],
+            )
+            updated = await updated.fetchall()
+            deleted = await deleted.fetchall()
+            datetime_min = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+            last_modified = max(
+                datetime_min,
+                *(row[0] for row in updated),
+                *(row[0] for row in deleted),
+            )
+            if last_modified == datetime_min:
+                fuzzy_timestamp = await cursor.execute(
+                    "SELECT now() AT TIME ZONE 'UTC' - INTERVAL '1 hour'"
+                )
+                last_modified = (await fuzzy_timestamp.fetchone())[0]
+            return last_modified, models.PersonsUpdate(
+                update=[self._instanciate(row[1], models.Person) for row in updated],
+                delete=[row[1] for row in deleted],
+            )
+
+    async def get_members_generator(
+        self,
+    ) -> tuple[
+        datetime.datetime,
+        typing.Callable[[None], typing.AsyncGenerator[models.Person, None]],
+    ]:
+        """Streams all members. returns a 'fuzzy' timestamp in the past.
+
+        A subsequent call to get_members_since() with that timestamp is required for an up-to-date picture.
+        """
+        async with self.conn.cursor() as cursor:
+            timestamp_data = await cursor.execute(
+                "SELECT (now() - INTERVAL '1 hour')::timestamptz"
+            )
+            timestamp = (await timestamp_data.fetchone())[0]
+
+        async def generator():
+            async with self.conn.cursor() as cursor:
+                async for row in cursor.stream("SELECT data FROM members"):
+                    yield self._instanciate(row[0], models.Person)
+
+        return timestamp, generator
 
     async def get_ranked_members(
         self, category: models.RankingCategoy
     ) -> list[models.Person]:
-        """Get members with a prominant rank in any category"""
+        """Get members with a prominant rank in a category"""
         async with self.conn.cursor() as cursor:
             return [
                 self._instanciate(data[0], models.Person)
@@ -613,11 +709,11 @@ class Operator:
 
     async def get_externally_visible_members(
         self, user: models.Person
-    ) -> list[models.Person]:
+    ) -> list[models.PublicPerson]:
         """Get all members that can be contacted by non-vekn members"""
         async with self.conn.cursor() as cursor:
             return [
-                self._instanciate(data[0], models.Person)
+                self._instanciate(data[0], models.PublicPerson)
                 async for data in cursor.stream(
                     "SELECT data FROM members "
                     "WHERE data->'roles' ? 'NC' OR data->'roles' ? 'Prince' OR uid=%s",
@@ -953,32 +1049,7 @@ class Operator:
                 tournament = self._instanciate(row[0], models.Tournament)
                 for uid, rating in engine.ratings(tournament).items():
                     all_ratings[uid][tournament.uid] = rating
-            # clean reset for all members
-            await cursor.execute(
-                "UPDATE members SET data=jsonb_set(data, '{ratings}', '{}', true)"
-            )
-            # set all tournaments ratings
-            await cursor.executemany(
-                """UPDATE members
-                SET data=jsonb_set(data, '{ratings}', %s, false)
-                WHERE uid=%s
-                """,
-                [
-                    [
-                        psycopg.types.json.Jsonb(
-                            {k: dataclasses.asdict(v) for k, v in ratings.items()}
-                        ),
-                        uuid.UUID(uid),
-                    ]
-                    for uid, ratings in all_ratings.items()
-                ],
-            )
-            # now compute the current rankings, using results from the past 18 months
-            # only the top 8 in each category count
-            rankings_lists: dict[str, dict[models.RankingCategoy, list[int]]] = (
-                collections.defaultdict(lambda: collections.defaultdict(list))
-            )
-            # compute cutoff: 18 months before today (UTC) at 00:00
+            # compute ranking cutoff: 18 months before today (UTC) at 00:00
             cutoff = datetime.datetime.now(datetime.timezone.utc)
             cutoff = cutoff.replace(hour=0, minute=0, second=0, microsecond=0)
             cutoff = cutoff.replace(year=cutoff.year - 1)
@@ -987,55 +1058,68 @@ class Operator:
             else:
                 cutoff = cutoff.replace(year=cutoff.year - 1)
                 cutoff = cutoff.replace(month=cutoff.month + 6)
-            for uid, ratings in all_ratings.items():
-                for rating in ratings.values():
-                    if (
-                        rating.tournament.start.replace(
-                            tzinfo=zoneinfo.ZoneInfo(tournament.timezone)
-                        )
-                        < cutoff
-                    ):
-                        continue
-                    if rating.tournament.format == models.TournamentFormat.Standard:
-                        if rating.tournament.online:
-                            category = models.RankingCategoy.CONSTRUCTED_ONLINE
-                        else:
-                            category = models.RankingCategoy.CONSTRUCTED_ONSITE
-                    else:
-                        if rating.tournament.online:
-                            category = models.RankingCategoy.LIMITED_ONLINE
-                        else:
-                            category = models.RankingCategoy.LIMITED_ONSITE
-                    rankings_lists[uid][category].append(rating.rating_points)
-            del all_ratings
-            # take the top 8
-            rankings = {
-                uid: {
-                    category: sum(sorted(r, reverse=True)[:8])
-                    for category, r in res.items()
-                    if r
-                }
-                for uid, res in rankings_lists.items()
-                if res
-            }
-            del rankings_lists
-            # clean everyone's ratings, then update with the newly computed values
+            # build a temporary staging table for ratings and rankings
             await cursor.execute(
-                "UPDATE members SET data=jsonb_set(data, '{ranking}', '{}', true)"
+                "CREATE TEMP TABLE staging_ratings ( "
+                "uid UUID PRIMARY KEY, "
+                "data JSONB "
+                ")"
             )
-            await cursor.executemany(
-                """UPDATE members
-                SET data=jsonb_set(data, '{ranking}', %s, false)
-                WHERE uid=%s
-                """,
-                [
-                    [
-                        psycopg.types.json.Jsonb(ranking),
-                        uuid.UUID(uid),
-                    ]
-                    for uid, ranking in rankings.items()
-                ],
+            async with cursor.copy(
+                "COPY staging_ratings (id, data) FROM STDIN WITH (FORMAT text)"
+            ) as copy:
+                while all_ratings:
+                    uid, ratings = all_ratings.popitem()
+                    # compute ranking from ratings
+                    ranking = collections.defaultdict(list)
+                    for rating in ratings.values():
+                        # ignore tournaments before cutoff
+                        if (
+                            rating.tournament.start.replace(
+                                tzinfo=zoneinfo.ZoneInfo(tournament.timezone)
+                            )
+                            < cutoff
+                        ):
+                            continue
+                        if rating.tournament.format == models.TournamentFormat.Standard:
+                            if rating.tournament.online:
+                                category = models.RankingCategoy.CONSTRUCTED_ONLINE
+                            else:
+                                category = models.RankingCategoy.CONSTRUCTED_ONSITE
+                        else:
+                            if rating.tournament.online:
+                                category = models.RankingCategoy.LIMITED_ONLINE
+                            else:
+                                category = models.RankingCategoy.LIMITED_ONSITE
+                        ranking[category].append(rating.rating_points)
+                    data = orjson.dumps(
+                        {
+                            "ratings": {
+                                k: dataclasses.asdict(v) for k, v in ratings.items()
+                            },
+                            "ranking": {
+                                # take top 8
+                                category: sum(sorted(r, reverse=True)[:8])
+                                for category, r in ranking.items()
+                                if r
+                            },
+                        }
+                    ).decode()
+                    copy.write(f"{uid}\t{data}\n")
+            # use staging to update members, then drop staging
+            # note we need a clean update to avoid triggering last_updated unnecessarily
+            await cursor.execute(
+                "UPDATE members m "
+                "SET data = m.data || s.data "
+                "FROM staging_ratings s "
+                "WHERE m.id = s.id "
             )
+            await cursor.execute(
+                "UPDATE members m "
+                """SET data = '{"ratings": {}, "ranking": {}}'::jsonb """
+                "WHERE m.id NOT IN (SELECT id FROM staging_ratings)"
+            )
+            await cursor.execute("DROP TABLE staging_ratings")
 
     def _jsonize(self, obj: any):
         data = dataclasses.asdict(obj)
@@ -1238,10 +1322,15 @@ class Operator:
 
 @contextlib.asynccontextmanager
 async def operator(autocommit: bool = False) -> typing.AsyncIterator[Operator]:
-    """Yields an async DB Operator to execute DB operations in a single transaction"""
+    """Yields an async DB Operator to execute DB operations.
+
+    Does not use a transaction if autocommit=True
+    """
     async with POOL.connection() as conn:
-        if autocommit:
-            await conn.set_autocommit(True)
-        yield Operator(conn)
-        if autocommit:
-            await conn.set_autocommit(False)
+        try:
+            if autocommit:
+                await conn.set_autocommit(True)
+            yield Operator(conn)
+        finally:
+            if autocommit:
+                await conn.set_autocommit(False)
