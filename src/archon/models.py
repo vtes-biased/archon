@@ -156,6 +156,12 @@ class Person(PublicPerson):
 
 
 @dataclasses.dataclass
+class PersonsUpdate:
+    update: list[Person] = pydantic.Field(default_factory=list)
+    delete: list[str] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass
 class KrcgCard:
     id: int
     name: str

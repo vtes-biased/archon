@@ -1,4 +1,6 @@
 import dataclasses
+import datetime
+import email.utils
 import fastapi
 import orjson
 import typing
@@ -68,9 +70,13 @@ async def api_vekn_abandon(
 
 
 async def _json_l(
+    request: fastapi.Request,
     it: typing.AsyncGenerator[any, None],
 ) -> typing.AsyncGenerator[str, None]:
     async for obj in it:
+        # stop sending if the client disconnects (reloads or changes page)
+        if await request.is_disconnected():
+            return
         yield orjson.dumps(
             obj, option=orjson.OPT_NON_STR_KEYS | orjson.OPT_APPEND_NEWLINE
         )
@@ -87,18 +93,40 @@ class JSONLResponse(fastapi.responses.ORJSONResponse):
     summary="Get all members",
 )
 async def api_vekn_members(
-    member: dependencies.PersonFromToken, op: dependencies.DbOperator
+    request: fastapi.Request,
+    member: dependencies.PersonFromToken,
+    op: dependencies.DbOperator,
+    since: typing.Annotated[datetime.datetime, fastapi.Query()] | None = None,
 ) -> fastapi.Response:
     """
-    - If you're a VEKN member, you get the whole list in a streaming response,
-      as [JSON Lines](https://jsonlines.org): `Content-Type: application/jsonl`
+    - If you're a VEKN member, you either get the whole list in a streaming response,
+      as [JSON Lines](https://jsonlines.org): `Content-Type: application/x-ndjson`,
+      or an update (list of `updated` Person, list of `deleted` Person.uid)
+      as normal JSON (`Content-Type: application/json`) if you provided a `since`.
     - If you're not, you get only the public officials (Princes and NCs) as normal JSON:
       `Content-Type: application/json`
     """
     if member.vekn:
-        return fastapi.responses.StreamingResponse(
-            _json_l(op.get_members_gen()), media_type="application/jsonl"
-        )
+        if since:
+            timestamp, people_update = await op.get_members_since(since)
+            return fastapi.responses.ORJSONResponse(
+                people_update,
+                headers={
+                    "Last-Modified": email.utils.format_datetime(timestamp, usegmt=True)
+                },
+            )
+        else:
+            timestamp, generator = await op.get_members_generator()
+            import ipdb
+
+            ipdb.set_trace()
+            return fastapi.responses.StreamingResponse(
+                _json_l(request, generator()),
+                media_type="application/x-ndjson",
+                headers={
+                    "Last-Modified": email.utils.format_datetime(timestamp, usegmt=True)
+                },
+            )
     else:
         return fastapi.responses.ORJSONResponse(
             await op.get_externally_visible_members(member)

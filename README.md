@@ -72,7 +72,7 @@ We are using a couple of very standard tools and frameworks, that `make update` 
   its [i18n extension](https://jinja.palletsprojects.com/en/stable/extensions/#i18n-extension) for potential future translations,
   and [pyJWT](https://pyjwt.readthedocs.io/en/stable/) for generating [OAuth 2.0](https://oauth.net/2/) [JWT (RFC 7519)](https://datatracker.ietf.org/doc/html/rfc7519) tokens.
 
-- [PostgreSQL](https://www.postgresql.org/docs/current/index.html) for database,
+- [PostgreSQL](https://www.postgresql.org/docs/current/index.html) >= 15 for database,
   with [psycopg3](https://www.psycopg.org/psycopg3/docs/) as our library to instrument it
 
 - [AIOHTTP](https://docs.aiohttp.org) for web queries

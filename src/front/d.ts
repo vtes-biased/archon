@@ -133,6 +133,11 @@ export interface Person extends PublicPerson {
     ranking?: Record<RankingCategoy, number>,
 }
 
+export interface PersonsUpdate {
+    update: Person[],
+    delete: string[],
+}
+
 export interface KrcgCard {
     id: number,
     name: string,
