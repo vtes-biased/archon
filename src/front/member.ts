@@ -29,21 +29,32 @@ function normalize_string(s: string) {
 export class MembersDB {
     token: base.Token
     db: idb.IDBPDatabase
-    last_timestamp: string
     trie: Map<string, Map<string, LookupInfo>>
-    constructor(token: base.Token) {
+    root: HTMLElement
+
+    constructor(token: base.Token, el: HTMLElement) {
         this.token = token
+        this.root = el
+    }
+
+    spinner_overlay() {
+        const overlay = base.create_append(this.root, "div", [
+            "w-100",
+            "h-100",
+            "d-flex",
+            "align-items-center",
+            "justify-content-center",
+        ])
+        base.create_append(overlay, "div", ["spinner-border"], { role: "status" })
+        base.create_append(overlay, "div", [], {}).innerText = "Loading members..."
+        return overlay
     }
 
     async init() {
         this.trie = new Map()
         const perf_nav = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-        const last_timestamp_str = sessionStorage.getItem("members_refresh")
-        if (last_timestamp_str) {
-            this.last_timestamp = last_timestamp_str
-        }
         if (perf_nav.type == "reload") {
-            this.last_timestamp = undefined
+            sessionStorage.removeItem("members_refresh")
             console.log("trigger full refresh from reload")
         }
         this.db = await idb.openDB("VEKN", VERSION, {
@@ -63,30 +74,37 @@ export class MembersDB {
             },
         })
         await this.refresh()
+        await this.build_trie()
     }
 
     async refresh() {
         console.log("refreshing db")
-        const url = new URL("/api/vekn/members", window.location.origin)
-        if (this.last_timestamp) {
-            url.searchParams.set("since", this.last_timestamp)
+        const options = {
+            headers: {
+                'Accept': 'application/json, application/x-ndjson',
+                'Authorization': `Bearer ${this.token.access_token}`
+            }
         }
-        const res = await base.do_fetch_with_token(url.href, this.token, {})
+        const last_timestamp = sessionStorage.getItem("members_refresh")
+        if (last_timestamp) {
+            options.headers["If-None-Match"] = last_timestamp
+        }
+        const res = await base.do_fetch("/api/vekn/members", options)
         if (!res) { return }
-        if (res.status == 205) {
-            // reset trie & timestamp
-            this.trie.clear()
-            this.last_timestamp = undefined
+        if (res.headers.get("X-Data-Scope") == "public") {
+            // reset db systematically
+            this.db.clear("members")
+            sessionStorage.removeItem("members_refresh")
             // put the partial list
             const update = await res.json() as d.Person[]
             const tr = this.db.transaction("members", "readwrite")
             for (const member of update) {
                 tr.store.put(member)
-                this.trie_add(member)
             }
             await tr.done
         }
         else if (res.headers.get("content-type") == "application/x-ndjson") {
+            console.log("ndjson")
             // wait for the whole stream: we can refine later if needed
             // but we cannot wait on the stream during the IndexDB transaction anyway
             const old_keys = new Set(await this.db.getAllKeys("members"))
@@ -94,6 +112,7 @@ export class MembersDB {
             const decoder = new TextDecoder()
             const new_keys = new Set()
             var buffer = ""
+            const spinner = this.spinner_overlay()
             while (true) {
                 const { value, done } = await reader.read()
                 if (done) { break }
@@ -105,15 +124,9 @@ export class MembersDB {
                 for (const line of parts) {
                     if (line.trim()) {
                         try {
-                            if (new_keys.size == 0) {
-                                const timestamp = line.trim()
-                                // or should we use a header value?
-                            } else {
-                                const person = JSON.parse(line) as d.Person
-                                tr.store.put(person)
-                                this.trie_add(person)
-                                new_keys.add(person.uid)
-                            }
+                            const person = JSON.parse(line) as d.Person
+                            tr.store.put(person)
+                            new_keys.add(person.uid)
                         } catch (e) {
                             console.error("Invalid JSON:", line, e)
                         }
@@ -129,7 +142,6 @@ export class MembersDB {
                 try {
                     const person = JSON.parse(buffer) as d.Person
                     tr.store.put(person)
-                    this.trie_add(person)
                     new_keys.add(person.uid)
                 } catch (e) {
                     console.error("Invalid JSON at end:", buffer, e)
@@ -139,35 +151,32 @@ export class MembersDB {
             // remove persons that were not in stream
             const tr = this.db.transaction("members", "readwrite")
             for (const key of old_keys.difference(new_keys)) {
-                const person = await tr.store.get(key)
-                this.trie_remove(person)
                 tr.store.delete(key)
             }
             await tr.done
             // record timestamp
-            this.last_timestamp = res.headers.get("Last-Modified")
+            sessionStorage.setItem("members_refresh", res.headers.get("ETag"))
+            spinner.remove()
 
         } else if (res.headers.get("content-type") == "application/json") {
             const update = await res.json() as d.PersonsUpdate
             const tr = this.db.transaction("members", "readwrite")
             for (const person of update.update) {
-                this.trie_add(person)
                 tr.store.put(person)
             }
             for (const uid of update.delete) {
-                const person = await tr.store.get(uid)
-                this.trie_remove(person)
                 tr.store.delete(uid)
             }
             await tr.done
             // record timestamp
-            this.last_timestamp = res.headers.get("Last-Modified")
+            sessionStorage.setItem("members_refresh", res.headers.get("ETag"))
         }
     }
 
     _get_trie_parts(name: string) {
         return normalize_string(name).split(" ")
     }
+
     trie_add(person: d.Person) {
         for (const part of this._get_trie_parts(person.name)) {
             for (var i = 1; i < part.length + 1; i++) {
@@ -185,6 +194,7 @@ export class MembersDB {
             }
         }
     }
+
     trie_remove(person: d.Person) {
         for (const part of this._get_trie_parts(person.name)) {
             for (var i = 1; i < part.length + 1; i++) {
@@ -198,6 +208,12 @@ export class MembersDB {
         }
     }
 
+    async build_trie() {
+        for (const person of await this.db.getAll("members")) {
+            this.trie_add(person)
+        }
+    }
+
     async get_by_uid(uid: string) {
         return await this.db.get("members", uid)
     }
@@ -208,13 +224,13 @@ export class MembersDB {
 
     complete_name(s: string): LookupInfo[] {
         var members_list: LookupInfo[] | undefined = undefined
-        for (const part of normalize_string(s).toLowerCase().split(" ")) {
+        for (const part of this._get_trie_parts(s)) {
             const lookup = this.trie.get(part)
             if (lookup) {
                 if (members_list) {
                     members_list = members_list.filter(m => lookup.has(m.uid))
                 } else {
-                    members_list = [...lookup.values()]
+                    members_list = [...lookup.values()].sort((a, b) => a.name.localeCompare(b.name))
                 }
             }
         }
@@ -396,6 +412,14 @@ export class PersonLookup {
                 button.innerText += ` (${person.country_flag} ${person.country})`
             }
             button.addEventListener("click", (ev) => this.select_member_name(ev))
+        }
+        if (persons_list.length > 10) {
+            const li = base.create_append(this.dropdown_menu, "li")
+            const button = base.create_append(li, "button", ["dropdown-item"],
+                { type: "button" }
+            )
+            button.innerText = `... ${persons_list.length - 10} more`
+            button.disabled = true
         }
         this.dropdown.show()
     }

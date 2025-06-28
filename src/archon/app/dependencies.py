@@ -92,7 +92,7 @@ class DiscordAuth:
 
 
 # ############################################################################# Database
-async def get_db_op():
+async def get_db_op() -> typing.AsyncIterator[db.Operator]:
     async with db.POOL.connection() as conn:
         yield db.Operator(conn)
 
@@ -217,6 +217,38 @@ def async_timed_cache(duration: datetime.timedelta = datetime.timedelta(minutes=
         return inner
 
     return wrapper
+
+
+async def parse_if_none_match(
+    inm_raw: str | None = fastapi.Header(None, alias="If-None-Match")
+) -> datetime.datetime | None:
+    """
+    Dependency that reads the If-None-Match header, parses it,
+    and returns a tz-aware UTC datetime.
+    Returns None if the header was not provided.
+    Raises HTTP 400 if the header is present but invalid.
+    """
+    if inm_raw is None:
+        return None
+
+    try:
+        dt = datetime.datetime.fromisoformat(inm_raw)
+    except (TypeError, ValueError):
+        raise fastapi.HTTPException(
+            status_code=400, detail=f"Invalid If-None-Match header: {inm_raw!r}"
+        )
+    # parsedate_to_datetime may return a naive datetime;
+    # RFC-1123 dates are always in GMT, so attach UTC if needed:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+
+    return dt
+
+
+#: Provide easy access to the "If-None-Match" header
+IfNoneMatch = typing.Annotated[
+    datetime.datetime | None, fastapi.Depends(parse_if_none_match)
+]
 
 
 # ################################################################################## Doc

@@ -1293,7 +1293,7 @@ export class TournamentDisplay {
         base.remove_children(this.root)
         // if not called from console (root create), we need to init the members map
         if (!this.members_map) {
-            this.members_map = new member.MembersDB(this.token)
+            this.members_map = new member.MembersDB(this.token, this.root)
             this.members_map.init()
         }
         const form = base.create_append(this.root, "form", ["row", "g-3", "mt-3", "needs-validation"])

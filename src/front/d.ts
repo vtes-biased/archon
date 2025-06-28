@@ -78,6 +78,7 @@ export enum MemberRole {
 export enum MemberFilter {
     MY_RECRUITS = "My Recruits",
     NO_SPONSOR = "No Sponsor",
+    NO_VEKN = "No VEKN",
 }
 
 export enum AlertLevel {
@@ -101,6 +102,7 @@ export interface PublicPerson {
     country?: string | null,  // country name
     country_flag?: string | null,  // unicode flag char
     city?: string | null,  // city name
+    roles?: MemberRole[],
 }
 
 export interface TournamentRef {
@@ -127,7 +129,6 @@ export interface RegisteredSanction extends Sanction {
 
 export interface Person extends PublicPerson {
     nickname?: string | null,  // player nickname
-    roles?: MemberRole[],  // city name
     sponsor?: string | null,
     sanctions?: RegisteredSanction[],
     ranking?: Record<RankingCategoy, number>,

@@ -90,6 +90,7 @@ class PublicPerson:
     country: str | None = ""  # country name
     country_flag: str | None = ""  # unicode flag char
     city: str | None = ""  # city name
+    roles: list[MemberRole] = pydantic.Field(default_factory=list)
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -120,7 +121,6 @@ class RegisteredSanction(Sanction):
 @dataclasses.dataclass
 class Person(PublicPerson):
     nickname: str | None = None  # player nickname (on social, lackey, etc.)
-    roles: list[MemberRole] = pydantic.Field(default_factory=list)
     sponsor: str | None = ""  # useful for organizers, to find their recruits
     sanctions: list[RegisteredSanction] = pydantic.Field(default_factory=list)
     ranking: dict[RankingCategoy, int] = pydantic.Field(default_factory=dict)

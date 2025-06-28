@@ -33,7 +33,7 @@ class MemberListDisplay {
     constructor(root: HTMLDivElement, token: base.Token, page_size: number = 100) {
         this.root = root
         this.token = token
-        this.members_map = new m.MembersDB(this.token)
+        this.members_map = new m.MembersDB(this.token, root)
         this.add_member_modal = new m.AddMemberModal(root, this.members_map, (member) => this.member_added(member))
         this.page_size = page_size
         this.filters_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
@@ -97,6 +97,9 @@ class MemberListDisplay {
             this._add_role_checkbox(d.MemberFilter.MY_RECRUITS)
             this._add_role_checkbox(d.MemberRole.ADMIN)
             this._add_role_checkbox(d.MemberFilter.NO_SPONSOR)
+        }
+        if (this.member.roles.includes(d.MemberRole.ADMIN)) {
+            this._add_role_checkbox(d.MemberFilter.NO_VEKN)
         }
         const add_member_button = base.create_append(this.buttons_row, "button", ["btn", "btn-primary", "me-2", "mb-2"])
         add_member_button.innerHTML = '<i class="bi bi-person-fill-add"></i> Add Member'
@@ -318,6 +321,11 @@ class MemberListDisplay {
                     case d.MemberFilter.NO_SPONSOR:
                         if (m.can_organize(this.member)) {
                             members = members.filter(m => !(m.sponsor && m.sponsor.length > 0))
+                        }
+                        break
+                    case d.MemberFilter.NO_VEKN:
+                        if (this.member.roles.includes(d.MemberRole.ADMIN)) {
+                            members = members.filter(m => !(m.vekn && m.vekn.length > 0))
                         }
                         break
                     default:  // d.MemberRole.ADMIN, d.MemberRole.NC, d.MemberRole.PRINCE

@@ -1,7 +1,7 @@
 import dataclasses
 import datetime
-import email.utils
 import fastapi
+import logging
 import orjson
 import typing
 
@@ -10,6 +10,7 @@ from ... import geo
 from ... import models
 from ... import vekn as vekn_net
 
+LOG = logging.getLogger()
 router = fastapi.APIRouter(
     prefix="/api/vekn",
     default_response_class=fastapi.responses.ORJSONResponse,
@@ -76,6 +77,7 @@ async def _json_l(
     async for obj in it:
         # stop sending if the client disconnects (reloads or changes page)
         if await request.is_disconnected():
+            LOG.warning("request disconnected")
             return
         yield orjson.dumps(
             obj, option=orjson.OPT_NON_STR_KEYS | orjson.OPT_APPEND_NEWLINE
@@ -96,7 +98,7 @@ async def api_vekn_members(
     request: fastapi.Request,
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
-    since: typing.Annotated[datetime.datetime, fastapi.Query()] | None = None,
+    since: dependencies.IfNoneMatch,
 ) -> fastapi.Response:
     """
     - If you're a VEKN member, you either get the whole list in a streaming response,
@@ -107,29 +109,39 @@ async def api_vekn_members(
       `Content-Type: application/json`
     """
     if member.vekn:
+        LOG.debug("fetching members since: %s", since)
         if since:
-            timestamp, people_update = await op.get_members_since(since)
+            timestamp, people_update = await op.get_members_since(
+                since, vekn_only=models.MemberRole.ADMIN not in member.roles
+            )
+            if not people_update:
+                return fastapi.responses.Response(status_code=304)
             return fastapi.responses.ORJSONResponse(
                 people_update,
                 headers={
-                    "Last-Modified": email.utils.format_datetime(timestamp, usegmt=True)
+                    "ETag": timestamp.astimezone(datetime.timezone.utc).isoformat(),
+                    "Cache-Control": "no-store",
                 },
             )
         else:
-            timestamp, generator = await op.get_members_generator()
-            import ipdb
-
-            ipdb.set_trace()
+            timestamp, generator = await op.get_members_generator(
+                vekn_only=models.MemberRole.ADMIN not in member.roles
+            )
             return fastapi.responses.StreamingResponse(
                 _json_l(request, generator()),
                 media_type="application/x-ndjson",
                 headers={
-                    "Last-Modified": email.utils.format_datetime(timestamp, usegmt=True)
+                    "ETag": timestamp.astimezone(datetime.timezone.utc).isoformat(),
+                    "Cache-Control": "no-store",
                 },
             )
     else:
         return fastapi.responses.ORJSONResponse(
-            await op.get_externally_visible_members(member)
+            await op.get_externally_visible_members(member),
+            headers={
+                "X-Data-Scope": "public",
+                "Cache-Control": "no-store",
+            },
         )
 
 
