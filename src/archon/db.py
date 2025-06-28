@@ -281,6 +281,7 @@ async def reset(keep_members: bool = True):
             await cursor.execute("DROP TABLE IF EXISTS tournament_events")
             await cursor.execute("DROP TABLE IF EXISTS tournaments")
             if not keep_members:
+                await cursor.execute("DROP TABLE IF EXISTS member_deletions")
                 await cursor.execute("DROP TABLE IF EXISTS members")
 
 
