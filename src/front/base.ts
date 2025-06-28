@@ -62,7 +62,7 @@ export async function do_fetch(url: string, options: Object) {
     // fetch the given url, handle errors and display them in the toaster
     try {
         const response = await fetch(url, options)
-        if (!response.ok) {
+        if (!response.ok && response.status != 304) {
             console.log(response)
             var message = await response.text()
             try {

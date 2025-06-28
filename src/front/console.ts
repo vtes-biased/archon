@@ -1589,7 +1589,7 @@ class TournamentConsole {
     constructor(el: HTMLDivElement, token: base.Token) {
         this.root = el
         this.token = token
-        this.members_map = new member.MembersDB(token)
+        this.members_map = new member.MembersDB(token, el)
         this.confirmation = new base.ConfirmationModal(el)
         this.score_modal = new ScoreModal(el, this)
         this.player_select = new PlayerSelectModal(el)

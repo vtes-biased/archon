@@ -87,16 +87,22 @@ async def init():
                 "USING BTREE ((data -> 'discord' ->> 'id'::text))"
             )
             # Unique index on email
+            # TODO remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_member_email")
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_email "
                 "ON members "
-                "USING BTREE ((data ->> 'email'::text))"
+                "USING BTREE ((data ->> 'email'::text)) "
+                "WHERE (data->>'email') IS NOT NULL AND (data->>'email') <> ''::text "
             )
             # Index vekn ID#
+            # TODO remove after migration
+            await cursor.execute("DROP INDEX IF EXISTS idx_member_email")
             await cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_member_vekn "
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_vekn "
                 "ON members "
-                "USING BTREE (vekn)"
+                "USING BTREE (vekn) "
+                "WHERE vekn IS NOT NULL AND vekn <> ''::text "
             )
             # Indexes for fast ranking queries
             for category in models.RankingCategoy:
@@ -136,7 +142,7 @@ async def init():
                 "old_json := to_jsonb(OLD) - 'last_updated'; "
                 ""
                 "IF new_json IS DISTINCT FROM old_json THEN "
-                "    NEW.last_updated = now() at time zone 'UTC'; "
+                "    NEW.last_updated = now(); "
                 "END IF; "
                 ""
                 "RETURN NEW; "
@@ -165,8 +171,8 @@ async def init():
                 "CREATE OR REPLACE FUNCTION log_member_deletion() "
                 "RETURNS TRIGGER AS $$ "
                 "BEGIN "
-                "INSERT INTO member_deletions (id, deleted_at) "
-                "VALUES (OLD.id, now() at time zone 'UTC'); "
+                "INSERT INTO member_deletions (uid, deleted_at) "
+                "VALUES (OLD.uid, now()); "
                 "RETURN OLD; "
                 "END; "
                 "$$ LANGUAGE plpgsql; "
@@ -416,7 +422,7 @@ class Operator:
         args = []
         if filter:
             # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
-            # using cursor in the WHERE clause with the appropriate index is the way to go.
+            # using cursor in the WHERE clause with the appropriate index is the way.
             Q += " WHERE "
             if filter.uid:
                 pieces.append(
@@ -630,54 +636,54 @@ class Operator:
             ]
 
     async def get_members_since(
-        self, timestamp: datetime.datetime
+        self, timestamp: datetime.datetime, vekn_only: bool
     ) -> tuple[datetime.datetime, models.PersonsUpdate]:
         async with self.conn.cursor() as cursor:
+            Q = "SELECT last_updated, data FROM members WHERE last_updated > %s"
+            if vekn_only:
+                Q += " AND vekn IS NOT NULL AND vekn <> ''"
             updated = await cursor.execute(
-                "SELECT last_updated, data FROM members WHERE last_updated > %s",
+                Q,
                 [timestamp],
             )
+            updated = await updated.fetchall()
             deleted = await cursor.execute(
                 "SELECT deleted_at, uid FROM member_deletions WHERE deleted_at > %s",
                 [timestamp],
             )
-            updated = await updated.fetchall()
             deleted = await deleted.fetchall()
-            datetime_min = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
-            last_modified = max(
-                datetime_min,
-                *(row[0] for row in updated),
-                *(row[0] for row in deleted),
-            )
-            if last_modified == datetime_min:
-                fuzzy_timestamp = await cursor.execute(
-                    "SELECT now() AT TIME ZONE 'UTC' - INTERVAL '1 hour'"
+            LOG.info("updated: %s, deleted: %s", updated, deleted)
+            if deleted or updated:
+                last_modified = max(
+                    datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    *(row[0] for row in updated),
+                    *(row[0] for row in deleted),
                 )
-                last_modified = (await fuzzy_timestamp.fetchone())[0]
+                LOG.info("last modified from DB: %s", last_modified)
+            else:
+                return None, None
             return last_modified, models.PersonsUpdate(
                 update=[self._instanciate(row[1], models.Person) for row in updated],
-                delete=[row[1] for row in deleted],
+                delete=[str(row[1]) for row in deleted],
             )
 
-    async def get_members_generator(
-        self,
-    ) -> tuple[
+    async def get_members_generator(self, vekn_only: bool) -> tuple[
         datetime.datetime,
         typing.Callable[[None], typing.AsyncGenerator[models.Person, None]],
     ]:
-        """Streams all members. returns a 'fuzzy' timestamp in the past.
-
-        A subsequent call to get_members_since() with that timestamp is required for an up-to-date picture.
-        """
+        """Streams all members. returns a 'fuzzy' timestamp in the past."""
         async with self.conn.cursor() as cursor:
             timestamp_data = await cursor.execute(
                 "SELECT (now() - INTERVAL '1 hour')::timestamptz"
             )
             timestamp = (await timestamp_data.fetchone())[0]
+        Q = "SELECT data FROM members"
+        if vekn_only:
+            Q += " WHERE vekn IS NOT NULL AND vekn <> ''"
 
         async def generator():
             async with self.conn.cursor() as cursor:
-                async for row in cursor.stream("SELECT data FROM members"):
+                async for row in cursor.stream(Q):
                     yield self._instanciate(row[0], models.Person)
 
         return timestamp, generator
@@ -1283,7 +1289,7 @@ class Operator:
         pieces, args = [], []
         if filter:
             # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
-            # using cursor in the WHERE clause with the appropriate index is the way to go.
+            # using cursor in the WHERE clause with the appropriate index is the way.
             Q += "WHERE "
             if filter.uid:
                 pieces.append(
