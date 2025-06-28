@@ -286,7 +286,7 @@ async def reset(keep_members: bool = True):
 
 
 T = typing.TypeVar("T", bound=models.TournamentMinimal)
-P = typing.TypeVar("T", bound=models.PublicPerson)
+P = typing.TypeVar("P", bound=models.PublicPerson)
 
 
 @contextlib.asynccontextmanager
