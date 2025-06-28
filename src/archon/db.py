@@ -5,13 +5,11 @@ import dataclasses
 import datetime
 import dotenv
 import hmac
-import io
 import logging
 import orjson
 import os
 import psycopg
 import psycopg.rows
-import psycopg.sql
 import psycopg.types.json
 import psycopg_pool
 import secrets
