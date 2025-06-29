@@ -651,7 +651,7 @@ class Operator:
                 [timestamp],
             )
             deleted = await deleted.fetchall()
-            LOG.info("updated: %s, deleted: %s", updated, deleted)
+            LOG.debug("updated: %s, deleted: %s", updated, deleted)
             if deleted or updated:
                 last_modified = max(
                     datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
@@ -1071,7 +1071,7 @@ class Operator:
                 ")"
             )
             async with cursor.copy(
-                "COPY staging_ratings (id, data) FROM STDIN WITH (FORMAT text)"
+                "COPY staging_ratings (uid, data) FROM STDIN"
             ) as copy:
                 while all_ratings:
                     uid, ratings = all_ratings.popitem()
@@ -1097,7 +1097,7 @@ class Operator:
                             else:
                                 category = models.RankingCategoy.LIMITED_ONSITE
                         ranking[category].append(rating.rating_points)
-                    data = orjson.dumps(
+                    data = psycopg.types.json.Json(
                         {
                             "ratings": {
                                 k: dataclasses.asdict(v) for k, v in ratings.items()
@@ -1109,20 +1109,20 @@ class Operator:
                                 if r
                             },
                         }
-                    ).decode()
-                    copy.write(f"{uid}\t{data}\n")
+                    )
+                    await copy.write_row([uid, data])
             # use staging to update members, then drop staging
             # note we need a clean update to avoid triggering last_updated unnecessarily
             await cursor.execute(
                 "UPDATE members m "
                 "SET data = m.data || s.data "
                 "FROM staging_ratings s "
-                "WHERE m.id = s.id "
+                "WHERE m.uid = s.uid "
             )
             await cursor.execute(
                 "UPDATE members m "
-                """SET data = '{"ratings": {}, "ranking": {}}'::jsonb """
-                "WHERE m.id NOT IN (SELECT id FROM staging_ratings)"
+                """SET data = data || '{"ratings": {}, "ranking": {}}'::jsonb """
+                "WHERE m.uid NOT IN (SELECT uid FROM staging_ratings)"
             )
             await cursor.execute("DROP TABLE staging_ratings")
 
