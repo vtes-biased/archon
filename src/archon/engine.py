@@ -1068,7 +1068,7 @@ def ratings(tournament: models.TournamentInfo) -> dict[str, models.TournamentRat
         elif rank <= 10:
             gp_points = (10 - rank) + 6
         ret[player.uid] = models.TournamentRating(
-            tournament=models.TournamentMinimal(**dataclasses.asdict(tournament)),
+            tournament=models.TournamentRef(**dataclasses.asdict(tournament)),
             size=size,
             rounds_played=player.rounds_played,
             result=player.result,
