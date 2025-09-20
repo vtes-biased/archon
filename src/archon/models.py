@@ -37,6 +37,12 @@ class StandingsMode(enum.StrEnum):
     PUBLIC = "Public"  # All players
 
 
+class DeckListsMode(enum.StrEnum):
+    WINNER = "Winner"  # Default
+    FINALISTS = "Finalists"
+    ALL = "All"
+
+
 class PlayerState(enum.StrEnum):
     REGISTERED = "Registered"
     CHECKED_IN = "Checked-in"
@@ -194,16 +200,8 @@ class KrcgDeck:
     library: KrcgLibrary
     id: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
     vdb_link: str = ""
-    event: str = ""
-    event_link: str = ""
-    place: str = ""
-    date: datetime.date | None = None
-    tournament_format: str = ""
-    players_count: int = 0
-    player: str = ""
-    score: str = ""
     name: str = ""
-    author: str = ""
+    author: str = ""  # for attribution
     comments: str = ""
 
 
@@ -331,6 +329,7 @@ class TournamentConfig(TournamentMinimal):
     decklist_required: bool = True
     description: str = ""
     standings_mode: StandingsMode = StandingsMode.PRIVATE
+    decklists_mode: DeckListsMode = DeckListsMode.WINNER
     max_rounds: int = 0
     limited: LimitedFormat | None = None
 
@@ -358,7 +357,7 @@ class Tournament(TournamentConfig):
 
 @dataclasses.dataclass
 class TournamentInfo(TournamentConfig):
-    players: dict[str, PlayerInfo] = pydantic.Field(default_factory=dict)
+    players: dict[str, Player | PlayerInfo] = pydantic.Field(default_factory=dict)
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[RoundInfo] = pydantic.Field(default_factory=list)
     winner: str = ""
@@ -400,6 +399,7 @@ class DeckInfo:
     deck: KrcgDeck
     score: scoring.Score
     winner: bool = False
+    finalist: bool = False
 
 
 @dataclasses.dataclass

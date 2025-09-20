@@ -646,7 +646,11 @@ export class TournamentDisplay {
             finish.innerText = utils.datetime_string_finish(tournament)
         }
         // ------------------------------------------------------------------------------------------------- Contenders
-        if (!this.display_callback) {
+        if (!this.display_callback && !(
+            tournament.state == d.TournamentState.FINALS ||
+            tournament.state == d.TournamentState.FINISHED
+        )
+        ) {
             const accordion = base.create_append(this.root, "div", ["accordion"], { id: "contendersAccordion" })
 
             const item = base.create_append(accordion, "div", ["accordion-item"])
@@ -744,6 +748,7 @@ export class TournamentDisplay {
             tournament.state == d.TournamentState.FINALS ||
             tournament.state == d.TournamentState.FINISHED
         )) {
+            base.create_append(this.root, "h2", ["mt-4"]).innerText = "Standings"
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
             const thead = base.create_append(table, "thead")
             const tr = base.create_append(thead, "tr", ["align-middle"])
@@ -773,6 +778,40 @@ export class TournamentDisplay {
                 base.create_append(tr, "td", classes).innerText = player.city
                 base.create_append(tr, "td", classes).innerText = `${player.country} ${player.country_flag}`
                 base.create_append(tr, "td", classes).innerHTML = utils.score_string(player.result)
+            }
+        }
+        // ------------------------------------------------------------------------------------------------------- Decks
+        if (this.user && tournament.state == d.TournamentState.FINISHED) {
+            const data = await base.do_fetch_with_token(`/api/tournaments/${tournament.uid}/decks`, this.token, {})
+            if (!data) {
+                return
+            }
+            const deck_info = await data.json() as d.TournamentDeckInfo
+            base.create_append(this.root, "h2", ["mt-4"]).innerText = "Decks"
+            const table = base.create_append(this.root, "table", ["table", "table-striped"])
+            const thead = base.create_append(table, "thead")
+            const tr = base.create_append(thead, "tr", ["align-middle"])
+            for (const header of ["Score", "Name"]) {
+                base.create_append(tr, "th", [], { scope: "col" }).innerText = header
+            }
+            const tbody = base.create_append(table, "tbody")
+            for (const deck of deck_info.decks) {
+                const tr = base.create_append(tbody, "tr", ["align-middle"])
+                const classes = ["text-nowrap"]
+                if (deck.winner) {
+                    classes.push("bg-warning-subtle")
+                } else if (deck.finalist) {
+                    classes.push("bg-primary-subtle")
+                }
+                base.create_append(tr, "td", classes).innerText = utils.score_string(deck.score)
+                const name_cell = base.create_append(tr, "th", classes, { scope: "row" })
+                const deck_link = base.create_append(name_cell, "a", [], {})
+                var name = deck.deck.name
+                if (name.length > 50) {
+                    name = name.slice(0, 49) + "…"
+                }
+                deck_link.innerText = name
+                deck_link.href = deck.deck.vdb_link
             }
         }
     }

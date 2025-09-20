@@ -28,6 +28,7 @@ from .. import vekn
 # ############################################################################### Config
 dotenv.load_dotenv()
 
+VEKN_PUSH = os.getenv("VEKN_PUSH", "")
 SESSION_KEY = os.getenv("SESSION_KEY", "dev_key")
 SITE_URL_BASE = os.getenv("SITE_URL_BASE", "http://127.0.0.1:8000")
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
@@ -150,6 +151,7 @@ async def get_tournament_config(
 async def get_tournament_info(
     op: DbOperator,
     uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
+    member: PersonFromSession,
 ) -> models.Tournament:
     return await op.get_tournament(uid, cls=models.TournamentInfo)
 
@@ -169,9 +171,9 @@ async def get_tournament_orchestrator(
 Tournament = typing.Annotated[models.Tournament, fastapi.Depends(get_tournament)]
 # Check there is a member token (not public) or filter data (players names)
 TournamentInfo = typing.Annotated[
-    models.TournamentConfig, fastapi.Depends(get_tournament_info)
+    models.TournamentInfo, fastapi.Depends(get_tournament_info)
 ]
-# This is public information
+# This is public information (no player information)
 TournamentConfig = typing.Annotated[
     models.TournamentConfig, fastapi.Depends(get_tournament_config)
 ]
@@ -183,6 +185,8 @@ TournamentOrchestrator = typing.Annotated[
 
 # ################################################################################ Utils
 async def vekn_sync(tournament: models.Tournament, rounds: int, user: models.Person):
+    if not VEKN_PUSH:
+        return
     if not user.vekn:
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
     try:
@@ -323,16 +327,21 @@ def check_organizer(member: models.Person) -> None:
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
+def can_admin_tournament(member: models.Person, tournament: models.TournamentConfig):
+    if models.MemberRole.ADMIN in member.roles:
+        return True
+    if models.MemberRole.NC in member.roles and member.country == tournament.country:
+        return True
+    if member.uid in [j.uid for j in tournament.judges]:
+        return True
+    return False
+
+
 def check_can_admin_tournament(
     member: models.Person, tournament: models.TournamentConfig
 ):
-    if models.MemberRole.ADMIN in member.roles:
-        return
-    if models.MemberRole.NC in member.roles and member.country == tournament.country:
-        return
-    if member.uid in [j.uid for j in tournament.judges]:
-        return
-    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    if not can_admin_tournament(member, tournament):
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
 def check_can_admin_league(member: models.Person, league: models.League):

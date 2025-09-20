@@ -82,35 +82,70 @@ async def api_tournament_get(
 
 @router.get("/{uid}/info", summary="Get tournament public information")
 async def api_tournament_get_info(
-    tournament: dependencies.TournamentInfo, _: dependencies.PersonFromToken
-) -> models.TournamentInfo:
+    tournament: dependencies.TournamentInfo, member: dependencies.PersonFromToken
+) -> models.TournamentInfo | models.TournamentConfig:
     """Get tournament information
 
     - **uid**: The tournament unique ID
     """
-    return tournament
+    if member.vekn or member.uid in tournament.players:
+        return tournament
+    return models.TournamentConfig(**dataclasses.asdict(tournament))
 
 
 @router.get("/{uid}/decks", summary="Get tournament decks information")
 async def api_tournament_get_decks(
-    tournament: dependencies.TournamentConfig, member: dependencies.PersonFromToken
+    op: dependencies.DbOperator,
+    uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
+    member: dependencies.PersonFromToken,
 ) -> models.TournamentDeckInfo:
-    """Get tournament decks (organizers only)
+    """Get tournament decks
 
     - **uid**: The tournament unique ID
     """
-    dependencies.check_can_admin_tournament(member, tournament)
+    tournament = await op.get_tournament(uid)
     res = models.TournamentDeckInfo(**dataclasses.asdict(tournament))
     if tournament.multideck:
-        for round_ in tournament.rounds:
+        for idx, round_ in enumerate(tournament.rounds, 1):
+            finals = idx == len(tournament.rounds)
             for table in round_.tables:
                 for seat in table.seating:
                     if seat.deck:
-                        res.decks.append(seat.deck)
+                        res.decks.append(
+                            models.DeckInfo(
+                                deck=seat.deck,
+                                score=seat.result,
+                                winner=(
+                                    finals and seat.player_uid == tournament.winner
+                                ),
+                                finalist=(
+                                    finals
+                                    and seat.player_uid in tournament.finals_seeds
+                                ),
+                            )
+                        )
     else:
         for player in tournament.players.values():
             if player.deck:
-                res.decks.append(player.deck)
+                res.decks.append(
+                    models.DeckInfo(
+                        deck=player.deck,
+                        score=player.result,
+                        winner=(player.uid == tournament.winner),
+                        finalist=(player.uid in tournament.finals_seeds),
+                    )
+                )
+    res.decks.sort(
+        key=lambda info: (-int(info.winner), -int(info.finalist), info.score)
+    )
+    if dependencies.can_admin_tournament(member, tournament):
+        return res
+    if tournament.decklists_mode == models.DeckListsMode.ALL:
+        return res
+    if tournament.decklists_mode == models.DeckListsMode.FINALISTS:
+        res.decks = [d for d in res.decks[:5] if d.finalist]
+        return res
+    res.decks = [d for d in res.decks[:1] if d.winner]
     return res
 
 

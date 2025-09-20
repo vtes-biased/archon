@@ -26,7 +26,12 @@ export enum StandingsMode {
     CUTOFF = "Cutoff",
     TOP_10 = "Top 10",
     PUBLIC = "Public",
+}
 
+export enum DeckListsMode {
+    WINNER = "Winner",  // Default
+    FINALISTS = "Finalists",
+    ALL = "All",
 }
 
 export enum PlayerState {
@@ -167,14 +172,6 @@ export interface KrcgDeck {
     crypt: KrcgCrypt,
     library: KrcgLibrary,
     vdb_link?: string,
-    event?: string,
-    event_link?: string,
-    place?: string,
-    date?: string | null,
-    tournament_format?: string,
-    players_count?: number,
-    player?: string,
-    score?: string,
     name?: string,
     author?: string,
     comments?: string,
@@ -286,6 +283,7 @@ export interface TournamentConfig extends TournamentMinimal {
     description?: string,
     judges?: Person[],
     standings_mode?: StandingsMode,
+    decklists_mode?: DeckListsMode,
     max_rounds?: number,
     limited?: LimitedFormat | null,
 }
@@ -340,6 +338,7 @@ export interface DeckInfo {
     deck: KrcgDeck,
     score: Score,
     winner?: boolean,
+    finalist?: boolean,
 }
 
 export interface TournamentDeckInfo extends TournamentConfig {

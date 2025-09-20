@@ -355,15 +355,15 @@ async def tournament_display(
                 break
         context["cutoff"] = cutoff
     for k, v in tournament.players.items():
-        if (
+        if k == member_uid:
+            pass
+        elif (
             tournament.standings_mode == models.StandingsMode.PUBLIC
             or tournament.state
             in [models.TournamentState.FINALS, models.TournamentState.FINISHED]
             or k in provide_score
         ):
             tournament.players[k] = _filter(models.Player, models.PlayerInfo, v)
-        elif k == member_uid:
-            pass
         else:
             tournament.players[k] = _filter(models.Player, models.PublicPerson, v)
     # multideck tournaments: keep the deck info per round only for the player asking
