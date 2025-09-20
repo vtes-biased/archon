@@ -114,7 +114,7 @@ MemberUidFromSession = typing.Annotated[
 ]
 
 
-async def get_member_from_session(
+async def get_person_from_session(
     request: fastapi.Request, member_uid: MemberUidFromSession, op: DbOperator
 ) -> models.Person:
     member = await op.get_member(member_uid, cls=models.Person)
@@ -127,7 +127,24 @@ async def get_member_from_session(
 
 #: Check we're in an authenticated session and return the member data from DB
 PersonFromSession = typing.Annotated[
-    models.Person, fastapi.Depends(get_member_from_session)
+    models.Person, fastapi.Depends(get_person_from_session)
+]
+
+
+async def get_member_from_session(
+    request: fastapi.Request, member_uid: MemberUidFromSession, op: DbOperator
+) -> models.Member:
+    member = await op.get_member(member_uid, cls=models.Member)
+    # Valid user_id in session, but member not in DB
+    if not member:
+        anonymous_session(request)
+        raise LoginRequired()
+    return member
+
+
+#: Check we're in an authenticated session and return the full member data from DB
+MemberFromSession = typing.Annotated[
+    models.Member, fastapi.Depends(get_member_from_session)
 ]
 
 

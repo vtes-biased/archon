@@ -348,6 +348,18 @@ class Operator:
             stored_hash = (await res.fetchone())[0]
         return hmac.compare_digest(secret_hash, stored_hash)
 
+    async def get_client(self, client_uid: str) -> models.Client | None:
+        """Get a client by uid"""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM clients WHERE uid=%s",
+                [client_uid],
+            )
+            data = await res.fetchone()
+            if data:
+                return self._instanciate(data[0], models.Client)
+            return None
+
     async def create_tournament(self, tournament: models.TournamentConfig) -> str:
         """Create a tournament, returns its uid"""
         uid = uuid.uuid4()

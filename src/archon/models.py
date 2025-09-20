@@ -463,6 +463,7 @@ class Member(PersonWithRatings):
     password_hash: str = ""
     whatsapp: str | None = None  # phone
     prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
+    authorized_clients: dict[str, dict] = pydantic.Field(default_factory=dict)  # client_uid -> {authorized_at: timestamp}
 
 
 @dataclasses.dataclass

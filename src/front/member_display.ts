@@ -366,6 +366,24 @@ class MemberDisplay {
                 whatsapp.innerHTML = '<i class="bi bi-whatsapp"></i> WhatsApp'
             }
         }
+        // ___________________________________________________________________________________________ Authorized Apps
+        if (this.target.uid == this.member.uid && this.target.authorized_clients && Object.keys(this.target.authorized_clients).length > 0) {
+            const apps_container = base.create_append(this.root, "div", ["container", "mt-4"])
+            const apps_row = base.create_append(apps_container, "div", ["row", "justify-content-center"])
+            const apps_col = base.create_append(apps_row, "div", ["col-md-8"])
+            const apps_card = base.create_append(apps_col, "div", ["card"])
+
+            const apps_header = base.create_append(apps_card, "div", ["card-header"])
+            const apps_title = base.create_append(apps_header, "h5", ["mb-0"])
+            base.create_append(apps_title, "i", ["bi", "bi-shield-check"])
+            apps_title.append(document.createTextNode(" Authorized Applications"))
+
+            const apps_body = base.create_append(apps_card, "div", ["card-body"])
+            base.create_append(apps_body, "p", ["text-muted"]).innerText = "Applications that have access to your account:"
+
+            // Get client details for each authorized client
+            this.display_authorized_apps(apps_body)
+        }
         // ___________________________________________________________________________________________________ Sanctions
         var sanction_div: HTMLDivElement
         if (m.can_sanction(this.member) || (this.target.sanctions && this.target.sanctions.length > 0)) {
@@ -566,6 +584,49 @@ class MemberDisplay {
                     event.preventDefault()
                     tabTrigger.show()
                 })
+            })
+        }
+    }
+
+    async display_authorized_apps(container: HTMLElement) {
+        const client_uids = Object.keys(this.target.authorized_clients)
+        if (client_uids.length === 0) return
+
+        // Fetch client details
+        const clients_res = await base.do_fetch_with_token("/api/vekn/clients", this.token, {})
+        const clients = await clients_res.json() as d.Client[]
+        const clients_map = new Map(clients.map(c => [c.uid, c]))
+
+        for (const client_uid of client_uids) {
+            const client = clients_map.get(client_uid)
+            if (!client) continue
+
+            const auth_data = this.target.authorized_clients[client_uid]
+            const authorized_at = new Date(auth_data.authorized_at)
+
+            const app_div = base.create_append(container, "div", ["d-flex", "justify-content-between", "align-items-center", "border-bottom", "py-2"])
+
+            const app_info = base.create_append(app_div, "div")
+            const app_name = base.create_append(app_info, "strong")
+            app_name.innerText = client.name
+            base.create_append(app_info, "br")
+            const app_date = base.create_append(app_info, "small", ["text-muted"])
+            app_date.innerText = `Authorized on ${authorized_at.toLocaleDateString()} at ${authorized_at.toLocaleTimeString()}`
+
+            const revoke_form = base.create_append(app_div, "form", ["d-inline"])
+            revoke_form.method = "post"
+            revoke_form.action = "/auth/oauth/revoke"
+
+            const client_input = base.create_append(revoke_form, "input", [], { type: "hidden", name: "client_uid", value: client_uid })
+
+            const revoke_button = base.create_append(revoke_form, "button", ["btn", "btn-outline-danger", "btn-sm"], { type: "submit" })
+            base.create_append(revoke_button, "i", ["bi", "bi-x-circle"])
+            revoke_button.append(document.createTextNode(" Revoke Access"))
+
+            revoke_button.addEventListener("click", (ev) => {
+                if (!confirm(`Are you sure you want to revoke access for ${client.name}?`)) {
+                    ev.preventDefault()
+                }
             })
         }
     }

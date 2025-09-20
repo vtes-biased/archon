@@ -380,6 +380,7 @@ export interface Member extends PersonWithRatings {
     verified?: boolean | null,  // whether the email has been verified
     discord?: DiscordUser | null,
     whatsapp?: string | null,
+    authorized_clients?: Record<string, { authorized_at: string }>,  // client_uid -> {authorized_at: timestamp}
     // prefix: string | undefined // Do not use - temporary field will be removed
 }
 

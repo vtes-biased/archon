@@ -1,0 +1,68 @@
+{% extends "layout.html.j2" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-shield-check"></i>
+                        Authorize Application
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="mb-3">
+                            <i class="bi bi-app display-1 text-primary"></i>
+                        </div>
+                        <h5>{{ client_name }}</h5>
+                        <p class="text-muted">wants to access your Archon account</p>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>This application will be able to:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Read your profile information</li>
+                            <li>Access your tournament history</li>
+                            <li>View your ratings and rankings</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <form method="post" action="{{ url_for('html_auth_oauth_consent') }}">
+                            <input type="hidden" name="client_id" value="{{ client_id }}">
+                            <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                            <input type="hidden" name="state" value="{{ state }}">
+                            <input type="hidden" name="action" value="allow">
+                            <button type="submit" class="btn btn-success btn-lg w-100">
+                                <i class="bi bi-check-circle"></i>
+                                Allow Access
+                            </button>
+                        </form>
+                        
+                        <form method="post" action="{{ url_for('html_auth_oauth_consent') }}">
+                            <input type="hidden" name="client_id" value="{{ client_id }}">
+                            <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                            <input type="hidden" name="state" value="{{ state }}">
+                            <input type="hidden" name="action" value="deny">
+                            <button type="submit" class="btn btn-outline-secondary w-100">
+                                <i class="bi bi-x-circle"></i>
+                                Deny Access
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            You can revoke this access at any time from your 
+                            <a href="{{ url_for('member_display', uid=member.uid) }}">profile page</a>.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

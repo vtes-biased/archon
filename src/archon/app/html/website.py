@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import fastapi
 import fastapi.encoders
 import fastapi.templating
@@ -56,14 +57,71 @@ async def html_auth_oauth(
     client_id: typing.Annotated[str, fastapi.Query()],
     redirect_uri: typing.Annotated[str, fastapi.Query()],
     state: typing.Annotated[str, fastapi.Query()],
-    member_uid: dependencies.MemberUidFromSession,
+    member: dependencies.MemberFromSession,
+    op: dependencies.DbOperator,
 ):
-    # TODO: display a page asking for the user's authorization
-    next = fastapi.datastructures.URL(redirect_uri)
-    next = next.include_query_params(
-        state=state, code=dependencies.create_authorization_code(client_id, member_uid)
+    # Check if user has already authorized this client
+    if client_id in member.authorized_clients:
+        # User already authorized, redirect with code
+        next = fastapi.datastructures.URL(redirect_uri)
+        next = next.include_query_params(
+            state=state, code=dependencies.create_authorization_code(client_id, member.uid, redirect_uri)
+        )
+        return fastapi.responses.RedirectResponse(next)
+    
+    # Get client info for consent page
+    client = await op.get_client(client_id)
+    if not client:
+        raise fastapi.HTTPException(status_code=404, detail="Client not found")
+    
+    # Show consent page
+    return TEMPLATES.TemplateResponse(
+        request=fastapi.Request,
+        name="oauth/consent.html.j2",
+        context={
+            "client_id": client_id,
+            "client_name": client.name,
+            "redirect_uri": redirect_uri,
+            "state": state,
+            "member": member,
+        }
     )
-    return fastapi.responses.RedirectResponse(next)
+
+
+@router.post(
+    "/auth/oauth/consent",
+    summary="Handle user consent for OAuth authorization",
+    tags=["oauth"],
+)
+async def html_auth_oauth_consent(
+    request: fastapi.Request,
+    client_id: typing.Annotated[str, fastapi.Form()],
+    redirect_uri: typing.Annotated[str, fastapi.Form()],
+    state: typing.Annotated[str, fastapi.Form()],
+    action: typing.Annotated[str, fastapi.Form()],
+    member: dependencies.MemberFromSession,
+    op: dependencies.DbOperator,
+):
+    if action == "allow":
+        # Store user authorization
+        member.authorized_clients[client_id] = {
+            "authorized_at": datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
+        }
+        await op.update_member(member)
+        
+        # Redirect with authorization code
+        next = fastapi.datastructures.URL(redirect_uri)
+        next = next.include_query_params(
+            state=state, code=dependencies.create_authorization_code(client_id, member.uid, redirect_uri)
+        )
+        return fastapi.responses.RedirectResponse(next)
+    else:
+        # User denied access, redirect with error
+        next = fastapi.datastructures.URL(redirect_uri)
+        next = next.include_query_params(
+            state=state, error="access_denied", error_description="User denied access"
+        )
+        return fastapi.responses.RedirectResponse(next)
 
 
 @router.post(
@@ -76,12 +134,37 @@ async def html_auth_oauth_token(
     grant_type: typing.Annotated[str, fastapi.Form()],
     code: typing.Annotated[str, fastapi.Form()],
     client_uid: dependencies.ClientLogin,
+    op: dependencies.DbOperator,
 ):
     if grant_type != "authorization_code":
         raise fastapi.HTTPException(status_code=403)
     member_uid = dependencies.check_authorization_code(client_uid, code)
+    
+    # Verify user has authorized this client
+    member = await op.get_member(member_uid, cls=models.Member)
+    if client_uid not in member.authorized_clients:
+        raise fastapi.HTTPException(status_code=403, detail="Client not authorized")
+    
     access_token = dependencies.create_access_token(member_uid)
     return dependencies.Token(access_token=access_token, token_type="Bearer")
+
+
+@router.post(
+    "/auth/oauth/revoke",
+    summary="Revoke authorization for a client",
+    tags=["oauth"],
+)
+async def html_auth_oauth_revoke(
+    client_uid: typing.Annotated[str, fastapi.Form()],
+    member: dependencies.MemberFromSession,
+    op: dependencies.DbOperator,
+):
+    if client_uid not in member.authorized_clients:
+        raise fastapi.HTTPException(status_code=404, detail="Authorization not found")
+    
+    member.authorized_clients.pop(client_uid, None)
+    await op.update_member(member)
+    return {"message": "Authorization revoked successfully"}
 
 
 @router.get(
@@ -557,6 +640,9 @@ async def member_display(
     if member.uid != uid and not member.vekn:
         target = await op.get_member(uid)
         dependencies.check_can_contact(member, target)
+    
+    # No need to add authorized apps to context - handled in TypeScript
+    
     return TEMPLATES.TemplateResponse(
         request=request,
         name="member/display.html.j2",
