@@ -1163,6 +1163,72 @@ export class TournamentDisplay {
             tooltip.hide()
             this.deck_modal.show(tournament, player, submit_disabled)
         })
+
+        // Add VDB link button if player has uploaded a deck
+        if (tournament.multideck && current_round > 0) {
+            // For multideck tournaments, create a dropdown to select which round's deck to view
+            const vdb_container = base.create_append(buttons_div, "div", ["d-flex", "me-2", "mb-2"])
+            const vdb_round_select = base.create_append(vdb_container, "select", ["form-select", "me-2"])
+            const vdb_link = base.create_append(vdb_container, "a",
+                ["btn", "btn-vdb", "bg-vdb", "text-white", "text-nowrap"],
+                { target: "_blank" }
+            )
+            vdb_link.innerHTML = '<i class="bi bi-file-text"></i> View Deck'
+
+            // Populate round options
+            for (var idx = 1; idx <= tournament.rounds.length; idx++) {
+                const option = base.create_element("option")
+                if (idx == tournament.rounds.length && tournament.finals_seeds.length) {
+                    option.label = "Finals"
+                } else {
+                    option.label = `Round ${idx}`
+                }
+                option.value = idx.toString()
+                vdb_round_select.options.add(option)
+            }
+
+            // Function to update VDB link based on selected round
+            const updateVdbLink = () => {
+                const selected_round = parseInt(vdb_round_select.value)
+                var round_deck = undefined
+                for (const table of tournament.rounds[selected_round - 1].tables) {
+                    for (const seating of table.seating) {
+                        if (seating.player_uid == this.user.uid) {
+                            round_deck = seating.deck ?? undefined
+                            break
+                        }
+                    }
+                }
+
+                if (round_deck?.vdb_link) {
+                    vdb_link.href = round_deck.vdb_link
+                    vdb_link.classList.remove("disabled")
+                    vdb_link.style.pointerEvents = "auto"
+                } else {
+                    vdb_link.href = "javascript:void(0)"
+                    vdb_link.classList.add("disabled")
+                    vdb_link.style.pointerEvents = "none"
+                }
+            }
+
+            vdb_round_select.addEventListener("change", updateVdbLink)
+            vdb_round_select.selectedIndex = current_round - 1
+            updateVdbLink()
+
+            const vdb_tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
+            base.add_tooltip(vdb_tooltip_span, "Select round and view your deck in VDB")
+        } else {
+            // For single deck tournaments, show simple VDB link
+            if (player.deck?.vdb_link) {
+                const vdb_link = base.create_append(buttons_div, "a",
+                    ["btn", "btn-vdb", "bg-vdb", "text-white", "text-nowrap", "me-2", "mb-2"],
+                    { href: player.deck.vdb_link, target: "_blank" }
+                )
+                vdb_link.innerHTML = '<i class="bi bi-file-text"></i> View Deck'
+                const vdb_tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
+                base.add_tooltip(vdb_tooltip_span, "View your deck in VDB")
+            }
+        }
     }
     display_current_user_table(tournament: d.Tournament, player: d.Player) {
         const current_round = tournament.rounds.length
