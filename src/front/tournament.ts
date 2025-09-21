@@ -748,7 +748,8 @@ export class TournamentDisplay {
             tournament.state == d.TournamentState.FINALS ||
             tournament.state == d.TournamentState.FINISHED
         )) {
-            base.create_append(this.root, "h2", ["mt-4"]).innerText = "Standings"
+            const standings = utils.standings(tournament)
+            base.create_append(this.root, "h2", ["mt-4"]).innerText = `Standings (${standings.length} contenders)`
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
             const thead = base.create_append(table, "thead")
             const tr = base.create_append(thead, "tr", ["align-middle"])
@@ -760,7 +761,7 @@ export class TournamentDisplay {
                 base.create_append(tr, "th", [], { scope: "col" }).innerText = header
             }
             const tbody = base.create_append(table, "tbody")
-            for (const [rank, player] of utils.standings(tournament)) {
+            for (const [rank, player] of standings) {
                 const tr = base.create_append(tbody, "tr", ["align-middle"])
                 const classes = ["text-nowrap"]
                 if (rank == 1 && tournament.state == d.TournamentState.FINISHED) {
