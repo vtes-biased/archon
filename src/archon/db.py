@@ -519,21 +519,31 @@ class Operator:
             # if we update it, we take ownership
             # TODO: remove once we become source of truth
             tournament.extra.pop("external", None)
+            # denormalize ratings inside the tournament object itself
+            # for any update on a finished tournament
+            tournament_ratings = {}
+            if tournament.state == models.TournamentState.FINISHED:
+                tournament_ratings = engine.ratings(tournament)
+                for player in tournament.players.values():
+                    if rating := tournament_ratings.get(player.uid):
+                        player.rating_points = rating.rating_points
+                    else:
+                        player.rating_points = None
             res = await cursor.execute(
                 "UPDATE tournaments SET data=%s WHERE uid=%s",
                 [self._jsonize(tournament), uid],
             )
             if res.rowcount < 1:
                 raise KeyError(f"Tournament {uid} not found")
-            if tournament.state == models.TournamentState.FINISHED:
+            if tournament_ratings:
                 await cursor.executemany(
-                    f"""UPDATE members 
-                    SET data=jsonb_set(data, '{{ratings,{tournament.uid}}}', %s, true) 
+                    f"""UPDATE members
+                    SET data=jsonb_set(data, '{{ratings,{tournament.uid}}}', %s, true)
                     WHERE uid=%s
                     """,
                     [
                         [jsonize(rating), uuid.UUID(uid)]
-                        for uid, rating in engine.ratings(tournament).items()
+                        for uid, rating in tournament_ratings.items()
                     ],
                 )
             return str(uid)

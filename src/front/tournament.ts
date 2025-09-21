@@ -752,7 +752,11 @@ export class TournamentDisplay {
             const table = base.create_append(this.root, "table", ["table", "table-striped"])
             const thead = base.create_append(table, "thead")
             const tr = base.create_append(thead, "tr", ["align-middle"])
-            for (const header of ["Rank", "VEKN #", "Name", "City", "Country", "Score"]) {
+            var headers = ["Rank", "VEKN #", "Name", "City", "Country", "Score"]
+            if (tournament.state == d.TournamentState.FINISHED) {
+                headers.push("Rating")
+            }
+            for (const header of headers) {
                 base.create_append(tr, "th", [], { scope: "col" }).innerText = header
             }
             const tbody = base.create_append(table, "tbody")
@@ -778,6 +782,9 @@ export class TournamentDisplay {
                 base.create_append(tr, "td", classes).innerText = player.city
                 base.create_append(tr, "td", classes).innerText = `${player.country} ${player.country_flag}`
                 base.create_append(tr, "td", classes).innerHTML = utils.score_string(player.result)
+                if (tournament.state == d.TournamentState.FINISHED) {
+                    base.create_append(tr, "td", classes).innerText = player.rating_points?.toString() || ""
+                }
             }
         }
         // ------------------------------------------------------------------------------------------------------- Decks

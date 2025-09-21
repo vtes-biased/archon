@@ -214,6 +214,7 @@ class PlayerInfo(PublicPerson):
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
     seed: int = 0  # Finals seed
     toss: int = 0  # non-zero when draws for seeding finals
+    rating_points: int | None = None
 
 
 @dataclasses.dataclass
@@ -234,6 +235,7 @@ class Player(Person):
     barriers: list[Barrier] = pydantic.Field(default_factory=list)
     toss: int = 0  # non-zero when draws for seeding finals
     deck: KrcgDeck | None = None  # card ID: card count, default deck (monodeck)
+    rating_points: int | None = None
 
     def __hash__(self):
         return hash(self.vekn)

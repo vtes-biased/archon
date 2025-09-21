@@ -178,17 +178,23 @@ export function date_string_finish(tournament: d.TournamentMinimal | d.League) {
 
 // ----------------------------------------------------------------------------------------------------------- Standings
 function compare_arrays(lhs: number[], rhs: number[]): number {
-    const length = lhs.length < rhs.length ? lhs.length : rhs.length
-    for (var i = 0; i < length; i++) {
-        const val = lhs[i] - rhs[i]
-        if (val != 0) { return val }
+    for (let i = 0; i < lhs.length; i++) {
+        if (lhs[i] < rhs[i]) {
+            return -1
+        }
+        if (lhs[i] > rhs[i]) {
+            return 1
+        }
     }
     return 0
 }
 
 function compare_players_standings(lhs: [number[], d.Player], rhs: [number[], d.Player]): number {
     const ret = compare_arrays(lhs[0], rhs[0])
-    if (ret != 0) { return ret }
+    if (ret != 0) {
+        return ret
+    }
+
     return lhs[1].name.localeCompare(rhs[1].name)
 }
 
@@ -208,6 +214,7 @@ function _calculate_rankings(
             - p.result.gw,
             -p.result.vp,
             -p.result.tp,
+            -(p.rating_points || 0),
             ignore_toss ? 0 : p.toss,
         ]
     }

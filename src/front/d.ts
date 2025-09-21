@@ -185,6 +185,7 @@ export interface PlayerInfo extends PublicPerson {
     result?: Score,
     seed?: number,
     toss?: number,
+    rating_points?: number,
 }
 
 export interface LeaguePlayer extends PublicPerson {
@@ -203,6 +204,7 @@ export interface Player extends Person {
     seed?: number,  // Finals seed
     result?: Score,
     deck?: KrcgDeck | null,
+    rating_points?: number,
 }
 
 export interface SeatInfo {
