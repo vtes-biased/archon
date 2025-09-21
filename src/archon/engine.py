@@ -188,7 +188,12 @@ class TournamentManager(models.Tournament):
                 player.table = 0
                 player.seat = 0
                 if player.state != models.PlayerState.FINISHED:
-                    player.state = models.PlayerState.REGISTERED
+                    # If this is the first round and player is not checked in, drop them
+                    # This avoids mistakes when using check_everyone_in in subsequent rounds
+                    if len(self.rounds) == 1 and player.state != models.PlayerState.CHECKED_IN:
+                        player.state = models.PlayerState.FINISHED
+                    else:
+                        player.state = models.PlayerState.REGISTERED
 
     def round_alter(self, ev: events.RoundAlter, member: models.Person) -> None:
         self._alter_round(ev.round, ev.seating)
