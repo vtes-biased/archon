@@ -623,7 +623,7 @@ class Registration {
         this.players_table_body = base.create_append(this.players_table, "tbody")
     }
     sorted_players() {
-        var players = utils.standings(this.console.tournament)
+        var players = utils.ranked_players(this.console.tournament)
         if (this.filter == PlayerFilter.UNCHECKED) {
             players = players.filter(([r, p]) => p.state != d.PlayerState.CHECKED_IN)
         }

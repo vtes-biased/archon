@@ -192,9 +192,9 @@ function compare_players_standings(lhs: [number[], d.Player], rhs: [number[], d.
     return lhs[1].name.localeCompare(rhs[1].name)
 }
 
-export function standings(
+function _calculate_rankings(
     tournament: d.Tournament,
-    players: d.Player[] | undefined = undefined,
+    players: d.Player[],
     ignore_toss: boolean = false
 ): [number, d.Player][] {
     function standings_array(p: d.Player): number[] {
@@ -211,7 +211,7 @@ export function standings(
             ignore_toss ? 0 : p.toss,
         ]
     }
-    const sorted_players: [number[], d.Player][] = Object.values(players ?? tournament.players).map(
+    const sorted_players: [number[], d.Player][] = Object.values(players).map(
         p => [standings_array(p), p]
     )
     sorted_players.sort(compare_players_standings)
@@ -245,4 +245,23 @@ export function standings(
         res.push([rank, player])
     }
     return res
+}
+
+
+export function standings(
+    tournament: d.Tournament,
+    players: d.Player[] | undefined = undefined,
+    ignore_toss: boolean = false
+): [number, d.Player][] {
+    const players_list = Object.values(players ?? tournament.players).filter(p => p.rounds_played > 0)
+    return _calculate_rankings(tournament, players_list, ignore_toss)
+}
+
+export function ranked_players(
+    tournament: d.Tournament,
+    players: d.Player[] | undefined = undefined,
+    ignore_toss: boolean = false
+): [number, d.Player][] {
+    const players_list = Object.values(players ?? tournament.players)
+    return _calculate_rankings(tournament, players_list, ignore_toss)
 }
