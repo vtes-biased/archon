@@ -13,7 +13,10 @@ class TournamentListDisplay {
     cursors: d.TournamentFilter[]
     country_filter: HTMLSelectElement
     state_filter: HTMLSelectElement
+    year_filter: HTMLSelectElement
+    name_filter: HTMLInputElement
     online_filter: HTMLInputElement
+    personal_filter: HTMLInputElement
     constructor(root: HTMLDivElement) {
         this.root = root
         this.filters_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
@@ -31,6 +34,14 @@ class TournamentListDisplay {
         }
         this.countries = new Map(countries.map(c => [c.country, c]))
         base.remove_children(this.filters_row)
+        { // Name
+            const name_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
+            this.name_filter = base.create_append(name_div, "input", ["form-control", "me-2", "mb-2"],
+                { type: "text", name: "name", id: "nameFilter", placeholder: " " }
+            )
+            base.create_append(name_div, "label", ["form-label"], { for: "nameFilter" }).innerText = "Name"
+            this.name_filter.addEventListener("input", base.debounce((ev) => this.filters_changed(), 500))
+        }
         { // Country
             const country_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
             this.country_filter = base.create_append(country_div, "select", ["form-select", "me-2", "mb-2"],
@@ -49,22 +60,30 @@ class TournamentListDisplay {
             }
             this.country_filter.addEventListener("change", (ev) => this.filters_changed())
         }
+        { // Year
+            const year_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
+            this.year_filter = base.create_append(year_div, "select", ["form-select", "me-2", "mb-2"],
+                { name: "select_year", id: "yearFilter" }
+            )
+            base.create_append(year_div, "label", ["form-label"], { for: "yearFilter" }).innerText = "Year"
+            base.create_append(this.year_filter, "option", [], { value: "" }).label = "ALL"
+            const current_year = new Date().getFullYear()
+            for (let i = current_year; i >= 1997; i--) {
+                base.create_append(this.year_filter, "option", [], { value: i.toString() }).label = i.toString()
+            }
+            this.year_filter.addEventListener("change", (ev) => this.filters_changed())
+        }
         { // Status
             const state_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
             this.state_filter = base.create_append(state_div, "select", ["form-select", "me-2", "mb-2"],
                 { name: "select_state", id: "stateFilter" }
             )
             base.create_append(state_div, "label", ["form-label"], { for: "stateFilter" }).innerText = "Status"
-            const option = base.create_element("option")
-            option.value = ""
-            option.label = "ALL"
-            this.state_filter.options.add(option)
-            for (const state of Object.values(d.TournamentState)) {
-                const option = base.create_element("option")
-                option.value = state
-                option.label = state
-                this.state_filter.options.add(option)
-            }
+            base.create_append(this.state_filter, "option", [], { value: "" }).label = "ALL"
+            base.create_append(this.state_filter, "option", [], { value: d.TournamentState.REGISTRATION }).label = "Upcoming"
+            const ongoing_states = [d.TournamentState.WAITING, d.TournamentState.PLAYING, d.TournamentState.FINALS]
+            base.create_append(this.state_filter, "option", [], { value: ongoing_states.join(',') }).label = "Ongoing"
+            base.create_append(this.state_filter, "option", [], { value: d.TournamentState.FINISHED }).label = "Finished"
             this.state_filter.addEventListener("change", (ev) => this.filters_changed())
         }
         { // Online
@@ -76,6 +95,16 @@ class TournamentListDisplay {
             online_label.innerText = "Include Online"
             this.online_filter.checked = true
             this.online_filter.addEventListener("change", (ev) => this.filters_changed())
+        }
+        { // Personal
+            const field_div = base.create_append(this.filters_row, "div", ["form-check", "form-switch", "w-100"])
+            this.personal_filter = base.create_append(field_div, "input", ["form-check-input"],
+                { type: "checkbox", name: "personal", id: "switchPersonal" }
+            )
+            const personal_label = base.create_append(field_div, "label", ["form-check-label"], { for: "switchPersonal" })
+            personal_label.innerText = "Your Tournaments"
+            this.personal_filter.checked = false
+            this.personal_filter.addEventListener("change", (ev) => this.filters_changed())
         }
         this.set_filters_from_url(url)
         await this.display()
@@ -156,6 +185,15 @@ class TournamentListDisplay {
         if (!search_params.online) {
             url.searchParams.append("online", "false")
         }
+        if (search_params.member_uid) {
+            url.searchParams.append("member_uid", search_params.member_uid)
+        }
+        if (search_params.year) {
+            url.searchParams.append("year", search_params.year.toString())
+        }
+        if (search_params.name) {
+            url.searchParams.append("name", search_params.name)
+        }
         for (const state of search_params.states) {
             url.searchParams.append("states", state)
         }
@@ -192,17 +230,22 @@ class TournamentListDisplay {
     get_search_params(): d.TournamentFilter {
         const res = {} as d.TournamentFilter
         res.states = []
-        if (this.state_filter.selectedOptions.length > 0) {
-            for (const option of this.state_filter.selectedOptions) {
-                if (option.value.length > 0) {
-                    res.states.push(option.value as d.TournamentState)
-                }
-            }
+        if (this.state_filter.value) {
+            res.states = this.state_filter.value.split(',') as d.TournamentState[]
         }
         if (this.online_filter.checked) {
             res.online = true
         } else {
             res.online = false
+        }
+        if (this.personal_filter.checked) {
+            res.member_uid = base.user_uid_from_token(this.token)
+        }
+        if (this.year_filter.value) {
+            res.year = parseInt(this.year_filter.value)
+        }
+        if (this.name_filter.value && this.name_filter.value.length > 2) {
+            res.name = this.name_filter.value
         }
         if (this.country_filter.value && this.country_filter.value.length > 0) {
             res.country = this.country_filter.value
@@ -212,15 +255,19 @@ class TournamentListDisplay {
     set_filters_from_url(url: URL) {
         if (url.searchParams.has("country")) { this.country_filter.value = url.searchParams.get("country") }
         if (url.searchParams.has("online")) { this.online_filter.checked = Boolean(url.searchParams.get("online")) }
+        if (url.searchParams.has("year")) { this.year_filter.value = url.searchParams.get("year") }
+        if (url.searchParams.has("name")) { this.name_filter.value = url.searchParams.get("name") }
         if (url.searchParams.has("states")) {
-            const states = url.searchParams.getAll("states")
+            const states = url.searchParams.getAll("states").sort().join(',')
             for (const option of this.state_filter.options) {
-                if (states.includes(option.value)) {
-                    option.selected = true
-                } else {
-                    option.selected = false
+                if (option.value.split(',').sort().join(',') == states) {
+                    this.state_filter.value = option.value
+                    break
                 }
             }
+        }
+        if (url.searchParams.get("member_uid") == base.user_uid_from_token(this.token)) {
+            this.personal_filter.checked = true
         }
         if (url.searchParams.has("uid")) {
             this.cursors.push({
@@ -228,7 +275,10 @@ class TournamentListDisplay {
                 online: this.online_filter.checked,
                 states: url.searchParams.getAll("states") as d.TournamentState[],
                 date: url.searchParams.get("date"),
-                uid: url.searchParams.get("uid")
+                uid: url.searchParams.get("uid"),
+                member_uid: url.searchParams.get("member_uid"),
+                year: parseInt(url.searchParams.get("year")),
+                name: url.searchParams.get("name"),
             })
         }
     }

@@ -218,6 +218,16 @@ async def init():
                 ")"
             )
             await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_year "
+                "ON tournaments "
+                "USING BTREE ((EXTRACT(YEAR FROM timetz(data ->> 'start', data ->> 'timezone'))))"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tournament_name_trgm "
+                "ON tournaments "
+                "USING GIST ((data ->> 'name') gist_trgm_ops)"
+            )
+            await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_country "
                 "ON tournaments "
                 "USING BTREE((data->>'country'::text))"
@@ -453,6 +463,27 @@ class Operator:
             if filter.states:
                 pieces.append("data ->> 'state' = ANY(%s)")
                 args.append(filter.states)
+            if filter.member_uid:
+                pieces.append(
+                    "("
+                    "data->'players' ? %s OR "
+                    "data->'judges' @> %s"
+                    ")"
+                )
+                args.extend(
+                    [
+                        filter.member_uid,
+                        psycopg.types.json.Json([{"uid": filter.member_uid}]),
+                    ]
+                )
+            if filter.year:
+                pieces.append(
+                    "EXTRACT(YEAR FROM timetz(data ->> 'start', data ->> 'timezone')) = %s"
+                )
+                args.append(filter.year)
+            if filter.name and len(filter.name) > 2:
+                pieces.append("data ->> 'name' ILIKE %s")
+                args.append(f"%{filter.name}%")
         Q += " AND ".join(pieces)
         Q += (
             " ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC "
@@ -468,6 +499,9 @@ class Operator:
                 ret_filter.country = filter.country
                 ret_filter.online = filter.online
                 ret_filter.states = filter.states
+                ret_filter.member_uid = filter.member_uid
+                ret_filter.year = filter.year
+                ret_filter.name = filter.name
             if ret and len(ret) == 100:
                 ret_filter.date = ret[-1].start.isoformat() + " " + ret[-1].timezone
                 ret_filter.uid = ret[-1].uid

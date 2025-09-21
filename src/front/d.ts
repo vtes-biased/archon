@@ -315,6 +315,9 @@ export interface TournamentFilter {
     country?: string,
     online?: boolean,
     states?: TournamentState[],
+    member_uid?: string,
+    year?: number,
+    name?: string,
 }
 
 export interface VenueCompletion {

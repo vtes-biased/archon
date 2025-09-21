@@ -22,7 +22,15 @@ async def api_tournaments(
     op: dependencies.DbOperator,
 ) -> tuple[models.TournamentFilter, list[models.TournamentMinimal]]:
     """List all tournaments"""
-    if filter.uid or filter.country or not filter.online or filter.states:
+    if (
+        filter.uid
+        or filter.country
+        or not filter.online
+        or filter.states
+        or filter.member_uid
+        or filter.year
+        or filter.name
+    ):
         filter = filter
     else:
         filter = None
