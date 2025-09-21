@@ -91,7 +91,7 @@ class ScoreModal {
     }
 }
 
-type DeckSubmitCallback = (player: string, deck: string, round: number | undefined) => Promise<void>
+type DeckSubmitCallback = (player: string, deck: string, round: number | undefined, attribution: boolean) => Promise<void>
 
 export class DeckSubmit {
     root: HTMLDivElement
@@ -105,6 +105,7 @@ export class DeckSubmit {
     deck_link: HTMLAnchorElement
     deck_div: HTMLDivElement
     deck: HTMLTextAreaElement
+    attribution_checkbox: HTMLInputElement
     submit_button: HTMLButtonElement
     player_uid: string
     tournament: d.Tournament
@@ -137,6 +138,24 @@ export class DeckSubmit {
         this.deck.ariaLabel = "Deck list (plain text or URL)"
         const label = base.create_append(this.deck_div, "label", ["form-label"], { for: "deckModalTextInput" })
         label.innerText = "Deck list (plain text or URL)"
+
+        // Attribution checkbox
+        const attribution_div = base.create_append(this.form, "div", ["form-check", "mb-3"])
+        this.attribution_checkbox = base.create_append(attribution_div, "input", ["form-check-input"],
+            { type: "checkbox", id: "deckModalAttributionInput" }
+        )
+        const attribution_label = base.create_append(attribution_div, "label", ["form-check-label"],
+            { for: "deckModalAttributionInput" }
+        )
+        attribution_label.innerText = "Allow attribution in archiving programs"
+
+        // Add explanatory subtext
+        const attribution_subtext = base.create_append(attribution_div, "div", ["form-text", "text-muted", "small", "fst-italic"])
+        attribution_subtext.innerHTML =
+            "By default, your deck will be anonymous in archiving programs. " +
+            "If your deck already has an author specified, that will be used. " +
+            "Note: if you reach finals, your deck may be displayed regardless of this setting."
+
         const btn_div = base.create_append(this.form, "div", ["col-auto"])
         this.submit_button = base.create_append(btn_div, "button", ["btn", "btn-primary", "me-2", "mb-2"],
             { type: "submit" }
@@ -235,6 +254,9 @@ export class DeckSubmit {
             this.deck_link.href = "javascript:void(0)"
             this.deck_link.classList.add("disabled")
         }
+
+        // Set attribution checkbox based on current deck's author field
+        this.attribution_checkbox.checked = current_deck?.author ? true : false
     }
     scanned(result: QrScanner.ScanResult) {
         this.qr_scanner.stop()
@@ -247,7 +269,7 @@ export class DeckSubmit {
         if (this.round_select.selectedIndex >= 0) {
             round = this.round_select.selectedIndex + 1
         }
-        await this.callback(this.player_uid, this.deck.value, round)
+        await this.callback(this.player_uid, this.deck.value, round, this.attribution_checkbox.checked)
     }
 }
 
@@ -259,10 +281,10 @@ class DeckModal extends base.Modal {
     constructor(el: HTMLDivElement, display: TournamentDisplay) {
         super(el)
         this.display = display
-        this.deck_submit = new DeckSubmit(this.modal_body, (a, b, c) => this.submit(a, b, c), this.modal_div)
+        this.deck_submit = new DeckSubmit(this.modal_body, (a, b, c, d) => this.submit(a, b, c, d), this.modal_div)
     }
-    async submit(player: string, deck: string, round: number | undefined) {
-        await this.display.set_deck(this.tournament, player, deck, round)
+    async submit(player: string, deck: string, round: number | undefined, attribution: boolean) {
+        await this.display.set_deck(this.tournament, player, deck, round, attribution)
         this.modal.hide()
     }
     show(tournament: d.Tournament, player: d.Player, submit_disabled: boolean) {
@@ -1338,13 +1360,14 @@ export class TournamentDisplay {
         } as events.SetResult
         await this.handle_tournament_event(tournament.uid, tev)
     }
-    async set_deck(tournament: d.Tournament, player_uid: string, deck: string, round: number | undefined = undefined) {
+    async set_deck(tournament: d.Tournament, player_uid: string, deck: string, round: number | undefined = undefined, attribution: boolean = false) {
         const tev = {
             uid: uuid.v4(),
             type: events.EventType.SET_DECK,
             player_uid: player_uid,
             deck: deck,
             round: round ?? null,
+            attribution: attribution,
         } as events.SetDeck
         const ret = await this.handle_tournament_event(tournament.uid, tev)
         if (ret) {

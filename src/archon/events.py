@@ -132,6 +132,7 @@ class SetDeck(Event):
     player_uid: str
     round: int | None = None  # Can have a different deck each round if multideck
     deck: str  # Deck builder URL or plain text decklist
+    attribution: bool = False  # Whether to allow attribution in archiving programs
 
 
 @dataclasses.dataclass(kw_only=True)

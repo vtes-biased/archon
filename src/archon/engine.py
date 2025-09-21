@@ -344,8 +344,13 @@ class TournamentManager(models.Tournament):
             for table in round_.tables:
                 for seat in table.seating:
                     if ev.player_uid == seat.player_uid:
+                        deck_data = deck.to_json()
+                        author = deck_data.get('author', '') if ev.attribution else ""
+                        if not author and ev.attribution:
+                            author = member.name
                         seat.deck = models.KrcgDeck(
-                            **deck.to_json(), vdb_link=deck.to_vdb()
+                            **deck_data, vdb_link=deck.to_vdb(),
+                            author=author
                         )
                         break
                 else:
@@ -354,7 +359,14 @@ class TournamentManager(models.Tournament):
             else:
                 raise ValueError(f"player {ev.player_uid} not in round {ev.round}")
         else:
-            player.deck = models.KrcgDeck(**deck.to_json(), vdb_link=deck.to_vdb())
+            deck_data = deck.to_json()
+            author = deck_data.get('author', '') if ev.attribution else ""
+            if not author and ev.attribution:
+                author = member.name
+            player.deck = models.KrcgDeck(
+                **deck_data, vdb_link=deck.to_vdb(),
+                author=author
+            )
         if self.decklist_required:
             try:
                 player.barriers.remove(models.Barrier.MISSING_DECK)
