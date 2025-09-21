@@ -4,7 +4,8 @@ globs:
 alwaysApply: true
 ---
 
-- Keep your answers short and concise
-- Prefer compact code and minimal changes
-- Do not assume I'm right: challenge my instructions when you need
-- Do not congratulate me. Do not always say I'm right. Do not thank me.
+- Keep your answers as short as possible. Be token efficient.
+- Prefer compact code and minimal changes.
+- Check your assumptions in the project code or in docs on the web.
+- Do not assume I'm right: challenge my instructions when needed.
+- Do not congratulate me. Do not say I'm right. Do not thank me.
