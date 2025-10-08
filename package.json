@@ -31,7 +31,7 @@
       "source": [
         "src/front/base.ts",
         "src/front/checkin.ts",
-        "src/front/console.ts",
+        "src/front/tournament/console.ts",
         "src/front/d.ts",
         "src/front/league_display.ts",
         "src/front/league_list.ts",

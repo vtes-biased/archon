@@ -1,23 +1,32 @@
-import { TournamentDisplay } from "./tournament"
+import { PlayerDisplay } from "./tournament/display/player"
+import { CreateTournament } from "./tournament/display/create"
 import * as base from "./base"
 import * as d from "./d"
 
 
 async function load() {
     const tournamentDisplay = document.getElementById("tournamentDisplay") as HTMLDivElement
-    if (tournamentDisplay) {
-        const display = new TournamentDisplay(tournamentDisplay)
-        var tournament: d.Tournament | undefined
-        if (tournamentDisplay.dataset.tournament) {
-            tournament = JSON.parse(tournamentDisplay.dataset.tournament)
-        }
-        const token = await base.fetchToken()
-        await display.init(token, undefined, undefined)
-        if (tournament) {
-            await display.display(tournament)
-        } else {
-            await display.display_form(tournament)
-        }
+    if (!tournamentDisplay) { return }
+    // fetch tournament data from the page content
+    var tournament: d.Tournament | undefined
+    var cutoff: d.Score | undefined
+    var deck_infos: d.DeckInfo[] | undefined
+    const scriptTag = document.getElementById('tournament-data')
+    if (scriptTag) {
+        const jsonData = JSON.parse(scriptTag.textContent || '{}')
+        tournament = jsonData.tournament
+        cutoff = jsonData.cutoff
+        deck_infos = jsonData.deck_infos
+    }
+    const token = await base.fetchToken()
+    if (tournament) {
+        const display = new PlayerDisplay(tournamentDisplay)
+        await display.init(token, cutoff, deck_infos)
+        await display.display(tournament)
+    } else {
+        const display = new CreateTournament(tournamentDisplay)
+        await display.init(token)
+        display.display()
     }
 }
 

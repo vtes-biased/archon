@@ -214,11 +214,11 @@ export class MembersDB {
         }
     }
 
-    async get_by_uid(uid: string) {
+    async get_by_uid(uid: string): Promise<d.Person | undefined> {
         return await this.db.get("members", uid)
     }
 
-    async get_by_vekn(vekn: string) {
+    async get_by_vekn(vekn: string): Promise<d.Person | undefined> {
         return await this.db.getFromIndex("members", "vekn", vekn)
     }
 
@@ -279,16 +279,42 @@ export function to_public_person(person: d.Person): d.PublicPerson {
     }
 }
 
+export class PersonNameCompletion extends base.Completion<LookupInfo> {
+    membersDB: MembersDB
+    input_vekn_id: HTMLInputElement
+    button: HTMLButtonElement
+    constructor(membersDB: MembersDB, input: HTMLInputElement, button: HTMLButtonElement) {
+        super(input)
+        this.membersDB = membersDB
+        this.input_vekn_id = input
+        this.button = button
+    }
+    async complete_input(value: string): Promise<LookupInfo[]> {
+        return this.membersDB.complete_name(value)
+    }
+    item_label(item: LookupInfo): string {
+        return item.name
+    }
+    item_selected(item: LookupInfo): void {
+        if (item) {
+            this.input_vekn_id.value = item.vekn
+            this.button.disabled = false
+        }
+        else {
+            this.input_vekn_id.value = ""
+            this.button.disabled = true
+        }
+    }
+}
+
 export class PersonLookup {
     form: HTMLFormElement
     input_vekn_id: HTMLInputElement
     input_name: HTMLInputElement
-    dropdown_menu: HTMLUListElement
+    name_completion: PersonNameCompletion
     button: HTMLButtonElement
-    dropdown: bootstrap.Dropdown
     membersDB: MembersDB
     person: d.Person | undefined
-    focus: HTMLLIElement | undefined
     constructor(members_db: MembersDB, root: HTMLElement, label: string, inline: boolean = false) {
         this.membersDB = members_db
         const form_uid = uuid.v4()
@@ -317,39 +343,22 @@ export class PersonLookup {
         })
         this.input_name.ariaAutoComplete = "none"
         this.input_name.spellcheck = false
-        this.dropdown_menu = base.create_append(dropdown_div, "ul", ["dropdown-menu"])
-        base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
-            { type: "button" }).innerText = "Start typing..."
         const button_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
         this.button = base.create_append(button_div, "button", ["btn", "btn-primary"],
             { type: "submit", form: form_uid }
         )
         this.button.innerText = label
         this.button.disabled = true
-        this.dropdown = bootstrap.Dropdown.getOrCreateInstance(this.input_name)
+        this.name_completion = new PersonNameCompletion(this.membersDB, this.input_name, this.button)
         this.input_vekn_id.addEventListener("input", (ev) => this.select_member_by_vekn())
-        this.input_name.addEventListener("input", base.debounce((ev) => this.complete_member_name()))
-        dropdown_div.addEventListener("keydown", (ev) => this.keydown(ev))
     }
-
-    reset_focus(new_focus: HTMLLIElement | undefined = undefined) {
-        if (this.focus && this.focus.firstElementChild) {
-            this.focus.firstElementChild.classList.remove("active")
-        }
-        this.focus = new_focus
-        if (this.focus && this.focus.firstElementChild) {
-            this.focus.firstElementChild.classList.add("active")
-        }
-    }
-
     reset() {
         this.person = undefined
         this.input_vekn_id.value = ""
         this.input_name.value = ""
         this.button.disabled = true
-        this.reset_focus()
+        this.name_completion._reset_focus()
     }
-
     async select_member_by_vekn() {
         this.person = await this.membersDB.get_by_vekn(this.input_vekn_id.value)
         if (this.person) {
@@ -359,118 +368,6 @@ export class PersonLookup {
         else {
             this.input_name.value = ""
             this.button.disabled = true
-        }
-    }
-
-    async select_member_name(ev: Event) {
-        const button = ev.currentTarget as HTMLButtonElement
-        this.person = await this.membersDB.get_by_uid(button.dataset.memberUid)
-        if (this.person) {
-            this.input_vekn_id.value = this.person.vekn
-            this.input_name.value = this.person.name
-            this.button.disabled = false
-        }
-        else {
-            this.input_vekn_id.value = ""
-            this.input_name.value = ""
-            this.button.disabled = true
-        }
-        this.reset_focus()
-        this.dropdown.hide()
-    }
-
-    complete_member_name() {
-        while (this.dropdown_menu.lastElementChild) {
-            this.dropdown_menu.removeChild(this.dropdown_menu.lastElementChild)
-        }
-        this.reset_focus()
-        this.input_vekn_id.value = ""
-        this.button.disabled = true
-        if (this.input_name.value.length < 1) {
-            base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
-                { type: "button" }).innerText = "Start typing..."
-            return
-        }
-        if (this.input_name.value.length < 3) {
-            base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
-                { type: "button" }).innerText = "Type some more..."
-            return
-        }
-        const persons_list = this.membersDB.complete_name(this.input_name.value)
-        if (!persons_list || persons_list.length < 1) {
-            base.create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
-                { type: "button" }).innerText = "No result"
-            return
-        }
-        for (const person of persons_list.slice(0, 10)) {
-            const li = base.create_append(this.dropdown_menu, "li")
-            const button = base.create_append(li, "button", ["dropdown-item"],
-                { type: "button", "data-member-uid": person.uid }
-            )
-            button.innerText = person.name
-            if (person.country) {
-                button.innerText += ` (${person.country_flag} ${person.country})`
-            }
-            button.addEventListener("click", (ev) => this.select_member_name(ev))
-        }
-        if (persons_list.length > 10) {
-            const li = base.create_append(this.dropdown_menu, "li")
-            const button = base.create_append(li, "button", ["dropdown-item"],
-                { type: "button" }
-            )
-            button.innerText = `... ${persons_list.length - 10} more`
-            button.disabled = true
-        }
-        this.dropdown.show()
-    }
-
-    keydown(ev: KeyboardEvent) {
-        var next_focus: HTMLLIElement | undefined = undefined
-        switch (ev.key) {
-            case "ArrowDown": {
-                if (this.focus) {
-                    next_focus = this.focus.nextElementSibling as HTMLLIElement
-                } else {
-                    next_focus = this.dropdown_menu.firstElementChild as HTMLLIElement
-                }
-                if (next_focus === null) {
-                    next_focus = this.focus
-                }
-                break
-            }
-            case "ArrowUp": {
-                if (this.focus) {
-                    next_focus = this.focus.previousElementSibling as HTMLLIElement
-                } else {
-                    next_focus = this.dropdown_menu.lastElementChild as HTMLLIElement
-                }
-                if (next_focus === null) {
-                    next_focus = this.focus
-                }
-                break
-            }
-            case "Escape": {
-                break
-            }
-            case "Enter": {
-                if (this.focus) {
-                    this.focus.firstElementChild.dispatchEvent(new Event("click"))
-                } else {
-                    return
-                }
-                break
-            }
-            default: return
-        }
-        ev.stopPropagation()
-        ev.preventDefault()
-        if (next_focus === this.focus) { return }
-        if (this.focus && this.focus.firstElementChild) {
-            this.focus.firstElementChild.classList.remove("active")
-        }
-        this.focus = next_focus
-        if (this.focus && this.focus.firstElementChild) {
-            this.focus.firstElementChild.classList.add("active")
         }
     }
 }

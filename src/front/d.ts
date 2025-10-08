@@ -103,7 +103,7 @@ export interface Score {
 export interface PublicPerson {
     name: string,
     vekn?: string,
-    uid?: string,
+    uid: string,
     country?: string | null,  // country name
     country_flag?: string | null,  // unicode flag char
     city?: string | null,  // city name
@@ -195,7 +195,7 @@ export interface LeaguePlayer extends PublicPerson {
 }
 
 export interface Player extends Person {
-    state?: PlayerState,
+    state: PlayerState,
     barriers?: Barrier[],
     rounds_played?: number,
     table?: number,  // non-zero when playing
@@ -209,7 +209,7 @@ export interface Player extends Person {
 
 export interface SeatInfo {
     player_uid: string,
-    result?: Score,
+    result: Score,
 }
 
 export interface TableSeat extends SeatInfo {
@@ -228,7 +228,7 @@ export interface TableInfo {
 
 export interface Table {
     seating: TableSeat[],
-    state?: TableState,
+    state: TableState,
     override?: ScoreOverride | null,
 }
 
@@ -250,7 +250,7 @@ export interface LimitedFormat {
 
 export interface LeagueRef {
     name: string,
-    uid?: string,
+    uid: string,
 }
 
 export interface League extends LeagueRef {
@@ -294,10 +294,10 @@ export interface Tournament extends TournamentConfig {
     // active tournament console
     // current_round: number,
     checkin_code?: boolean,
-    players?: Record<string, Player>,
-    finals_seeds?: string[],
-    rounds?: Round[],
-    sanctions?: Record<string, Sanction[]>,
+    players: Record<string, Player>,
+    finals_seeds: string[],
+    rounds: Round[],
+    sanctions: Record<string, Sanction[]>,
     winner?: string,
     extra?: any,
 }

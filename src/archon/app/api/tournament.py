@@ -7,6 +7,7 @@ import unidecode
 from .. import dependencies
 from ... import events
 from ... import models
+from ... import engine
 
 LOG = logging.getLogger()
 router = fastapi.APIRouter(
@@ -113,47 +114,7 @@ async def api_tournament_get_decks(
     """
     tournament = await op.get_tournament(uid)
     res = models.TournamentDeckInfo(**dataclasses.asdict(tournament))
-    if tournament.multideck:
-        for idx, round_ in enumerate(tournament.rounds, 1):
-            finals = idx == len(tournament.rounds)
-            for table in round_.tables:
-                for seat in table.seating:
-                    if seat.deck:
-                        res.decks.append(
-                            models.DeckInfo(
-                                deck=seat.deck,
-                                score=seat.result,
-                                winner=(
-                                    finals and seat.player_uid == tournament.winner
-                                ),
-                                finalist=(
-                                    finals
-                                    and seat.player_uid in tournament.finals_seeds
-                                ),
-                            )
-                        )
-    else:
-        for player in tournament.players.values():
-            if player.deck:
-                res.decks.append(
-                    models.DeckInfo(
-                        deck=player.deck,
-                        score=player.result,
-                        winner=(player.uid == tournament.winner),
-                        finalist=(player.uid in tournament.finals_seeds),
-                    )
-                )
-    res.decks.sort(
-        key=lambda info: (-int(info.winner), -int(info.finalist), info.score)
-    )
-    if dependencies.can_admin_tournament(member, tournament):
-        return res
-    if tournament.decklists_mode == models.DeckListsMode.ALL:
-        return res
-    if tournament.decklists_mode == models.DeckListsMode.FINALISTS:
-        res.decks = [d for d in res.decks[:5] if d.finalist]
-        return res
-    res.decks = [d for d in res.decks[:1] if d.winner]
+    res.decks = engine.deck_infos(tournament, member)
     return res
 
 

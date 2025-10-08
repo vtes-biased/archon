@@ -414,14 +414,26 @@ def _filter(cls, filter_cls, obj):
 @router.get("/tournament/{uid}/display.html")
 async def tournament_display(
     request: fastapi.Request,
+    uid: typing.Annotated[str, fastapi.Path()],
     context: dependencies.SessionContext,
-    tournament: dependencies.TournamentInfo,
+    op: dependencies.DbOperator,
 ):
-    request.session["next"] = str(
-        request.url_for("tournament_display", uid=tournament.uid)
-    )
-    # filter out other members info
+    # get whole tournament information, filter depending on membership
     member_uid = request.session.get("user_id", None)
+    tournament = await op.get_tournament(uid)
+    if member_uid:
+        context["deck_infos"] = engine.deck_infos(tournament, context["member"])
+    # non-members get only public info
+    if not member_uid:
+        context["tournament"] = models.TournamentConfig(**dataclasses.asdict(tournament))
+        return TEMPLATES.TemplateResponse(
+            request=request,
+            name="tournament/display.html.j2",
+            context=context,
+        )
+    # filter out private/organizer info
+    tournament = models.TournamentInfo(**dataclasses.asdict(tournament))
+    # now filter out other members info depending on standings mode
     provide_score = set()
     if member_uid:
         provide_score.add(member_uid)

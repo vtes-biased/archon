@@ -1,7 +1,7 @@
 // Some common display utilities
 // badges, acronyms, score, etc.
 import * as d from "./d"
-import { DateTime, DateTimeFormatOptions } from 'luxon'
+import { DateTime, DateTimeFormatOptions, Duration } from 'luxon'
 
 export function tournament_rank_badge(tournament: d.TournamentMinimal): string {
     var cls
@@ -134,6 +134,18 @@ export function datetime_finish(tournament: d.TournamentMinimal | d.League): Dat
     if (tournament.finish) {
         return _datetime(tournament.finish, tournament.timezone)
     }
+}
+
+export function overlap(lhs: d.TournamentMinimal | d.League, start: string, finish: string, timezone: string): boolean {
+    const lhs_start = datetime(lhs)
+    var rhs_start = lhs_start
+    if (start.length > 0) {
+        rhs_start = _datetime(start, timezone)
+    }
+    const lhs_finish = datetime_finish(lhs) || rhs_start
+    const rhs_finish = _datetime(finish, timezone) || lhs_start
+    // use a one-day tolerance to avoid timezone fumbles
+    return lhs_start <= rhs_finish.plus({ days: 1 }) && rhs_start <= lhs_finish.plus({ days: 1 })
 }
 
 export function datetime_string(tournament: d.TournamentMinimal | d.League) {
@@ -271,4 +283,14 @@ export function ranked_players(
 ): [number, d.Player][] {
     const players_list = Object.values(players ?? tournament.players)
     return _calculate_rankings(tournament, players_list, ignore_toss)
+}
+
+export function ordinal(n: number): string {
+    if (!n) { return "" }
+    if (n <= 0) { return n.toString() }
+    const suffix = n.toString().slice(-1)
+    if (suffix == "1") { return `${n}<sup>st</sup>` }
+    if (suffix == "2") { return `${n}<sup>nd</sup>` }
+    if (suffix == "3") { return `${n}<sup>rd</sup>` }
+    return `${n}<sup>th</sup>`
 }

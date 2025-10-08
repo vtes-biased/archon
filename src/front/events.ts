@@ -114,6 +114,7 @@ export interface SetDeck extends Event {
     player_uid: string
     deck: string  // URL or plain text
     round: number | null | undefined
+    attribution: boolean
 }
 
 export interface Drop extends Event {

@@ -345,13 +345,7 @@ def check_organizer(member: models.Person) -> None:
 
 
 def can_admin_tournament(member: models.Person, tournament: models.TournamentConfig):
-    if models.MemberRole.ADMIN in member.roles:
-        return True
-    if models.MemberRole.NC in member.roles and member.country == tournament.country:
-        return True
-    if member.uid in [j.uid for j in tournament.judges]:
-        return True
-    return False
+    return engine.can_admin_tournament(member, tournament)
 
 
 def check_can_admin_tournament(

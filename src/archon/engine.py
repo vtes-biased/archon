@@ -16,6 +16,16 @@ from . import scoring
 LOG = logging.getLogger()
 
 
+def can_admin_tournament(member: models.Person, tournament: models.Tournament) -> bool:
+    if models.MemberRole.ADMIN in member.roles:
+        return True
+    if models.MemberRole.NC in member.roles and tournament.country == member.country:
+        return True
+    if member.uid in [j.uid for j in tournament.judges]:
+        return True
+    return False
+
+
 class TournamentManager(models.Tournament):
     """Implements re-entring idempotent tournament logic. No validity check.
     This is the logic one needs to implement on the Client/UI side to allow for
@@ -753,11 +763,7 @@ class TournamentOrchestrator(TournamentManager):
             raise TournamentFinished(ev)
 
     def _check_judge(self, ev: events.TournamentEvent, member: models.Person) -> None:
-        if models.MemberRole.ADMIN in member.roles:
-            return
-        if models.MemberRole.NC in member.roles and self.country == member.country:
-            return
-        if member.uid in [j.uid for j in self.judges]:
+        if can_admin_tournament(member, self):
             return
         raise NotJudge(ev)
 
@@ -1171,3 +1177,48 @@ def optimise_table_seating(
     for i, uid in enumerate(rounds[-1][table]):
         tournament.rounds[-1].tables[table].seating[i].player_uid = uid
     return score
+
+def deck_infos(tournament: models.Tournament, member: models.Person) -> list[models.DeckInfo]:
+    res = []
+    if tournament.multideck:
+        for idx, round_ in enumerate(tournament.rounds, 1):
+            finals = idx == len(tournament.rounds)
+            for table in round_.tables:
+                for seat in table.seating:
+                    if seat.deck:
+                        res.append(
+                            models.DeckInfo(
+                                deck=seat.deck,
+                                score=seat.result,
+                                winner=(
+                                    finals and seat.player_uid == tournament.winner
+                                ),
+                                finalist=(
+                                    finals
+                                    and seat.player_uid in tournament.finals_seeds
+                                ),
+                            )
+                        )
+    else:
+        for player in tournament.players.values():
+            if player.deck:
+                res.append(
+                    models.DeckInfo(
+                        deck=player.deck,
+                        score=player.result,
+                        winner=(player.uid == tournament.winner),
+                        finalist=(player.uid in tournament.finals_seeds),
+                    )
+                )
+    res.sort(
+        key=lambda info: (-int(info.winner), -int(info.finalist), info.score)
+    )
+    if can_admin_tournament(member, tournament):
+        return res
+    if tournament.decklists_mode == models.DeckListsMode.ALL:
+        return res
+    if tournament.decklists_mode == models.DeckListsMode.FINALISTS:
+        res.decks = [d for d in res.decks[:5] if d.finalist]
+        return res
+    res.decks = [d for d in res.decks[:1] if d.winner]
+    return res

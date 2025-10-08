@@ -25,7 +25,7 @@ class TournamentListDisplay {
         this.pagination_row = base.create_append(controls_row, "div", ["d-lg-flex", "my-2", "align-items-center", "justify-content-end"])
         this.tournaments_table = base.create_append(root, "table", ["table", "table-striped", "table-hover", "table-responsive"])
     }
-    async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
+    async init(token: base.Token | undefined, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
         this.cursors = []
         if (!countries) {
@@ -121,7 +121,7 @@ class TournamentListDisplay {
         const [filter, tournaments] = await this.get_filtered_tournaments()
         for (const tournament of tournaments) {
             const row = base.create_append(body, "tr", ["align-middle"])
-            row.addEventListener("click", (ev) => { window.location.assign(`/tournament/${tournament.uid}/display.html`) })
+            row.addEventListener("click", (ev) => window.location.href = `/tournament/${tournament.uid}/display.html`)
             var name = tournament.name
             if (name.length > 50) {
                 name = name.slice(0, 49) + "…"
@@ -238,7 +238,7 @@ class TournamentListDisplay {
         } else {
             res.online = false
         }
-        if (this.personal_filter.checked) {
+        if (this.personal_filter.checked && this.token) {
             res.member_uid = base.user_uid_from_token(this.token)
         }
         if (this.year_filter.value) {
@@ -266,7 +266,7 @@ class TournamentListDisplay {
                 }
             }
         }
-        if (url.searchParams.get("member_uid") == base.user_uid_from_token(this.token)) {
+        if (this.token && url.searchParams.get("member_uid") == base.user_uid_from_token(this.token)) {
             this.personal_filter.checked = true
         }
         if (url.searchParams.has("uid")) {

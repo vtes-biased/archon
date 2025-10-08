@@ -209,6 +209,12 @@ async def init():
                 "AS $$select ($1 || ' ' || $2)::timestamptz$$ "
                 "LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT"
             )
+            # year extraction function for indexing
+            await cursor.execute(
+                "CREATE OR REPLACE FUNCTION year_from_timetz(text, text) RETURNS integer "
+                "AS $$select EXTRACT(YEAR FROM ($1 || ' ' || $2)::timestamptz)::integer$$ "
+                "LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT"
+            )
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_start "
                 "ON tournaments "
@@ -220,7 +226,7 @@ async def init():
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_year "
                 "ON tournaments "
-                "USING BTREE ((EXTRACT(YEAR FROM timetz(data ->> 'start', data ->> 'timezone'))))"
+                "USING BTREE ((year_from_timetz(data ->> 'start', data ->> 'timezone')))"
             )
             await cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tournament_name_trgm "
@@ -478,7 +484,7 @@ class Operator:
                 )
             if filter.year:
                 pieces.append(
-                    "EXTRACT(YEAR FROM timetz(data ->> 'start', data ->> 'timezone')) = %s"
+                    "year_from_timetz(data ->> 'start', data ->> 'timezone') = %s"
                 )
                 args.append(filter.year)
             if filter.name and len(filter.name) > 2:
@@ -1379,6 +1385,18 @@ class Operator:
                 ret_filter.date = ret[-1].start.isoformat() + " " + ret[-1].timezone
                 ret_filter.uid = ret[-1].uid
             return (ret_filter, ret)
+
+    async def get_minimal_leagues(self) -> list[models.LeagueMinimal]:
+        """Get minimal leagues, filtered and ordered by start date, 100 per page"""
+        Q = (
+            "SELECT data FROM leagues "
+            "ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC"
+        )
+        async with self.conn.cursor() as cursor:
+            return [
+                self._instanciate(row[0], models.LeagueMinimal)
+                async for row in cursor.stream(Q)
+            ]
 
 
 @contextlib.asynccontextmanager

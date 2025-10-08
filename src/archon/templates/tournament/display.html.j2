@@ -2,13 +2,15 @@
 
 {% block scripts %}
 <script async src="{{ url_for('static', path='tournament_display.js') }}" type="module"></script>
-{% endblock%}
+<script id="tournament-data" type="application/json">
+{
+  {%if cutoff%}"cutoff": {{ cutoff | jsonable | tojson }},{% endif %}
+  {% if deck_infos %}"deck_infos": {{ deck_infos | jsonable | tojson }},{% endif %}
+  "tournament": {{ tournament | jsonable | tojson }}
+}
+</script>
+{% endblock %}
 
 {% block content %}
-{%if cutoff%}
-<div id="tournamentDisplay" data-tournament='{{ tournament | jsonable | tojson }}'
-    data-cutoff='{{ cutoff | jsonable | tojson}}'></div>
-{% else %}
-<div id="tournamentDisplay" data-tournament='{{ tournament | jsonable | tojson }}'></div>
-{% endif %}
+<div id="tournamentDisplay"></div>
 {% endblock %}

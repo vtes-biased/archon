@@ -185,3 +185,124 @@ export class ConfirmationModal extends Modal {
         this.modal.show()
     }
 }
+
+export abstract class Completion<T> {
+    input: HTMLInputElement
+    dropdown_menu: HTMLUListElement
+    dropdown: bootstrap.Dropdown
+    focus: HTMLLIElement | undefined
+    private debounced_show: (ev: Event) => void
+    private keydown_handler: (ev: KeyboardEvent) => void
+    // abstract methods
+    abstract complete_input(value: string): Promise<T[]>
+    abstract item_label(item: T): string
+    // optional method for additional automation
+    item_selected(item: T): void { }
+    constructor(input: HTMLInputElement) {
+        this.focus = undefined
+        this.input = input
+        this.dropdown_menu = create_append(input, "ul", ["dropdown-menu"])
+        create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"], { type: "button" }
+        ).innerText = "Start typing..."
+        this.debounced_show = debounce_async(async (ev) => this._show())
+        this.keydown_handler = (ev) => this._keydown(ev)
+        this.input.addEventListener("input", this.debounced_show)
+        this.dropdown = bootstrap.Dropdown.getOrCreateInstance(this.input)
+        this.input.parentElement.addEventListener("keydown", this.keydown_handler)
+    }
+    dispose() {
+        this.input.removeEventListener("input", this.debounced_show)
+        this.input.parentElement.removeEventListener("keydown", this.keydown_handler)
+        this.dropdown.dispose()
+    }
+    async _show() {
+        remove_children(this.dropdown_menu)
+        this._reset_focus()
+        if (this.input.value.length < 1) {
+            create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "Start typing..."
+            return
+        }
+        if (this.input.value.length < 3) {
+            create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "Type some more..."
+            return
+        }
+        const items = await this.complete_input(this.input.value)
+        if (!items || items.length < 1) {
+            create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
+                { type: "button" }).innerText = "No result"
+            return
+        }
+        for (const item of items.slice(0, 10)) {
+            const li = create_append(this.dropdown_menu, "li")
+            const button = create_append(li, "button", ["dropdown-item"],
+                { type: "button", "data-item": JSON.stringify(item) }
+            )
+            button.innerText = this.item_label(item)
+            button.addEventListener("click", (ev) => this._select_item(ev))
+        }
+        this.dropdown.show()
+    }
+    _reset_focus(new_focus: HTMLLIElement | undefined = undefined) {
+        if (new_focus === this.focus) { return }
+        if (this.focus && this.focus.firstElementChild) {
+            this.focus.firstElementChild.classList.remove("active")
+        }
+        this.focus = new_focus
+        if (this.focus && this.focus.firstElementChild) {
+            this.focus.firstElementChild.classList.add("active")
+        }
+    }
+    _select_item(ev: Event) {
+        const button = ev.currentTarget as HTMLButtonElement
+        const item = JSON.parse(button.dataset.item) as T
+        this.input.value = this.item_label(item)
+        this.item_selected(item)
+        this._reset_focus()
+        this.input.dispatchEvent(new Event("change", { bubbles: true }))
+        this.dropdown.hide()
+    }
+    _keydown(ev: KeyboardEvent) {
+        var next_focus: HTMLLIElement | undefined = undefined
+        switch (ev.key) {
+            case "ArrowDown": {
+                if (this.focus) {
+                    next_focus = this.focus.nextElementSibling as HTMLLIElement
+                } else {
+                    next_focus = this.dropdown_menu.firstElementChild as HTMLLIElement
+                }
+                if (next_focus === null) {
+                    next_focus = this.focus
+                }
+                break
+            }
+            case "ArrowUp": {
+                if (this.focus) {
+                    next_focus = this.focus.previousElementSibling as HTMLLIElement
+                } else {
+                    next_focus = this.dropdown_menu.lastElementChild as HTMLLIElement
+                }
+                if (next_focus === null) {
+                    next_focus = this.focus
+                }
+                break
+            }
+            case "Escape": {
+                break
+            }
+            case "Enter": {
+                if (this.focus) {
+                    this.focus.firstElementChild.dispatchEvent(new Event("click"))
+                } else {
+                    return
+                }
+                break
+            }
+            default: return
+        }
+        ev.stopPropagation()
+        ev.preventDefault()
+        this._reset_focus(next_focus)
+    }
+}

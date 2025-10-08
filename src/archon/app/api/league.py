@@ -13,7 +13,7 @@ router = fastapi.APIRouter(
 )
 
 
-@router.get("/", summary="Get all leagues")
+@router.get("/", summary="Get all leagues (paginated)")
 async def api_league_get_all(
     filter: typing.Annotated[models.LeagueFilter, fastapi.Query()],
     op: dependencies.DbOperator,
@@ -23,6 +23,13 @@ async def api_league_get_all(
     else:
         filter = None
     return await op.get_leagues(filter)
+
+
+@router.get("/full", summary="Get all leagues (full, minimal information)")
+async def api_league_get_all_minimal(
+    op: dependencies.DbOperator,
+)-> list[models.LeagueMinimal]:
+    return await op.get_minimal_leagues()
 
 
 @router.post("/", summary="Create league")

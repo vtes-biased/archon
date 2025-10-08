@@ -297,17 +297,21 @@ class LeagueRef:
 
 
 @dataclasses.dataclass(kw_only=True)
-class League(LeagueRef):
+class LeagueMinimal(LeagueRef):
     start: datetime.datetime
     timezone: str
     format: TournamentFormat
     ranking: LeagueRanking
     finish: datetime.datetime | None = None
-    description: str = ""
     online: bool = False
     country: str | None = None
     country_flag: str | None = None
     organizers: list[PublicPerson] = pydantic.Field(default_factory=list)
+
+
+@dataclasses.dataclass(kw_only=True)
+class League(LeagueMinimal):
+    description: str = ""
 
 
 @dataclasses.dataclass(kw_only=True)
