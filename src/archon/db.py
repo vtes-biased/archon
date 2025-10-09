@@ -1291,17 +1291,22 @@ class Operator:
                         )
                     players[player.uid].tournaments.append(tournament.uid)
                     players[player.uid].score += player.result
-                    if league.ranking == models.LeagueRanking.RTP:
-                        players[player.uid].points += ratings[player.uid].rating_points
-                        key = "points"
-                    elif league.ranking == models.LeagueRanking.GP:
-                        players[player.uid].points += ratings[player.uid].gp_points
-                        key = "points"
+                    players[player.uid].points = 0
+                    # some players are not in ratings (registerd but did not play)
+                    if player.uid in ratings:
+                        match(league.ranking):
+                            case models.LeagueRanking.RTP:
+                                players[player.uid].points += ratings[player.uid].rating_points
+                            case models.LeagueRanking.GP:
+                                players[player.uid].points += ratings[player.uid].gp_points
 
-                    elif league.ranking == models.LeagueRanking.Score:
-                        players[player.uid].points = 0
-                        key = "score"
-
+            match(league.ranking):
+                case models.LeagueRanking.RTP:
+                    key = "points"
+                case models.LeagueRanking.GP:
+                    key = "points"
+                case models.LeagueRanking.Score:
+                    key = "score"
             def sort(p):
                 return getattr(p, key)
 
