@@ -59,7 +59,7 @@ export class Registration {
             { ariaAtomic: true, ariaLive: "polite" }
         )
         this.toast_container = base.create_append(toast_div, "div", ["toast-container", "top-0", "end-0", "p-2"])
-        this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-4"])
+        this.action_row = base.create_append(this.panel, "div", ["d-xl-flex", "my-4"])
         const registration_controls = base.create_append(this.panel, "div", ["d-md-flex", "my-2"])
         this.register_element = new member.PersonLookup(
             this.container.members_map, registration_controls, "Register", true

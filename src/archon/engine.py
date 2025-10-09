@@ -372,11 +372,8 @@ class TournamentManager(models.Tournament):
             deck_data = deck.to_json()
             author = deck_data.get('author', '') if ev.attribution else ""
             if not author and ev.attribution:
-                author = member.name
-            player.deck = models.KrcgDeck(
-                **deck_data, vdb_link=deck.to_vdb(),
-                author=author
-            )
+                deck_data["author"]= member.name
+            player.deck = models.KrcgDeck(**deck_data, vdb_link=deck.to_vdb())
         if self.decklist_required:
             try:
                 player.barriers.remove(models.Barrier.MISSING_DECK)

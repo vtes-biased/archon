@@ -87,17 +87,17 @@ class TournamentConsole {
         this.info = new InfoTab(display_tab, this)
         this.registration = new Registration(this.engine, this, this.add_nav("Registration"))
         this.rounds = []
-        for (var i = 0; i < this.tournament.rounds.length; i++) {
-            var finals: boolean = false
-            if ((this.tournament.state == d.TournamentState.FINALS
-                || this.tournament.state == d.TournamentState.FINISHED)
-                && this.tournament.rounds.length - this.rounds.length == 1
-            ) {
-                finals = true
-            }
-            const round_tab = new RoundTab(this.engine, this, i + 1, finals)
-            this.rounds.push(round_tab)
-        }
+        // for (var i = 0; i < this.tournament.rounds.length; i++) {
+        //     var finals: boolean = false
+        //     if ((this.tournament.state == d.TournamentState.FINALS
+        //         || this.tournament.state == d.TournamentState.FINISHED)
+        //         && this.tournament.rounds.length - this.rounds.length == 1
+        //     ) {
+        //         finals = true
+        //     }
+        //     const round_tab = new RoundTab(this.engine, this, i + 1, finals)
+        //     this.rounds.push(round_tab)
+        // }
         await this.members_map.init()
         { // init countries in components using them
             const res = await base.do_fetch("/api/vekn/country", {})

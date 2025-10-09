@@ -118,6 +118,7 @@ export class SanctionPlayerModal extends base.Modal {
         this.cancel_button.addEventListener("click", (ev) => { this.member = null; this.modal.hide() })
     }
     async show(member_uid: string, round: number | undefined, seat: d.TableSeat | undefined) {
+        console.log("sanction_player_modal show")
         this.member = await this.members_map.get_by_uid(member_uid) ?? null
         if (!this.member) { return }
         if (!this.engine.tournament) { return }
@@ -149,8 +150,10 @@ export class SanctionPlayerModal extends base.Modal {
         this.modal.show()
     }
     display() {
+        console.log("sanction_player_modal display")
         if (!this.member) { return }
         if (!this.engine.tournament) { return }
+        console.log("sanction_player_modal display deck_submit")
         this.deck_submit.init(this.member.uid, this.engine.tournament, this.round)
     }
     async submit_deck(player_uid: string, deck: string, round: number | undefined) {

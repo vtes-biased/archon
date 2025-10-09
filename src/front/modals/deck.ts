@@ -20,7 +20,9 @@ export class DeckSubmit {
     deck_link: HTMLAnchorElement
     deck_div: HTMLDivElement
     deck: HTMLTextAreaElement
+    deck_label: HTMLLabelElement
     attribution_checkbox: HTMLInputElement
+    attribution_subtext: HTMLDivElement
     submit_button: HTMLButtonElement
     player_uid: string
     tournament: d.Tournament
@@ -51,8 +53,8 @@ export class DeckSubmit {
             { id: "deckModalTextInput", type: "text", autocomplete: "new-deck", rows: "10", maxlength: 10000 }
         )
         this.deck.ariaLabel = "Deck list (plain text or URL)"
-        const label = base.create_append(this.deck_div, "label", ["form-label"], { for: "deckModalTextInput" })
-        label.innerText = "Deck list (plain text or URL)"
+        this.deck_label = base.create_append(this.deck_div, "label", ["form-label"], { for: "deckModalTextInput" })
+        this.deck_label.innerText = "Deck list (plain text or URL)"
 
         // Attribution checkbox
         const attribution_div = base.create_append(this.form, "div", ["form-check", "mb-3"])
@@ -62,14 +64,10 @@ export class DeckSubmit {
         const attribution_label = base.create_append(attribution_div, "label", ["form-check-label"],
             { for: "deckModalAttributionInput" }
         )
-        attribution_label.innerText = "Allow attribution in archiving programs"
-
+        attribution_label.innerText = "Allow attribution"
+        this.attribution_checkbox.addEventListener("change", () => this.update_attribution_subtext())
         // Add explanatory subtext
-        const attribution_subtext = base.create_append(attribution_div, "div", ["form-text", "text-muted", "small", "fst-italic"])
-        attribution_subtext.innerHTML =
-            "By default, your deck will be anonymous in archiving programs. " +
-            "If your deck already has an author specified, that will be used. " +
-            "Note: if you reach finals, your deck may be displayed regardless of this setting."
+        this.attribution_subtext = base.create_append(attribution_div, "div", ["form-text", "text-muted", "small", "fst-italic"])
 
         const btn_div = base.create_append(this.form, "div", ["col-auto"])
         this.submit_button = base.create_append(btn_div, "button", ["btn", "btn-primary", "me-2", "mb-2"],
@@ -79,6 +77,17 @@ export class DeckSubmit {
         this.form.addEventListener("submit", async (ev) => await this.submit(ev))
         if (modal_div) {
             this.root.addEventListener("hide.bs.modal", (ev) => this.stop_video())
+        }
+    }
+    update_attribution_subtext() {
+        if (this.attribution_checkbox.checked) {
+            this.attribution_subtext.innerText =
+                "Attribution: your deck will be displayed in archiving programs with your name, " +
+                "or the author's name if specified in the decklist. "
+        } else {
+            this.attribution_subtext.innerText =
+                "No attribution: your deck will be anonymous in archiving programs. " +
+                "Note that if you reach finals, your deck may be displayed regardless."
         }
     }
     async toggle_video() {
@@ -106,6 +115,7 @@ export class DeckSubmit {
         round: number | undefined = undefined,
         submit_disabled: boolean = false
     ) {
+        console.log("decksubmit init")
         this.player_uid = player_uid
         this.tournament = tournament
         this.deck.value = ""
@@ -135,10 +145,8 @@ export class DeckSubmit {
                 option.value = idx.toString()
                 this.round_select.options.add(option)
             }
-            if (round > 0) {
-                this.round_select.selectedIndex = round - 1
-                this.display_round(round)
-            }
+            this.round_select.selectedIndex = round - 1
+            this.display_round(round)
         } else {
             this.round_div.classList.add("invisible")
             this.round_div.classList.remove("visible")
@@ -149,6 +157,7 @@ export class DeckSubmit {
     }
     display_round(round: number) {
         var current_deck: d.KrcgDeck | undefined = undefined
+        console.log("display_round", round)
         if (this.tournament.multideck && round > 0) {
             for (const table of this.tournament.rounds[round - 1].tables) {
                 for (const seating of table.seating) {
@@ -162,16 +171,18 @@ export class DeckSubmit {
         }
         if (current_deck?.vdb_link) {
             this.deck_link.href = current_deck.vdb_link
-            this.deck_link.innerHTML = '<i class="bi bi-file-text"></i> Decklist'
+            this.deck_link.innerHTML = '<i class="bi bi-file-text"></i> View'
             this.deck_link.classList.remove("disabled")
+            this.deck_label.innerText = 'Update deck list (plain text or URL)'
         } else {
             this.deck_link.innerHTML = "No decklist"
             this.deck_link.href = "javascript:void(0)"
             this.deck_link.classList.add("disabled")
+            this.deck_label.innerText = "Deck list (plain text or URL)"
         }
-
         // Set attribution checkbox based on current deck's author field
         this.attribution_checkbox.checked = current_deck?.author ? true : false
+        this.attribution_checkbox.dispatchEvent(new Event("change"))
     }
     scanned(result: QrScanner.ScanResult) {
         this.qr_scanner?.stop()

@@ -52,12 +52,6 @@ export function remove_but_one_children(el: HTMLElement) {
     }
 }
 
-// export function add_tooltip(el: HTMLElement, tip: string): bootstrap.Tooltip {
-//     el.dataset.bsToggle = "tooltip"
-//     el.dataset.bsTitle = tip
-//     return bootstrap.Tooltip.getOrCreateInstance(el, { trigger: "hover" })
-// }
-
 export class TooltipManager {
     tooltips: Map<bootstrap.Tooltip, HTMLElement>
     constructor() {
@@ -67,16 +61,11 @@ export class TooltipManager {
         el.dataset.bsToggle = "tooltip"
         el.dataset.bsTitle = tip
         const tooltip = bootstrap.Tooltip.getInstance(el)
-        if (tooltip) {
-            return tooltip
-        }
+        if (tooltip) { return tooltip }
         const new_tooltip = new bootstrap.Tooltip(el, { trigger: "hover focus", container: el.parentElement })
         // careful to properly hide the tooltip on interaction for interactive elements
-        if (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement) {
+        if (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement || el instanceof HTMLSelectElement) {
             el.addEventListener("click", () => new_tooltip.hide())
-        }
-        if (el instanceof HTMLSelectElement) {
-            el.addEventListener("change", () => new_tooltip.hide())
         }
         if (!keep) {
             this.tooltips.set(new_tooltip, el)
@@ -199,6 +188,13 @@ export class Modal {
         create_append(header, "button", ["btn-close"], { "data-bs-dismiss": "modal", "aria-label": "Close" })
         this.modal_body = create_append(content, "div", ["modal-body", "d-flex", "flex-column", "align-items-center"])
         this.modal = new bootstrap.Modal(this.modal_div)
+        // Prevent "Blocked aria-hidden" warning by using the inert attribute properly
+        this.modal_div.addEventListener("hide.bs.modal", () => {
+            this.modal_div.setAttribute("inert", "")
+        })
+        this.modal_div.addEventListener("show.bs.modal", () => {
+            this.modal_div.removeAttribute("inert")
+        })
     }
 }
 

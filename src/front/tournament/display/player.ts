@@ -51,6 +51,11 @@ export class PlayerDisplay extends BaseTournamentDisplay {
     async display(tournament: d.TournamentConfig | d.Tournament) {
         this.tooltips.dispose()
         base.remove_children(this.base)
+        if (this.user_id) {
+            this.engine.tournament = tournament as d.Tournament
+        } else {
+            this.engine.tournament = undefined
+        }
         base.create_append(this.base, "h1", ["mb-2"]).innerText = tournament.name
         this.display_header(tournament)
         if (this.user_id && !(
