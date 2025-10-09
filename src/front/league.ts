@@ -19,6 +19,7 @@ export class LeagueDisplay {
     members_map: member.MembersDB
     league: d.LeagueWithTournaments
     alert: HTMLDivElement
+    tooltips: base.TooltipManager
     // form inputs
     name: HTMLInputElement
     format: HTMLSelectElement
@@ -41,6 +42,7 @@ export class LeagueDisplay {
         league_uid: string | undefined = undefined,
     ) {
         this.token = token
+        this.tooltips = new base.TooltipManager()
         var user_id: string
         if (this.token) {
             user_id = base.user_uid_from_token(token)
@@ -53,7 +55,7 @@ export class LeagueDisplay {
         if (members_map) {
             this.members_map = members_map
         } else if (user_id) {
-            this.members_map = new member.MembersDB(token)
+            this.members_map = new member.MembersDB(token, this.root)
             await this.members_map.init()
         }
         if (user_id) {
@@ -96,6 +98,7 @@ export class LeagueDisplay {
             this.display_form()
             return
         }
+        this.tooltips.dispose()
         base.remove_children(this.root)
         this.alert = base.create_append(this.root, "div", ["alert"], { role: "alert" })
         // ------------------------------------------------------------------------------------------------------- Title
@@ -561,9 +564,9 @@ export class LeagueDisplay {
         if (edit && this.user.uid != member.uid) {
             const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-danger", "me-2"])
             button.innerHTML = '<i class="bi bi-x-circle-fill"></i>'
-            const tip = base.add_tooltip(button, "Remove")
+            const tip = this.tooltips.add(button, "Remove")
             button.addEventListener("click", (ev) => {
-                tip.dispose()
+                this.tooltips.remove(tip)
                 this.league.organizers = [...this.league.organizers.filter(j => j.uid != member.uid)]
                 row.remove()
             })

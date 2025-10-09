@@ -52,10 +52,55 @@ export function remove_but_one_children(el: HTMLElement) {
     }
 }
 
-export function add_tooltip(el: HTMLElement, tip: string): bootstrap.Tooltip {
-    el.dataset.bsToggle = "tooltip"
-    el.dataset.bsTitle = tip
-    return bootstrap.Tooltip.getOrCreateInstance(el, { trigger: "hover" })
+// export function add_tooltip(el: HTMLElement, tip: string): bootstrap.Tooltip {
+//     el.dataset.bsToggle = "tooltip"
+//     el.dataset.bsTitle = tip
+//     return bootstrap.Tooltip.getOrCreateInstance(el, { trigger: "hover" })
+// }
+
+export class TooltipManager {
+    tooltips: Map<bootstrap.Tooltip, HTMLElement>
+    constructor() {
+        this.tooltips = new Map()
+    }
+    add(el: HTMLElement, tip: string, keep: boolean = false): bootstrap.Tooltip {
+        el.dataset.bsToggle = "tooltip"
+        el.dataset.bsTitle = tip
+        const tooltip = bootstrap.Tooltip.getInstance(el)
+        if (tooltip) {
+            return tooltip
+        }
+        const new_tooltip = new bootstrap.Tooltip(el, { trigger: "hover focus", container: el.parentElement })
+        // careful to properly hide the tooltip on interaction for interactive elements
+        if (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement) {
+            el.addEventListener("click", () => new_tooltip.hide())
+        }
+        if (el instanceof HTMLSelectElement) {
+            el.addEventListener("change", () => new_tooltip.hide())
+        }
+        if (!keep) {
+            this.tooltips.set(new_tooltip, el)
+        }
+        return new_tooltip
+    }
+    dispose() {
+        for (const tooltip of this.tooltips.keys()) {
+            tooltip.dispose()
+        }
+        this.tooltips.clear()
+    }
+    partial_dispose(el: HTMLElement) {
+        for (const [tooltip, element] of this.tooltips.entries()) {
+            if (el.contains(element)) {
+                tooltip.dispose()
+                this.tooltips.delete(tooltip)
+            }
+        }
+    }
+    remove(tooltip: bootstrap.Tooltip) {
+        this.tooltips.delete(tooltip)
+        tooltip.dispose()
+    }
 }
 
 export async function do_fetch(url: string, options: Object) {

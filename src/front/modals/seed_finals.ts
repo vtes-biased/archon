@@ -7,6 +7,7 @@ import { Engine } from "../tournament/engine"
 
 export class SeedFinalsModal extends base.Modal {
     alert: HTMLDivElement
+    tooltips: base.TooltipManager
     form: HTMLDivElement
     players_table: HTMLTableElement
     players_table_body: HTMLTableSectionElement
@@ -18,6 +19,7 @@ export class SeedFinalsModal extends base.Modal {
     constructor(el: HTMLElement, engine: Engine) {
         super(el)
         this.engine = engine
+        this.tooltips = new base.TooltipManager()
         this.modal_title.innerText = "Finals seeding"
         const alert = base.create_append(this.modal_body, "div", ["alert", "alert-info"], { role: "alert" })
         alert.innerText = (
@@ -45,8 +47,8 @@ export class SeedFinalsModal extends base.Modal {
             { type: "button" }
         )
         this.toss_button.innerHTML = `<i class="bi bi-coin"></i> Toss`
-        const tooltip = base.add_tooltip(this.toss_button, "Toss to break ties")
-        this.toss_button.addEventListener("click", (ev) => { ev.preventDefault(); tooltip.hide(); this.do_toss() })
+        this.tooltips.add(this.toss_button, "Toss to break ties", true)
+        this.toss_button.addEventListener("click", (ev) => { ev.preventDefault(); this.do_toss() })
         this.to_toss = []
     }
 

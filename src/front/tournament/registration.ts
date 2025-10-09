@@ -33,6 +33,7 @@ export class Registration {
     container: RegistrationContainer
     panel: HTMLDivElement
     toast_container: HTMLDivElement
+    tooltips: base.TooltipManager
     action_row: HTMLDivElement
     self_checkin: HTMLInputElement
     register_element: member.PersonLookup
@@ -46,6 +47,7 @@ export class Registration {
     constructor(engine: Engine, container: RegistrationContainer, panel: HTMLDivElement) {
         this.engine = engine
         this.container = container
+        this.tooltips = new base.TooltipManager()
         this.filter = PlayerFilter.ALL
         if (this.engine?.tournament?.rounds?.length || 0 > 0) {
             this.order = PlayerOrder.SCORE
@@ -67,8 +69,8 @@ export class Registration {
             registration_controls, "button", ["btn", "btn-primary", "me-2", "mb-2"], { type: "button" }
         )
         add_member_button.innerText = "New member"
-        const tooltip = base.add_tooltip(add_member_button, "Add a new VEKN member: check they do not exist first")
-        add_member_button.addEventListener("click", (ev) => { tooltip.hide(); this.container.add_member_modal.show() })
+        this.tooltips.add(add_member_button, "Add a new VEKN member: check they do not exist first")
+        add_member_button.addEventListener("click", (ev) => { this.container.add_member_modal.show() })
         const table_div = base.create_append(this.panel, "div", ["my-4"])
         const table_controls = base.create_append(table_div, "div", ["d-flex", "align-items-center"])
         const order_dropdown = base.create_append(table_controls, "div", ["dropdown", "me-4"])
@@ -89,7 +91,7 @@ export class Registration {
         this.filter_switch = base.create_append(filter_switch_div, "input", ["form-check-input"],
             { type: "checkbox", role: "switch", id: "filterSwitch" }
         )
-        base.add_tooltip(this.filter_switch, "Filter out checked-in players")
+        this.tooltips.add(this.filter_switch, "Filter out checked-in players")
         this.filter_label = base.create_append(filter_switch_div, "label", ["form-check-label", "text-nowrap"],
             { for: "filterSwitch" }
         )
@@ -150,7 +152,9 @@ export class Registration {
         this.display()
     }
     display() {
+        this.tooltips.dispose()
         base.remove_children(this.players_table_body)
+
         const players = this.sorted_players()
         base.remove_children(this.players_count)
         if (!this.engine.tournament) { return }
@@ -198,9 +202,8 @@ export class Registration {
             const actions = base.create_append(row, "td", ["text-nowrap"])
             const button = base.create_append(actions, "button", ["btn", "btn-sm", "me-2"])
             button.innerHTML = '<i class="bi bi-info-circle-fill"></i>'
-            const tip = base.add_tooltip(button, "Decklist & sanctions")
+            this.tooltips.add(button, "Decklist & sanctions")
             button.addEventListener("click", (ev) => {
-                tip.hide()
                 this.container.sanction_player_modal.show(player.uid, undefined, undefined)
             })
             this.container.warn_about_player(player.uid).then((warn: boolean) => {
@@ -218,19 +221,19 @@ export class Registration {
                         const button = base.create_append(span, "button", ["btn", "btn-sm", "btn-success", "me-2"])
                         button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
                         button.disabled = true
-                        base.add_tooltip(span, player.barriers[0])
+                        this.tooltips.add(span, player.barriers[0])
                         state.innerHTML += ` (${player.barriers[0]})`
                     } else {
                         const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-success", "me-2"])
                         button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>'
-                        const tip = base.add_tooltip(button, "Check in")
-                        button.addEventListener("click", (ev) => { tip.hide(); this.check_in(player) })
+                        this.tooltips.add(button, "Check in")
+                        button.addEventListener("click", (ev) => { this.check_in(player) })
                     }
                 } else if (player.state == d.PlayerState.CHECKED_IN) {
                     const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-warning", "me-2"])
                     button.innerHTML = '<i class="bi bi-box-arrow-left"></i>'
-                    const tip = base.add_tooltip(button, "Check out")
-                    button.addEventListener("click", (ev) => { tip.hide(); this.check_out(player) })
+                    this.tooltips.add(button, "Check out")
+                    button.addEventListener("click", (ev) => { this.check_out(player) })
                 }
             }
             if (this.engine.tournament.state == d.TournamentState.REGISTRATION
@@ -240,8 +243,8 @@ export class Registration {
                 if (player.state == d.PlayerState.REGISTERED || player.state == d.PlayerState.CHECKED_IN) {
                     const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-danger", "me-2"])
                     button.innerHTML = '<i class="bi bi-x-circle-fill"></i>'
-                    const tip = base.add_tooltip(button, "Drop")
-                    button.addEventListener("click", (ev) => { tip.hide(); this.drop(player) })
+                    this.tooltips.add(button, "Drop")
+                    button.addEventListener("click", (ev) => { this.drop(player) })
                 }
             }
         }
@@ -258,9 +261,8 @@ export class Registration {
                     option.selected = true
                 }
             }
-            const tooltip = base.add_tooltip(standings_select, "What standings information players see")
+            this.tooltips.add(standings_select, "What standings information players see")
             standings_select.addEventListener("change", async (ev) => {
-                tooltip.hide()
                 await this.engine.update_config(
                     { standings_mode: standings_select.value }
                 )
@@ -271,8 +273,8 @@ export class Registration {
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
             )
             button.innerText = "Open Check-In"
-            const tooltip = base.add_tooltip(button, "Start listing present players")
-            button.addEventListener("click", (ev) => { tooltip.hide(); this.engine.open_checkin() })
+            this.tooltips.add(button, "Start listing present players")
+            button.addEventListener("click", (ev) => { this.engine.open_checkin() })
         }
         if ((this.engine.tournament.state == d.TournamentState.REGISTRATION ||
             this.engine.tournament.state == d.TournamentState.WAITING ||
@@ -290,21 +292,19 @@ export class Registration {
             this.engine.tournament.state == d.TournamentState.WAITING
         ) {
             const checkin_code = base.create_append(this.action_row, "a",
-                ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"]
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"], { target: "_blank", purpose: "button" }
             )
             checkin_code.innerHTML = '<i class="bi bi-qr-code"></i> Display Check-in code'
             checkin_code.href = `/tournament/${this.engine.tournament.uid}/checkin.html`
-            checkin_code.target = "_blank"
-            base.add_tooltip(checkin_code, "Display the QR code players can scan to check in")
+            this.tooltips.add(checkin_code, "Display the QR code players can scan to check in")
         }
         if (this.engine.tournament.state == d.TournamentState.WAITING) {
             const cancel_checkin_button = base.create_append(this.action_row, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
             )
             cancel_checkin_button.innerText = "Cancel Check-in"
-            const tooltip = base.add_tooltip(cancel_checkin_button, "Back to registration - checks everyone out.")
+            this.tooltips.add(cancel_checkin_button, "Back to registration - checks everyone out.")
             cancel_checkin_button.addEventListener("click", (ev) => {
-                tooltip.hide();
                 this.container.confirmation.show(
                     "<strong>All player will be checked out</strong> <br>" +
                     `<em>Close the check-in stage and go back to the previous step.</em>`,
@@ -317,8 +317,8 @@ export class Registration {
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-primary"]
             )
             checkin_button.innerText = "Check everyone in"
-            const tooltip = base.add_tooltip(checkin_button, "Check all Registered players in. Drop absentees first.")
-            checkin_button.addEventListener("click", (ev) => { tooltip.hide(); this.check_everyone_in() })
+            this.tooltips.add(checkin_button, "Check all Registered players in. Drop absentees first.")
+            checkin_button.addEventListener("click", (ev) => { this.check_everyone_in() })
         }
         if (this.engine.tournament.state == d.TournamentState.WAITING) {
             const seat_span = base.create_append(this.action_row, "span", [], { tabindex: "0" })
@@ -344,8 +344,8 @@ export class Registration {
             seat_button.innerText = `Seat Round ${this.engine.tournament.rounds.length + 1}`
             seat_button.disabled = seat_button_disabled
             seat_button.innerText = seat_button_text
-            const tooltip2 = base.add_tooltip(seat_span, tooltip_message)
-            seat_button.addEventListener("click", (ev) => { tooltip2.hide(); this.engine.start_round() })
+            this.tooltips.add(seat_span, tooltip_message)
+            seat_button.addEventListener("click", (ev) => { this.engine.start_round() })
         }
         if (this.engine.tournament.state == d.TournamentState.REGISTRATION ||
             this.engine.tournament.state == d.TournamentState.WAITING
@@ -355,9 +355,8 @@ export class Registration {
                     ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
                 )
                 finals_button.innerText = "Seed Finals"
-                const tooltip = base.add_tooltip(finals_button, "Start the finals when you are done with the rounds")
+                this.tooltips.add(finals_button, "Start the finals when you are done with the rounds")
                 finals_button.addEventListener("click", (ev) => {
-                    tooltip.hide()
                     this.container.seed_finals_modal.show()
                 })
             }

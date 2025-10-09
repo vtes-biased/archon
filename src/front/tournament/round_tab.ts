@@ -125,6 +125,7 @@ export class RoundTab {
     panel: HTMLDivElement
     action_row: HTMLDivElement
     reseat_button: HTMLButtonElement
+    tooltips: base.TooltipManager
     finals: boolean
     player_drag: PlayerDrag
     constructor(engine: Engine, container: RoundTabContainer, index: number, finals: boolean = false) {
@@ -133,12 +134,14 @@ export class RoundTab {
         this.index = index
         this.finals = finals
         this.player_drag = new PlayerDrag()
+        this.tooltips = new base.TooltipManager()
     }
     init(panel: HTMLDivElement) {
         this.panel = panel
     }
     display() {
         if (!this.panel) { return }
+        this.tooltips.dispose()
         base.remove_children(this.panel)
         if (!this.engine?.tournament) { return }
         this.action_row = base.create_append(this.panel, "div", ["d-md-flex", "my-4"])
@@ -147,17 +150,14 @@ export class RoundTab {
                 { target: "_blank" }
             )
             print_button.innerHTML = '<i class="bi bi-printer-fill"></i>'
-            base.add_tooltip(print_button, "Printable version")
+            this.tooltips.add(print_button, "Printable version")
             print_button.href = `/tournament/${this.engine.tournament.uid}/print-seating.html?round=${this.index}`
         }
         {
             this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "mb-2", "text-nowrap", "btn"])
             if (this.finals) {
                 this.reseat_button.classList.add("btn-primary")
-                const tooltip = base.add_tooltip(this.reseat_button,
-                    "Use after seating procedure to record the finals seating"
-                )
-                this.reseat_button.addEventListener("click", (ev) => tooltip.dispose())
+                this.tooltips.add(this.reseat_button, "Use after seating procedure to record the finals seating")
             } else {
                 this.reseat_button.classList.add("btn-warning")
             }
@@ -165,7 +165,7 @@ export class RoundTab {
             this.reseat_button.addEventListener("click", (ev) => {
                 this.start_reseat()
             })
-        }
+        }   
         const round = this.engine.tournament.rounds[this.index - 1]
         this.next_table_index = 1
         for (const table of round.tables) {
@@ -186,9 +186,8 @@ export class RoundTab {
                 button.innerHTML = '<i class="bi bi-x-circle-fill"></i> Cancel Round'
                 message = "Do not use if players have started to play"
             }
-            const tooltip = base.add_tooltip(button, message)
+            this.tooltips.add(button, message)
             button.addEventListener("click", (ev) => {
-                tooltip.hide()
                 if (round.tables.length > 0) {
                     this.container.confirmation.show(
                         "<strong>This seating will be lost</strong> <br>" +
@@ -266,18 +265,16 @@ export class RoundTab {
         if (data.state != d.TableState.FINISHED) {
             const overrideButton = base.create_append(title_div, "button", ["me-2", "btn", "btn-warning"])
             overrideButton.innerText = "Override"
-            const tooltip = base.add_tooltip(overrideButton, "Validate an odd score")
+            this.tooltips.add(overrideButton, "Validate an odd score")
             overrideButton.addEventListener("click", ev => {
-                tooltip.hide()
                 this.container.override_modal.show(this.index, data, table_index)
             })
         }
         if (data.override) {
             const overrideButton = base.create_append(title_div, "button", ["me-2", "btn", "btn-info"])
             overrideButton.innerText = "Overriden"
-            const tooltip = base.add_tooltip(overrideButton, "Check or remove the override")
+            this.tooltips.add(overrideButton, "Check or remove the override")
             overrideButton.addEventListener("click", ev => {
-                tooltip.hide()
                 this.container.override_modal.show(this.index, data, table_index)
             })
         }
@@ -288,16 +285,14 @@ export class RoundTab {
             const actions = this.display_player(row, player, seat)
             const changeButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm", "btn-primary"])
             changeButton.innerHTML = '<i class="bi bi-pencil"></i>'
-            const tooltip = base.add_tooltip(changeButton, "Set score")
+            this.tooltips.add(changeButton, "Set score")
             changeButton.addEventListener("click", (ev) => {
-                tooltip.hide()
                 this.container.score_modal.show(player, this.index, data.seating.length, seat.result?.vp || 0)
             })
             const sanctionButton = base.create_append(actions, "button", ["me-2", "btn", "btn-sm"])
             sanctionButton.innerHTML = '<i class="bi bi-info-circle-fill"></i>'
-            const tooltip2 = base.add_tooltip(sanctionButton, "Decklist & sanctions")
+            this.tooltips.add(sanctionButton, "Decklist & sanctions")
             sanctionButton.addEventListener("click", (ev) => {
-                tooltip2.hide()
                 this.container.sanction_player_modal.show(player.uid, this.index, seat)
             })
             this.container.warn_about_player(player.uid).then((warn: boolean) => {
@@ -362,6 +357,7 @@ export class RoundTab {
         }
     }
     start_reseat() {
+        this.tooltips.partial_dispose(this.action_row)
         base.remove_children(this.action_row)
         this.reseat_button = base.create_append(this.action_row, "button", ["me-2", "btn", "btn-success"])
         this.reseat_button.innerHTML = '<i class="bi bi-check"></i> Save seating'
@@ -466,7 +462,7 @@ export class RoundTab {
                     classes.push("text-info")
                 }
                 const icon = base.create_prepend(cell, "i", classes)
-                base.add_tooltip(icon, message)
+                this.tooltips.add(icon, message)
             }
         }
     }

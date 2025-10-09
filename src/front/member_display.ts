@@ -48,6 +48,7 @@ class MemberDisplay {
     cities: Map<string, d.City>
     vekn_modal: m.ExistingVeknModal
     password_modal: PasswordModal
+    tooltips: base.TooltipManager
     // form
     name: HTMLInputElement
     email: HTMLInputElement
@@ -58,6 +59,7 @@ class MemberDisplay {
         this.root = root
         this.vekn_modal = new m.ExistingVeknModal(root, (member) => this.reload_target(member))
         this.password_modal = new PasswordModal(root)
+        this.tooltips = new base.TooltipManager()
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
@@ -91,6 +93,7 @@ class MemberDisplay {
         }
     }
     display() {
+        this.tooltips.dispose()
         base.remove_children(this.root)
         const header = base.create_append(this.root, "h1", ["mt-4", "mb-2", "d-md-flex", "align-items-center"])
         base.create_append(header, "div", ["me-2", "mb-2"]).innerText = `${this.target.name}`
@@ -106,8 +109,8 @@ class MemberDisplay {
                     { role: "button" }
                 )
                 base.create_append(remove, "i", ["bi", "bi-x"])
-                const tooltip = base.add_tooltip(remove, "Disassociate VEKN ID#")
-                remove.addEventListener("click", (ev) => { tooltip.hide(); this.remove_vekn() })
+                this.tooltips.add(remove, "Disassociate VEKN ID#")
+                remove.addEventListener("click", (ev) => { this.remove_vekn() })
             }
         } else {
             if (m.can_organize(this.member)) {
@@ -155,8 +158,8 @@ class MemberDisplay {
                     { role: "button" }
                 )
                 base.create_append(remove_button, "i", ["bi", "bi-x-circle-fill"])
-                const tooltip = base.add_tooltip(remove_button, "Remove role")
-                remove_button.addEventListener("click", (ev) => { tooltip.hide(); this.remove_role(role) })
+                this.tooltips.add(remove_button, "Remove role")
+                remove_button.addEventListener("click", (ev) => { this.remove_role(role) })
             } else {
                 role_badge.innerText = role
             }

@@ -56,7 +56,7 @@ export class InfoTab extends CreateTournament {
         }
     }
     display() {
-        base.remove_children(this.root)
+        this.cleanup()
         if (!this.engine.tournament) {
             console.error("No tournament - cannot display info tab")
             return
@@ -69,7 +69,7 @@ export class InfoTab extends CreateTournament {
         this.display_description(this.engine.tournament)
     }
     display_edit() {
-        base.remove_children(this.root)
+        this.cleanup()
         if (!this.engine.tournament) {
             console.error("No tournament - cannot display info tab")
             return
@@ -178,11 +178,8 @@ export class InfoTab extends CreateTournament {
                     ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
                 )
                 set_vekn.innerText = "Set VEKN Event ID"
-                const tooltip = base.add_tooltip(set_vekn_span, "Set event id# if it exists on vekn.net already")
-                set_vekn.addEventListener("click", (ev) => {
-                    tooltip.hide()
-                    this.engine.set_vekn(vekn_id.value)
-                })
+                this.tooltips.add(set_vekn_span, "Set event id# if it exists on vekn.net already")
+                set_vekn.addEventListener("click", (ev) => this.engine.set_vekn(vekn_id.value))
                 set_vekn.disabled = true
                 vekn_id.addEventListener("input", (ev) => {
                     if (vekn_id.value && vekn_id.value.match(/^\d{1,5}$/)) {
@@ -201,10 +198,8 @@ export class InfoTab extends CreateTournament {
                     ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
                 )
                 sync_vekn.innerText = "Create on VEKN"
-                const tooltip2 = base.add_tooltip(sync_vekn_span,
-                    "Create event on vekn.net if it does not exists yet")
+                this.tooltips.add(sync_vekn_span, "Create event on vekn.net if it does not exists yet")
                 sync_vekn.addEventListener("click", (ev) => {
-                    tooltip2.hide()
                     this.engine.vekn_sync(parseInt(rounds.selectedOptions[0].value))
                 })
                 sync_vekn.disabled = true
@@ -228,8 +223,8 @@ export class InfoTab extends CreateTournament {
                         ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
                     )
                     sync_vekn.innerText = "Send to VEKN"
-                    const tooltip = base.add_tooltip(sync_vekn, "Send Archon data to vekn.net")
-                    sync_vekn.addEventListener("click", (ev) => { tooltip.hide(); this.engine.vekn_sync() })
+                    this.tooltips.add(sync_vekn, "Send Archon data to vekn.net")
+                    sync_vekn.addEventListener("click", (ev) => this.engine.vekn_sync())
                 }
             }
         }

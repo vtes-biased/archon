@@ -16,6 +16,7 @@ export class CreateTournament extends BaseTournamentDisplay {
     members_map: member.MembersDB
     user: d.Person
     leagues: d.League[]
+    tooltips: base.TooltipManager
     // fields
     declare form: HTMLFormElement
     declare name: HTMLInputElement
@@ -43,6 +44,7 @@ export class CreateTournament extends BaseTournamentDisplay {
     declare cancel_button: HTMLButtonElement
     constructor(root: HTMLDivElement) {
         super(root)
+        this.tooltips = new base.TooltipManager()
     }
     async init(token: base.Token) {
         super.init(token)
@@ -79,25 +81,27 @@ export class CreateTournament extends BaseTournamentDisplay {
         if (this.user_id != person.uid) {
             const button = base.create_append(actions, "button", ["btn", "btn-sm", "btn-danger", "me-2"])
             button.innerHTML = '<i class="bi bi-x-circle-fill"></i>'
-            const tip = base.add_tooltip(button, "Remove")
             button.addEventListener("click", (ev) => {
-                tip.dispose()
                 this.judges = [...this.judges.filter(j => j.uid != person.uid)]
                 row.remove()
             })
         }
         return row
     }
+    cleanup() {
+        if (this.venue_completion) {
+            this.venue_completion.dispose()
+        }
+        this.tooltips.dispose()
+        base.remove_children(this.root)
+    }
     display() {
+        this.cleanup()
         this.display_form()
         this.form.addEventListener("submit", (ev) => this.create_tournament(ev))
         this.cancel_button.addEventListener("click", (ev) => history.back())
     }
     display_form() {
-        if (this.venue_completion) {
-            this.venue_completion.dispose()
-        }
-        base.remove_children(this.root)
         this.form = base.create_append(this.root, "form", ["row", "g-3", "mt-3", "needs-validation"])
         this.form.noValidate = true
         // ------------------------------------------------------------------------------------------------------ line 1

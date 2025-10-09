@@ -9,6 +9,7 @@ export class ScoreModal {
     round_number: number
     modal_div: HTMLDivElement
     modal: bootstrap.Modal
+    tooltips: base.TooltipManager
     title: HTMLHeadingElement
     btn_35: HTMLButtonElement
     btn_35_tooltip: bootstrap.Tooltip
@@ -18,6 +19,7 @@ export class ScoreModal {
     btn_50_tooltip: bootstrap.Tooltip
     constructor(el: HTMLDivElement, engine: Engine) {
         this.engine = engine
+        this.tooltips = new base.TooltipManager()
         this.modal_div = base.create_append(el, "div", ["modal", "fade"],
             { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "scoreModalLabel" }
         )
@@ -34,15 +36,15 @@ export class ScoreModal {
         const btn_30 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const btn_40 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         this.btn_50 = base.create_append(row_1, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        this.btn_50_tooltip = base.add_tooltip(this.btn_50, "Normally not on a 5p table")
+        this.btn_50_tooltip = this.tooltips.add(this.btn_50, "Normally not on a 5p table")
         const row_2 = base.create_append(body, "div", ["d-flex", "flex-row", "align-items-center"])
         const btn_05 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const btn_15 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         const btn_25 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
         this.btn_35 = base.create_append(row_2, "button", ["btn", "btn-primary", "me-1", "mb-1"], { type: "button" })
-        this.btn_35_tooltip = base.add_tooltip(this.btn_35, "Normally not on a 5p table")
+        this.btn_35_tooltip = this.tooltips.add(this.btn_35, "Normally not on a 5p table")
         this.btn_45 = base.create_append(row_2, "button", ["btn", "btn-secondary", "me-1", "mb-1"], { type: "button" })
-        this.btn_45_tooltip = base.add_tooltip(this.btn_45, "Normally invalid")
+        this.btn_45_tooltip = this.tooltips.add(this.btn_45, "Normally invalid")
         btn_00.innerText = "0"
         btn_05.innerText = "0.5"
         btn_10.innerText = "1"
@@ -63,8 +65,8 @@ export class ScoreModal {
         btn_30.addEventListener("click", (ev) => this.set_score(3))
         this.btn_35.addEventListener("click", (ev) => this.set_score(3.5))
         btn_40.addEventListener("click", (ev) => this.set_score(4))
-        this.btn_45.addEventListener("click", (ev) => { this.btn_45_tooltip.hide(); this.set_score(4.5) })
-        this.btn_50.addEventListener("click", (ev) => { this.btn_50_tooltip.hide(); this.set_score(5) })
+        this.btn_45.addEventListener("click", (ev) => { this.set_score(4.5) })
+        this.btn_50.addEventListener("click", (ev) => { this.set_score(5) })
         this.modal = new bootstrap.Modal(this.modal_div)
     }
 

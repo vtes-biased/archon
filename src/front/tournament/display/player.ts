@@ -19,8 +19,10 @@ export class PlayerDisplay extends BaseTournamentDisplay {
     checkin_modal: CheckInModal
     deck_modal: DeckModal
     score_modal: ScoreModal
+    tooltips: base.TooltipManager
     constructor(root: HTMLDivElement) {
         super(root)
+        this.tooltips = new base.TooltipManager()
         this.confirmation_modal = new base.ConfirmationModal(root)
         this.checkin_modal = new CheckInModal(root)
         this.deck_modal = new DeckModal(root, this.engine)
@@ -47,6 +49,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
         this.engine = new Engine(token, (tournament, round_change) => this.display(tournament))
     }
     async display(tournament: d.TournamentConfig | d.Tournament) {
+        this.tooltips.dispose()
         base.remove_children(this.base)
         base.create_append(this.base, "h1", ["mb-2"]).innerText = tournament.name
         this.display_header(tournament)
@@ -271,9 +274,8 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                 ["btn", "btn-danger", "text-nowrap", "me-2", "mb-2"]
             )
             drop_button.innerHTML = '<i class="bi bi-x-circle-fill"></i> Drop from the tournament'
-            const tooltip = base.add_tooltip(drop_button, "Let the organizers know you are leaving")
+            this.tooltips.add(drop_button, "Let the organizers know you are leaving")
             drop_button.addEventListener("click", (ev) => {
-                tooltip.hide()
                 this.confirmation_modal.show(
                     "You will not participate in future rounds.",
                     () => this.engine.drop(player.uid)
@@ -334,25 +336,25 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             if (player.barriers.includes(d.Barrier.BANNED)) {
                 const msg = "You are banned from tournament play by the VEKN"
                 this.set_alert(msg, d.AlertLevel.DANGER)
-                base.add_tooltip(tooltip_span, msg)
+                this.tooltips.add(tooltip_span, msg)
                 return
             }
             if (player.barriers.includes(d.Barrier.DISQUALIFIED)) {
                 const msg = "You have been disqualified"
                 this.set_alert(msg, d.AlertLevel.DANGER)
-                base.add_tooltip(tooltip_span, msg)
+                this.tooltips.add(tooltip_span, msg)
                 return
             }
             if (player.barriers.includes(d.Barrier.MAX_ROUNDS)) {
                 const msg = "You have played the maximum number of rounds"
                 this.set_alert(msg, d.AlertLevel.INFO)
-                base.add_tooltip(tooltip_span, msg)
+                this.tooltips.add(tooltip_span, msg)
                 return
             }
             if (player.barriers.includes(d.Barrier.MISSING_DECK)) {
                 const msg = "You must upload your deck list"
                 this.set_alert(msg, d.AlertLevel.WARNING)
-                base.add_tooltip(tooltip_span, msg)
+                this.tooltips.add(tooltip_span, msg)
                 return
             }
         }
@@ -373,10 +375,9 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"]
         )
         upload_deck_button.innerText = "Decklist"
-        var tooltip: bootstrap.Tooltip
         if (tournament.decklist_required && current_round > 0) {
             if (player.deck) {
-                tooltip = base.add_tooltip(tooltip_span, "Only a judge can modify your deck list")
+                this.tooltips.add(tooltip_span, "Only a judge can modify your deck list")
             } else {
                 const alert = base.create_prepend(this.root, "div",
                     ["alert", "alert-danger", "alert-dismissible", "fade", "show"],
@@ -387,12 +388,12 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                     { type: "button", "data-bs-dismiss": "alert", "arial-label": "Close" }
                 )
                 bootstrap.Alert.getOrCreateInstance(alert)
-                tooltip = base.add_tooltip(tooltip_span,
+                this.tooltips.add(tooltip_span,
                     "Once uploaded, you will not be able to modify your decklist"
                 )
             }
         } else {
-            tooltip = base.add_tooltip(tooltip_span,
+            this.tooltips.add(tooltip_span,
                 "You can re-upload a new version anytime before the tournament begins"
             )
         }
@@ -403,7 +404,6 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             upload_deck_button.classList.add("btn-secondary")
         }
         upload_deck_button.addEventListener("click", (ev) => {
-            tooltip.hide()
             this.deck_modal.show(this.engine, player, submit_disabled)
         })
 
@@ -459,7 +459,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             updateVdbLink()
 
             const vdb_tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
-            base.add_tooltip(vdb_tooltip_span, "Select round and view your deck in VDB")
+            this.tooltips.add(vdb_tooltip_span, "Select round and view your deck in VDB")
         } else {
             // For single deck tournaments, show simple VDB link
             if (player.deck?.vdb_link) {
@@ -469,7 +469,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                 )
                 vdb_link.innerHTML = '<i class="bi bi-file-text"></i> View Deck'
                 const vdb_tooltip_span = base.create_append(buttons_div, "span", [], { tabindex: "0" })
-                base.add_tooltip(vdb_tooltip_span, "View your deck in VDB")
+                this.tooltips.add(vdb_tooltip_span, "View your deck in VDB")
             }
         }
     }
