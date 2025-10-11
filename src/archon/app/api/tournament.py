@@ -59,22 +59,19 @@ async def api_tournaments_post(
 
 @router.put("/{uid}", summary="Update tournament information")
 async def api_tournament_put(
-    request: fastapi.Request,
     orchestrator: dependencies.TournamentOrchestrator,
     data: typing.Annotated[models.TournamentConfig, fastapi.Body()],
     member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
-) -> dependencies.ItemUrl:
+) -> models.Tournament:
     """Update tournament information
 
     - **uid**: The tournament unique ID
     """
     data.judges = await op.get_members([judge.uid for judge in data.judges])
-    orchestrator.update_config(data, member)
-    uid = await op.update_tournament(orchestrator)
-    return dependencies.ItemUrl(
-        uid=uid, url=str(request.url_for("tournament_display", uid=uid))
-    )
+    orchestrator.update_config(data, member)  # checks member can admin
+    await op.update_tournament(orchestrator)
+    return orchestrator
 
 
 @router.get("/{uid}", summary="Get tournament data")

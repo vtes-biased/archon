@@ -449,22 +449,19 @@ export class CreateTournament extends BaseTournamentDisplay {
         }
     }
     get_tournament_data(): d.TournamentConfig {
-        return {
+        const ret = {
             name: this.name.value,
             format: this.format.selectedOptions[0].value as d.TournamentFormat,
             rank: this.rank.selectedOptions[0].value as d.TournamentRank,
             start: this.start.value,
-            finish: this.finish.value,
+            finish: this.finish.value || null,
             timezone: this.timezone.value,
             online: this.online.checked,
             multideck: this.multideck.checked,
             proxies: this.proxies.checked,
             decklist_required: this.decklist_required.checked,
-            league: {
-                uid: this.league.selectedOptions[0].value,
-                name: this.league.selectedOptions[0].label,
-            },
-            judges: [...this.judges.values()],
+            league: null,
+            judges: this.judges.map(member.to_public_person),
             description: this.description.value,
             venue: this.venue.value,
             venue_url: this.venue_url.value,
@@ -472,6 +469,13 @@ export class CreateTournament extends BaseTournamentDisplay {
             map_url: this.map_url.value,
             country: this.country.value,
         }
+        if (this.league.selectedIndex > 0) {
+            ret.league = {
+                uid: this.league.selectedOptions[0].value,
+                name: this.league.selectedOptions[0].label,
+            }
+        }
+        return ret
     }
     async create_tournament(ev: Event) {
         ev.preventDefault()

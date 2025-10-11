@@ -254,15 +254,6 @@ export class InfoTab extends CreateTournament {
             return
         }
         const tournament_data = this.get_tournament_data()
-        console.log("posting", tournament_data)
-        const res = await base.do_fetch_with_token("/api/tournaments/", this.token,
-            { method: "put", body: JSON.stringify(tournament_data) }
-        )
-        if (!res) { return }
-        const response = await res.json()
-        if (response) {
-            this.engine.tournament = response
-            this.display()
-        }
+        this.engine.update_config(tournament_data)
     }
 }

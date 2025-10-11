@@ -42,7 +42,12 @@ export class Engine {
             decklist_required: this.tournament.decklist_required,
             finish: this.tournament.finish,
             description: this.tournament.description,
+            league: this.tournament.league,
             judges: this.tournament.judges,
+            standings_mode: this.tournament.standings_mode,
+            decklists_mode: this.tournament.decklists_mode,
+            max_rounds: this.tournament.max_rounds,
+            limited: this.tournament.limited,
         } as d.TournamentConfig
         Object.assign(config, modification)
         const res = await base.do_fetch_with_token(
@@ -51,8 +56,7 @@ export class Engine {
             { method: "put", body: JSON.stringify(config) }
         )
         if (!res) { return }
-        // TODO: remove the need for a second query by returning the full tournament?
-        await this.init(this.tournament.uid)
+        this.tournament = await res.json() as d.Tournament
         this.display_callback(this.tournament, false)
     }
     async handle_tournament_event(tev: events.TournamentEvent): Promise<boolean> {
@@ -254,7 +258,6 @@ export class Engine {
             this.token, { method: "post" }
         )
         if (res) {
-            const response = await res.json()
             await this.display_callback(this.tournament, false)
         }
     }
@@ -268,7 +271,6 @@ export class Engine {
             { method: "post" }
         )
         if (res) {
-            const response = await res.json()
             await this.display_callback(this.tournament, false)
         }
     }
