@@ -296,9 +296,11 @@ async def reset(keep_members: bool = True):
             LOG.warning("Reset DB")
             await cursor.execute("DROP TABLE IF EXISTS tournament_events")
             await cursor.execute("DROP TABLE IF EXISTS tournaments")
+            await cursor.execute("DROP TABLE IF EXISTS leagues")
+            await cursor.execute("DROP TABLE IF EXISTS clients")
             if not keep_members:
-                await cursor.execute("DROP TABLE IF EXISTS member_deletions")
                 await cursor.execute("DROP TABLE IF EXISTS members")
+                await cursor.execute("DROP TABLE IF EXISTS member_deletions")
 
 
 T = typing.TypeVar("T", bound=models.TournamentMinimal)
