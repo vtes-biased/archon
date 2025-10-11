@@ -118,32 +118,34 @@ export const DATETIME_UNAMBIGUOUS: DateTimeFormatOptions = {
     minute: "2-digit"
 }
 
-function _datetime(date: string, timezone: string): DateTime {
-    return DateTime.fromFormat(
+function _datetime(date: string, timezone: string): DateTime | undefined {
+    const ret = DateTime.fromFormat(
         `${date} ${timezone}`,
         "yyyy-MM-dd'T'HH:mm:ss z",
         { setZone: true }
     )
+    if (ret.isValid) {
+        return ret
+    }
+    return undefined
 }
 
-export function datetime(tournament: d.TournamentMinimal | d.League): DateTime {
+export function datetime(tournament: d.TournamentMinimal | d.League): DateTime | undefined {
     return _datetime(tournament.start, tournament.timezone)
 }
 
-export function datetime_finish(tournament: d.TournamentMinimal | d.League): DateTime | void {
-    if (tournament.finish) {
+export function datetime_finish(tournament: d.TournamentMinimal | d.League): DateTime | undefined {
+    if (tournament.finish && tournament.finish.length > 0) {
         return _datetime(tournament.finish, tournament.timezone)
     }
+    return undefined
 }
 
 export function overlap(lhs: d.TournamentMinimal | d.League, start: string, finish: string, timezone: string): boolean {
     const lhs_start = datetime(lhs)
-    var rhs_start = lhs_start
-    if (start.length > 0) {
-        rhs_start = _datetime(start, timezone)
-    }
-    const lhs_finish = datetime_finish(lhs) || rhs_start
-    const rhs_finish = _datetime(finish, timezone) || lhs_start
+    const rhs_start = _datetime(start, timezone) ?? lhs_start
+    const lhs_finish = datetime_finish(lhs) ?? rhs_start
+    const rhs_finish = _datetime(finish, timezone) ?? lhs_start
     // use a one-day tolerance to avoid timezone fumbles
     return lhs_start <= rhs_finish.plus({ days: 1 }) && rhs_start <= lhs_finish.plus({ days: 1 })
 }
