@@ -39,7 +39,7 @@ class TournamentConsole {
         this.root = el
         this.token = token
         this.members_map = new member.MembersDB(token, el)
-        this.engine = new Engine(token, () => this.display())
+        this.engine = new Engine(token, (tournament, round_change) => this.display(round_change))
         this.confirmation = new base.ConfirmationModal(el)
         this.score_modal = new ScoreModal(el, this.engine)
         this.player_select = new PlayerSelectModal(el)
@@ -87,17 +87,6 @@ class TournamentConsole {
         this.info = new InfoTab(display_tab, this)
         this.registration = new Registration(this.engine, this, this.add_nav("Registration"))
         this.rounds = []
-        // for (var i = 0; i < this.tournament.rounds.length; i++) {
-        //     var finals: boolean = false
-        //     if ((this.tournament.state == d.TournamentState.FINALS
-        //         || this.tournament.state == d.TournamentState.FINISHED)
-        //         && this.tournament.rounds.length - this.rounds.length == 1
-        //     ) {
-        //         finals = true
-        //     }
-        //     const round_tab = new RoundTab(this.engine, this, i + 1, finals)
-        //     this.rounds.push(round_tab)
-        // }
         await this.members_map.init()
         { // init countries in components using them
             const res = await base.do_fetch("/api/vekn/country", {})
@@ -108,8 +97,7 @@ class TournamentConsole {
             await this.add_member_modal.init(this.token, countries, true)
             await this.info.init(this.engine, countries, this.members_map)
         }
-        await this.display()
-        this.open_relevant_tab()
+        await this.display(true)
     }
     open_relevant_tab() {
         if (this.tournament.state == d.TournamentState.FINALS) {
@@ -125,7 +113,7 @@ class TournamentConsole {
             this.tabs.get("Info")?.show()
         }
     }
-    async display() {
+    async display(round_change: boolean = false) {
         this.info.display()
         if (this.tournament.state == d.TournamentState.REGISTRATION) {
             if (this.tournament.rounds.length < 1) {
@@ -256,6 +244,9 @@ class TournamentConsole {
         this.registration.display()
         for (const round of this.rounds) {
             round.display()
+        }
+        if (round_change) {
+            this.open_relevant_tab()
         }
     }
 
