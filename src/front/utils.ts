@@ -296,3 +296,10 @@ export function ordinal(n: number): string {
     if (suffix == "3") { return `${n}<sup>rd</sup>` }
     return `${n}<sup>th</sup>`
 }
+
+export function constrain_string(str: string, max_length: number): string {
+    if (str.length <= max_length) {
+        return str
+    }
+    return str.slice(0, max_length - 1) + "…"
+}

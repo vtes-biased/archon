@@ -560,10 +560,7 @@ class MemberDisplay {
                     const link = base.create_append(name_cell, "a", [],
                         { href: `/tournament/${rating.tournament.uid}/display.html` }
                     )
-                    var name = rating.tournament.name
-                    if (name.length > 50) {
-                        name = name.slice(0, 49) + "…"
-                    }
+                    var name = utils.constrain_string(rating.tournament.name, 50)
                     link.innerText = name
                     const start = utils.date_string(rating.tournament)
                     base.create_append(row, "td").innerText = start
