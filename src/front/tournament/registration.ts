@@ -153,8 +153,8 @@ export class Registration {
     }
     display() {
         this.tooltips.dispose()
+        this.register_element.reset()
         base.remove_children(this.players_table_body)
-
         const players = this.sorted_players()
         base.remove_children(this.players_count)
         if (!this.engine.tournament) { return }
@@ -368,7 +368,7 @@ export class Registration {
         if (!this.register_element.person) { return }
         this.engine.register_player(this.register_element.person)
         this.alert(`Registered ${this.register_element.person.name}`)
-        this.register_element.reset()
+        this.register_element.input_name.focus()
     }
     async check_everyone_in() {
         if (!this.engine.tournament) { return }

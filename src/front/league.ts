@@ -24,13 +24,16 @@ export class LeagueDisplay {
     name: HTMLInputElement
     format: HTMLSelectElement
     ranking: HTMLSelectElement
+    kind: HTMLSelectElement
     online: HTMLInputElement
     country: HTMLSelectElement
+    parent: HTMLSelectElement
     start: HTMLInputElement
     finish: HTMLInputElement
     timezone: HTMLSelectElement
     description: HTMLTextAreaElement
     organizers: d.PublicPerson[]
+    available_leagues: d.LeagueMinimal[]
     constructor(root: HTMLDivElement) {
         this.root = base.create_append(root, "div")
         this.confirmation_modal = new base.ConfirmationModal(root)
@@ -69,6 +72,18 @@ export class LeagueDisplay {
                 this.organizers = this.league.organizers
             }
         }
+        {
+            const res = await base.do_fetch_with_token(
+                "/api/leagues/full?league_type=Meta-League",
+                this.token,
+                {}
+            )
+            if (res) {
+                this.available_leagues = await res.json() as d.LeagueMinimal[]
+            } else {
+                this.available_leagues = []
+            }
+        }
     }
     set_alert(message: string, level: d.AlertLevel) {
         if (!this.alert) { return }
@@ -95,7 +110,8 @@ export class LeagueDisplay {
         if (this.league) {
             this.organizers = this.league.organizers
         } else {
-            this.display_form()
+            this.organizers = []
+            this.display_edit()
             return
         }
         this.tooltips.dispose()
@@ -108,7 +124,7 @@ export class LeagueDisplay {
             const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
             const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
             edit_button.innerHTML = '<i class="bi bi-pencil"></i> Edit'
-            edit_button.addEventListener("click", (ev) => this.display_form())
+            edit_button.addEventListener("click", (ev) => this.display_edit())
             if (this.user.roles.includes(d.MemberRole.ADMIN)) {
                 const delete_button = base.create_append(buttons_div, "a",
                     ["btn", "btn-danger", "text-nowrap", "me-2", "mb-2"],
@@ -121,10 +137,14 @@ export class LeagueDisplay {
                     () => this.delete_league()
                 ))
             }
-            this.set_alert("To add a tournament, set the league in the tournament info page.", d.AlertLevel.INFO)
+            if (this.league.kind == d.LeagueKind.META) {
+                this.set_alert("To add a league, set the parent in the league page.", d.AlertLevel.INFO)
+            } else {
+                this.set_alert("To add a tournament, set the league in the tournament info page.", d.AlertLevel.INFO)
+            }
         }
         // ------------------------------------------------------------------------------------------------------ Badges
-        const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
+        const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex", "align-items-center"])
         const format_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
         format_badge.innerText = this.league.format
         switch (this.league.format) {
@@ -155,6 +175,21 @@ export class LeagueDisplay {
             base.create_append(badges_div, "span",
                 ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Online"
+        }
+        if (this.league.parent) {
+            base.create_append(badges_div, "a",
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info", "text-decoration-none"],
+                { href: `/league/${this.league.parent.uid}/display.html` }
+            ).innerText = utils.constrain_string(this.league.parent.name, 50)
+        }
+        // ------------------------------------------------------------------------------------------------------- Country
+        const country_div = base.create_append(badges_div, "div", ["me-2", "mb-2"])
+        if (this.league.online) {
+            country_div.innerText = "Online"
+        } else if (this.league.country && this.league.country.length > 0) {
+            country_div.innerText = `${this.league.country} ${this.league.country_flag}`
+        } else {
+            country_div.innerText = "Worldwide 🌍"
         }
         // ------------------------------------------------------------------------------------------------- Date & Time
         const datetime_div = base.create_append(badges_div, "div", ["d-md-flex", "mb-2"])
@@ -196,8 +231,47 @@ export class LeagueDisplay {
                 { ADD_ATTR: ['target'] }
             )
         }
+        // ------------------------------------------------------------------------------------------------- Child Leagues
+        if (this.league.leagues && this.league.leagues.length > 0) {
+            base.create_append(this.root, "h3").innerText = "Child Leagues"
+            const table = base.create_append(this.root, "table",
+                ["table", "table-striped", "table-hover", "table-responsive", "mb-2"]
+            )
+            const head = base.create_append(table, "thead")
+            const row = base.create_append(head, "tr", ["align-middle"])
+            const headers = ["Name", "Start Date", "Format", "Ranking"]
+            if (!this.league.online) {
+                headers.push("Location")
+            }
+            for (const header of headers) {
+                base.create_append(row, "th", [], { scope: "col" }).innerText = header
+            }
+            const body = base.create_append(table, "tbody")
+            for (const child_league of this.league.leagues) {
+                const row = base.create_append(body, "tr")
+                row.addEventListener("click", (ev) => {
+                    window.location.assign(`/league/${child_league.uid}/display.html`)
+                })
+                const name = utils.constrain_string(child_league.name, 50)
+                base.create_append(row, "th", ["smaller-font"], { scope: "row" }).innerText = name
+                const date = base.create_append(row, "td", ["smaller-font"])
+                date.innerText = utils.date_string(child_league)
+                base.create_append(row, "td", ["smaller-font"]).innerText = child_league.format
+                base.create_append(row, "td", ["smaller-font"]).innerText = child_league.ranking
+                if (!this.league.online) {
+                    const location = base.create_append(row, "td", ["smaller-font"])
+                    if (child_league.online) {
+                        location.innerText = "Online"
+                    } else if (child_league.country) {
+                        location.innerText = `${child_league.country} ${child_league.country_flag}`
+                    } else {
+                        location.innerText = "Worldwide"
+                    }
+                }
+            }
+        }
         // ------------------------------------------------------------------------------------------------- Tournaments
-        if (this.league.tournaments) {
+        if (this.league.tournaments && this.league.tournaments.length > 0) {
             base.create_append(this.root, "h3").innerText = "Tournaments"
             const table = base.create_append(this.root, "table",
                 ["table", "table-striped", "table-hover", "table-responsive", "mb-2"]
@@ -218,10 +292,7 @@ export class LeagueDisplay {
                 row.addEventListener("click", (ev) => {
                     window.location.assign(`/tournament/${tournament.uid}/display.html`)
                 })
-                var name = tournament.name
-                if (name.length > 50) {
-                    name = name.slice(0, 49) + "…"
-                }
+                const name = utils.constrain_string(tournament.name, 50)
                 base.create_append(row, "th", ["smaller-font"], { scope: "row" }).innerText = name
                 const date = base.create_append(row, "td", ["smaller-font"])
                 date.innerText = utils.datetime_string(tournament)
@@ -295,8 +366,13 @@ export class LeagueDisplay {
         if (!res) { return }
         window.location.href = "/league/list.html"
     }
-    display_form() {
+    async display_edit() {
         base.remove_children(this.root)
+        this.organizers = [...this.league.organizers]
+        this.display_form()
+        this.fill_form(this.league)
+    }
+    async display_form() {
         const form = base.create_append(this.root, "form", ["row", "g-3", "mt-3", "needs-validation"])
         form.noValidate = true
         form.addEventListener("submit", (ev) => this.submit_league(ev))
@@ -312,9 +388,6 @@ export class LeagueDisplay {
                 autocomplete: "new-name",
                 spellcheck: "false",
             })
-            if (this.league?.name && this.league.name.length > 0) {
-                this.name.value = this.league.name
-            }
             this.name.ariaAutoComplete = "none"
             this.name.required = true
             this.name.addEventListener("change", (ev) => { this.name.form.classList.add("was-validated") })
@@ -333,11 +406,7 @@ export class LeagueDisplay {
                 option.innerText = value
                 option.value = value
             }
-            if (this.league) {
-                this.format.value = this.league.format
-            } else {
-                this.format.value = d.TournamentFormat.Standard
-            }
+            this.format.value = d.TournamentFormat.Standard
             base.create_append(group, "label", ["form-label"], { for: "selectFormat" }).innerText = "Format"
         }
         { // ranking
@@ -350,20 +419,26 @@ export class LeagueDisplay {
                 const option = base.create_append(this.ranking, "option")
                 option.innerText = value
                 option.value = value
-                if (this.league?.ranking == value) {
-                    option.selected = true
-                } else {
-                    option.selected = false
-                }
             }
-            if (this.league) {
-                this.ranking.value = this.league.ranking
-            } else {
-                this.ranking.value = d.LeagueRanking.RTP
-            }
+            this.ranking.value = d.LeagueRanking.RTP
             base.create_append(group, "label", ["form-label"], { for: "selectRanking" }).innerText = "Ranking"
         }
         // ------------------------------------------------------------------------------------------------------ line 2
+        { // league type
+            const div = base.create_append(form, "div", ["col-md-2"])
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
+            this.kind = base.create_append(group, "select", ["form-select", "z-1"],
+                { name: "kind", id: "selectLeagueType" }
+            )
+            for (const value of Object.values(d.LeagueKind)) {
+                const option = base.create_append(this.kind, "option")
+                option.innerText = value
+                option.value = value
+            }
+            this.kind.value = d.LeagueKind.LEAGUE
+            this.kind.addEventListener("change", (ev) => this.change_value())
+            base.create_append(group, "label", ["form-label"], { for: "selectLeagueType" }).innerText = "Type"
+        }
         { // online
             const div = base.create_append(form, "div", ["col-md-2", "d-flex", "align-items-center"])
             const field_div = base.create_append(div, "div", ["form-check", "form-switch"])
@@ -371,16 +446,12 @@ export class LeagueDisplay {
                 { type: "checkbox", name: "online", id: "switchOnline" }
             )
             base.create_append(field_div, "label", ["form-check-label"], { for: "switchOnline" }).innerText = "Online"
-            this.online.addEventListener("change", (ev) => this.switch_online())
-            if (this.league?.online) {
-                this.online.checked = true
-            } else {
-                this.online.checked = false
-            }
+            this.online.addEventListener("change", (ev) => this.change_value())
         }
         { // country
-            const div = base.create_append(form, "div", ["col-md-4"])
-            this.country = base.create_append(div, "select", ["form-select"], { name: "country" })
+            const div = base.create_append(form, "div", ["col-md-3"])
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
+            this.country = base.create_append(group, "select", ["form-select"], { name: "country", id: "selectCountry" })
             this.country.ariaLabel = "Country"
             this.country.required = false
             this.country.options.add(base.create_element("option", [], { value: "", label: "Worldwide 🌍" }))
@@ -389,17 +460,29 @@ export class LeagueDisplay {
                 option.value = country.country
                 option.label = `${country.country} ${country.flag}`
                 this.country.options.add(option)
-                if (this.league?.country == country.country) {
-                    option.selected = true
-                }
             }
-            if (this.league?.online) {
-                this.country.selectedIndex = 0
-                this.country.disabled = true
+            this.country.selectedIndex = 0
+            base.create_append(group, "label", ["form-label"], { for: "selectCountry" }).innerText = "Country"
+        }
+        { // parent league (only show meta-leagues)
+            const div = base.create_append(form, "div", ["col-md-5"])
+            const group = base.create_append(div, "div", ["input-group", "form-floating", "has-validation"])
+            this.parent = base.create_append(group, "select", ["form-select"], { name: "parent_uid" })
+            this.parent.ariaLabel = "Parent Meta-League"
+            this.parent.required = false
+            const none_option = base.create_element("option", [], { value: "", label: "" })
+            this.parent.options.add(none_option)
+            for (const league of this.available_leagues) {
+                const option = document.createElement("option")
+                option.value = league.uid
+                option.label = league.name
+                this.parent.options.add(option)
             }
+            this.parent.selectedIndex = 0
+            base.create_append(group, "label", ["form-label"], { for: "selectCountry" }).innerText = "Parent League (Optional)"
         }
         // filler
-        base.create_append(form, "div", ["w-100"])
+        // base.create_append(form, "div", ["w-100"])
         // ------------------------------------------------------------------------------------------------------ line 5
         var start_week: number = 1  // Monday
         if (["en-US", "pt-BR"].includes(
@@ -432,9 +515,6 @@ export class LeagueDisplay {
             span.dataset.tdTarget = "#pickerStart"
             span.dataset.tdToggle = "datetimepicker"
             base.create_append(span, "i", ["bi", "bi-calendar"])
-            if (this.league?.start && this.league.start.length > 0) {
-                this.start.value = this.league.start
-            }
             new tempusDominus.TempusDominus(group, {
                 display: { icons: biOneIcons },
                 localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23", startOfTheWeek: start_week },
@@ -467,9 +547,6 @@ export class LeagueDisplay {
             span.dataset.tdTarget = "#pickerFinish"
             span.dataset.tdToggle = "datetimepicker"
             base.create_append(span, "i", ["bi", "bi-calendar"])
-            if (this.league?.finish && this.league.finish.length > 0) {
-                this.finish.value = this.league.finish
-            }
             new tempusDominus.TempusDominus(group, {
                 display: { icons: biOneIcons },
                 localization: { format: "yyyy-MM-dd HH:mm", hourCycle: "h23", startOfTheWeek: start_week },
@@ -487,21 +564,13 @@ export class LeagueDisplay {
             this.timezone.ariaLabel = "Timezone"
             this.timezone.required = true
             base.create_append(group, "label", ["form-label"], { for: "timezoneSelect" }).innerText = "Timezone"
-            const browser_timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
             for (const tz of Intl.supportedValuesOf('timeZone')) {
                 const option = document.createElement("option") as HTMLOptionElement
                 option.value = tz
                 option.label = tz
-                if (this.league?.timezone && this.league.timezone.length > 0) {
-                    if (tz == this.league.timezone) {
-                        option.selected = true
-                    }
-                }
-                else if (tz == browser_timezone) {
-                    option.selected = true
-                }
                 this.timezone.append(option)
             }
+            this.timezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone
         }
         // ------------------------------------------------------------------------------------------------------ line 6
         {
@@ -515,9 +584,6 @@ export class LeagueDisplay {
             )
             mardown_link.innerText = "Markdown"
             base.create_append(mardown_link, "i", ["bi", "bi-question-circle-fill"])
-            if (this.league?.description && this.league.description.length > 0) {
-                this.description.value = this.league.description
-            }
         }
         // -------------------------------------------------------------------------------------------------- Organizers
         {
@@ -526,9 +592,6 @@ export class LeagueDisplay {
             const row = base.create_append(head, "tr", ["align-middle"])
             base.create_append(row, "th", [], { scope: "col", colspan: "3" }).innerText = "Organizers"
             const body = base.create_append(table, "tbody")
-            for (const organizer of this.organizers.values()) {
-                body.append(this.create_organizer_row(organizer, true))
-            }
             const lookup_row = base.create_append(body, "tr", ["align-middle"])
             const lookup_cell = base.create_append(body, "td", [], { colspan: "3" })
             const lookup = new member.PersonLookup(this.members_map, lookup_cell, "Add Judge", true)
@@ -536,8 +599,8 @@ export class LeagueDisplay {
                 ev.preventDefault()
                 const person = lookup.person
                 lookup.reset()
-                if (this.league.organizers.some(j => j.uid == person.uid)) { return }
-                this.league.organizers.push(person)
+                if (this.organizers.some(j => j.uid == person.uid)) { return }
+                this.organizers.push(person)
                 body.insertBefore(this.create_organizer_row(person, true), lookup_row)
             })
         }
@@ -556,6 +619,30 @@ export class LeagueDisplay {
             }
         }
     }
+    fill_form(league: d.LeagueWithTournaments) {
+        this.name.value = league.name
+        this.format.value = league.format
+        this.ranking.value = league.ranking
+        this.kind.value = league.kind
+        this.online.checked = league.online ?? false
+        this.country.value = league.country ?? ""
+        this.parent.value = league.parent?.uid ?? ""
+        this.start.value = league.start ?? ""
+        this.finish.value = league.finish ?? ""
+        this.timezone.value = league.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+        this.description.value = league.description ?? ""
+        this.organizers = league.organizers
+        for (const organizer of this.organizers.values()) {
+            this.create_organizer_row(organizer, true)
+        }
+        // Disable type change if league has tournaments or child leagues
+        if ((league?.tournaments && league.tournaments.length > 0) ||
+            (league?.leagues && league.leagues.length > 0)) {
+            this.kind.disabled = true
+        } else {
+            this.kind.disabled = false
+        }
+    }
     create_organizer_row(member: d.PublicPerson, edit: boolean) {
         const row = base.create_element("tr")
         base.create_append(row, "th", [], { scope: "row" }).innerText = member.vekn
@@ -567,21 +654,26 @@ export class LeagueDisplay {
             const tip = this.tooltips.add(button, "Remove")
             button.addEventListener("click", (ev) => {
                 this.tooltips.remove(tip)
-                this.league.organizers = [...this.league.organizers.filter(j => j.uid != member.uid)]
+                this.organizers = [...this.organizers.filter(j => j.uid != member.uid)]
                 row.remove()
             })
         }
         return row
     }
-    switch_online() {
+    change_value() {
         // No country for online tournaments
         if (this.online.checked) {
-            this.country.options.selectedIndex = 0
+            this.country.selectedIndex = 0
             this.country.disabled = true
-            this.country.required = false
-            this.country.dispatchEvent(new Event('change', { bubbles: true }))
         } else {
             this.country.disabled = false
+        }
+        // meta leagues cannot have a parent league
+        if (this.kind.value == d.LeagueKind.META) {
+            this.parent.selectedIndex = 0
+            this.parent.disabled = true
+        } else {
+            this.parent.disabled = false
         }
     }
     async submit_league(ev: Event) {
@@ -600,7 +692,17 @@ export class LeagueDisplay {
         var json_data = Object.fromEntries(data.entries()) as unknown as d.League
         // fix fields that need some fixing
         if (json_data.finish.length < 1) { json_data.finish = undefined }
-        json_data.organizers = [...this.organizers.values()]
+        // Handle parent_league
+        const parent_uid = data.get("parent_uid") as string
+        if (parent_uid && parent_uid.length > 0) {
+            const parent = this.available_leagues.find(l => l.uid === parent_uid)
+            if (parent) {
+                json_data.parent = { uid: parent.uid, name: parent.name }
+            }
+        } else {
+            json_data.parent = null
+        }
+        json_data.organizers = [...this.organizers]
         console.log("sending", json_data)
         // checkboxes are "on" if checked, non-listed otherwise - do it by hand
         var url = "/api/leagues/"
@@ -609,6 +711,7 @@ export class LeagueDisplay {
             // we are in edit mode
             url += `${this.league.uid}/`
             method = "put"
+            json_data.uid = this.league.uid
         }
         console.log("url", url)
         const res = await base.do_fetch_with_token(url, this.token, {

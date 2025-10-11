@@ -4,8 +4,8 @@ import * as utils from "./utils"
 
 class TournamentListDisplay {
     root: HTMLDivElement
-    filters_row: HTMLDivElement
-    buttons_row: HTMLDivElement
+    filters_row_1: HTMLDivElement
+    filters_row_2: HTMLDivElement
     pagination_row: HTMLDivElement
     tournaments_table: HTMLTableElement
     token: base.Token
@@ -19,10 +19,9 @@ class TournamentListDisplay {
     personal_filter: HTMLInputElement
     constructor(root: HTMLDivElement) {
         this.root = root
-        this.filters_row = base.create_append(root, "div", ["d-md-flex", "my-2", "align-items-center"])
-        const controls_row = base.create_append(root, "div", ["d-lg-flex", "align-items-center", "justify-content-between"])
-        this.buttons_row = base.create_append(controls_row, "div", ["d-lg-flex", "my-2", "align-items-center"])
-        this.pagination_row = base.create_append(controls_row, "div", ["d-lg-flex", "my-2", "align-items-center", "justify-content-end"])
+        this.filters_row_1 = base.create_append(root, "div", ["d-lg-flex", "my-2", "align-items-center"])
+        this.filters_row_2 = base.create_append(root, "div", ["d-sm-flex", "my-2", "align-items-center", "justify-content-start"])
+        this.pagination_row = base.create_append(root, "div", ["d-lg-flex", "my-2", "align-items-center", "justify-content-end"])
         this.tournaments_table = base.create_append(root, "table", ["table", "table-striped", "table-hover", "table-responsive"])
     }
     async init(token: base.Token | undefined, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
@@ -33,9 +32,10 @@ class TournamentListDisplay {
             countries = await res.json() as d.Country[]
         }
         this.countries = new Map(countries.map(c => [c.country, c]))
-        base.remove_children(this.filters_row)
+        base.remove_children(this.filters_row_1)
+        base.remove_children(this.filters_row_2)
         { // Name
-            const name_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
+            const name_div = base.create_append(this.filters_row_1, "div", ["input-group", "form-floating"])
             this.name_filter = base.create_append(name_div, "input", ["form-control", "me-2", "mb-2"],
                 { type: "text", name: "name", id: "nameFilter", placeholder: " " }
             )
@@ -43,7 +43,7 @@ class TournamentListDisplay {
             this.name_filter.addEventListener("input", base.debounce((ev) => this.filters_changed(), 500))
         }
         { // Country
-            const country_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
+            const country_div = base.create_append(this.filters_row_1, "div", ["input-group", "form-floating"])
             this.country_filter = base.create_append(country_div, "select", ["form-select", "me-2", "mb-2"],
                 { name: "select_country", id: "countryFilter" }
             )
@@ -61,7 +61,7 @@ class TournamentListDisplay {
             this.country_filter.addEventListener("change", (ev) => this.filters_changed())
         }
         { // Year
-            const year_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
+            const year_div = base.create_append(this.filters_row_1, "div", ["input-group", "form-floating"])
             this.year_filter = base.create_append(year_div, "select", ["form-select", "me-2", "mb-2"],
                 { name: "select_year", id: "yearFilter" }
             )
@@ -74,7 +74,7 @@ class TournamentListDisplay {
             this.year_filter.addEventListener("change", (ev) => this.filters_changed())
         }
         { // Status
-            const state_div = base.create_append(this.filters_row, "div", ["input-group", "form-floating"])
+            const state_div = base.create_append(this.filters_row_1, "div", ["input-group", "form-floating"])
             this.state_filter = base.create_append(state_div, "select", ["form-select", "me-2", "mb-2"],
                 { name: "select_state", id: "stateFilter" }
             )
@@ -87,22 +87,29 @@ class TournamentListDisplay {
             this.state_filter.addEventListener("change", (ev) => this.filters_changed())
         }
         { // Online
-            const field_div = base.create_append(this.filters_row, "div", ["form-check", "form-switch", "w-100"])
+            const field_div = base.create_append(this.filters_row_2, "div", ["form-check", "form-switch", "me-2", "mb-2"])
             this.online_filter = base.create_append(field_div, "input", ["form-check-input"],
                 { type: "checkbox", name: "online", id: "switchOnline" }
             )
-            const online_label = base.create_append(field_div, "label", ["form-check-label"], { for: "switchOnline" })
-            online_label.innerText = "Include Online"
+            base.create_append(
+                field_div,
+                "label",
+                ["form-check-label", "text-nowrap"],
+                { for: "switchOnline" }).innerText = "Include Online"
             this.online_filter.checked = true
             this.online_filter.addEventListener("change", (ev) => this.filters_changed())
         }
         { // Personal
-            const field_div = base.create_append(this.filters_row, "div", ["form-check", "form-switch", "w-100"])
+            const field_div = base.create_append(this.filters_row_2, "div", ["form-check", "form-switch", "me-2", "mb-2"])
             this.personal_filter = base.create_append(field_div, "input", ["form-check-input"],
                 { type: "checkbox", name: "personal", id: "switchPersonal" }
             )
-            const personal_label = base.create_append(field_div, "label", ["form-check-label"], { for: "switchPersonal" })
-            personal_label.innerText = "Your Tournaments"
+            base.create_append(
+                field_div,
+                "label",
+                ["form-check-label", "text-nowrap"],
+                { for: "switchPersonal" }
+            ).innerText = "Your Tournaments"
             this.personal_filter.checked = false
             this.personal_filter.addEventListener("change", (ev) => this.filters_changed())
         }
@@ -122,13 +129,10 @@ class TournamentListDisplay {
         for (const tournament of tournaments) {
             const row = base.create_append(body, "tr", ["align-middle"])
             row.addEventListener("click", (ev) => window.location.href = `/tournament/${tournament.uid}/display.html`)
-            var name = tournament.name
-            if (name.length > 50) {
-                name = name.slice(0, 49) + "…"
-            }
-            base.create_append(row, "th", ["smaller-font"], { scope: "row" }).innerText = name
-            const date = base.create_append(row, "td", ["smaller-font"])
-            date.innerText = utils.datetime_string(tournament)
+            const name = utils.constrain_string(tournament.name, 50)
+            base.create_append(row, "th", ["smaller-font", "w-100"], { scope: "row" }).innerText = name
+            const date = base.create_append(row, "td", ["smaller-font", "text-nowrap"])
+            date.innerText = utils.date_string(tournament)
             const location = base.create_append(row, "td", ["smaller-font"])
             if (tournament.online) {
                 location.innerText = "Online"

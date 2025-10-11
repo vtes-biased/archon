@@ -63,9 +63,12 @@ export class TooltipManager {
         const tooltip = bootstrap.Tooltip.getInstance(el)
         if (tooltip) { return tooltip }
         const new_tooltip = new bootstrap.Tooltip(el, { trigger: "hover focus", container: el.parentElement })
-        // careful to properly hide the tooltip on interaction for interactive elements
-        if (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement || el instanceof HTMLSelectElement) {
-            el.addEventListener("click", () => new_tooltip.hide())
+        // hide the tooltip on interaction for interactive elements
+        if (keep && (el instanceof HTMLButtonElement
+            || el instanceof HTMLAnchorElement
+            || el instanceof HTMLSelectElement
+        )) {
+            el.addEventListener("click", () => new_tooltip?.hide())
         }
         if (!keep) {
             this.tooltips.set(new_tooltip, el)
@@ -246,8 +249,7 @@ export abstract class Completion<T> {
         input.setAttribute("data-bs-toggle", "dropdown")
         input.parentElement.classList.add("dropdown")
         this.dropdown_menu = create_append(input.parentElement, "ul", ["dropdown-menu"])
-        create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"], { type: "button" }
-        ).innerText = "Start typing..."
+        this._empty_input_completion()
         this.debounced_show = debounce_async(async (ev) => await this._show())
         this.keydown_handler = (ev) => this._keydown(ev)
         this.input.addEventListener("input", this.debounced_show)
@@ -260,11 +262,11 @@ export abstract class Completion<T> {
         this.dropdown.dispose()
     }
     async _show() {
+        console.log("show completion")
         remove_children(this.dropdown_menu)
         this._reset_focus()
         if (this.input.value.length < 1) {
-            create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
-                { type: "button" }).innerText = "Start typing..."
+            this._empty_input_completion()
             this.dropdown.show()
             return
         }
@@ -291,6 +293,16 @@ export abstract class Completion<T> {
         }
         this.dropdown.show()
     }
+    _empty_input_completion() {
+        create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"], { type: "button" }
+        ).innerText = "Start typing..."
+    }
+    reset() {
+        this.input.value = ""
+        this._reset_focus()
+        remove_children(this.dropdown_menu)
+        this._empty_input_completion()
+    }
     _reset_focus(new_focus: HTMLLIElement | undefined = undefined) {
         if (new_focus === this.focus) { return }
         if (this.focus && this.focus.firstElementChild) {
@@ -305,9 +317,9 @@ export abstract class Completion<T> {
         const button = ev.currentTarget as HTMLButtonElement
         const item = JSON.parse(button.dataset.item) as T
         this.input.value = this.item_label(item)
+        this.input.dispatchEvent(new Event("change", { bubbles: true }))
         this.item_selected(item)
         this._reset_focus()
-        this.input.dispatchEvent(new Event("change", { bubbles: true }))
         this.dropdown.hide()
     }
     _keydown(ev: KeyboardEvent) {

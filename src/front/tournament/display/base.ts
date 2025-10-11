@@ -103,7 +103,7 @@ export class BaseTournamentDisplay {
     }
     display_header(tournament: d.TournamentConfig) {
         // ------------------------------------------------------------------------------------------------------ Badges
-        const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex"])
+        const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex", "align-items-center"])
         const status_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
         switch (tournament.state) {
             case d.TournamentState.REGISTRATION:
@@ -175,14 +175,11 @@ export class BaseTournamentDisplay {
                 ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
             ).innerText = "Decklist required"
         }
-        // ------------------------------------------------------------------------------------------------------ League
         if (tournament.league) {
-            const league_div = base.create_append(this.root, "div", ["alert", "mb-2", "fw-bold", "alert-warning"],
-                { role: "alert" })
-            const link = base.create_append(league_div, "a", ["me-1"])
-            link.innerText = tournament.league.name
-            link.href = `/league/${tournament.league.uid}/display.html`
-            base.create_append(league_div, "span").innerText = "tournament"
+            base.create_append(badges_div, "a",
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info", "text-decoration-none"],
+                { href: `/league/${tournament.league.uid}/display.html` }
+            ).innerText = utils.constrain_string(tournament.league.name, 50)
         }
         // ------------------------------------------------------------------------------------------------- Date & Time
         const datetime_div = base.create_append(this.root, "div", ["d-md-flex", "mb-2"])

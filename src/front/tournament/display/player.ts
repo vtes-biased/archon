@@ -21,14 +21,15 @@ export class PlayerDisplay extends BaseTournamentDisplay {
     score_modal: ScoreModal
     tooltips: base.TooltipManager
     constructor(root: HTMLDivElement) {
-        super(root)
+        const new_root = base.create_append(root, "div")
+        super(new_root)
         this.tooltips = new base.TooltipManager()
         this.confirmation_modal = new base.ConfirmationModal(root)
         this.checkin_modal = new CheckInModal(root)
         this.deck_modal = new DeckModal(root, this.engine)
         this.score_modal = new ScoreModal(root, this.engine)
-        this.alert = base.create_append(this.root, "div", ["alert"], { role: "alert" })
-        this.base = base.create_append(root, "div")
+        this.alert = base.create_prepend(root, "div", ["alert"], { role: "alert" })
+        this.base = new_root
     }
     async init(
         token: base.Token | undefined,
@@ -48,7 +49,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
         }
         this.engine = new Engine(token, (tournament, round_change) => this.display(tournament))
     }
-    async display(tournament: d.TournamentConfig | d.Tournament) {
+    display(tournament: d.TournamentConfig | d.Tournament) {
         this.tooltips.dispose()
         base.remove_children(this.base)
         if (this.user_id) {
@@ -317,8 +318,11 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             return
         }
         // ____________________________________________________________________________________________________ Check-In
+        console.log("meh")
         if (tournament.state == d.TournamentState.WAITING) {
+            console.log("waiting", player.state)
             if (player.state == d.PlayerState.CHECKED_IN) {
+                console.log("setting alert")
                 this.set_alert(`You are checked in and ready to play`, d.AlertLevel.SUCCESS)
                 return
             }
@@ -598,10 +602,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             base.create_append(tr, "td", classes).innerText = utils.score_string(deck.score)
             const name_cell = base.create_append(tr, "th", classes, { scope: "row" })
             const deck_link = base.create_append(name_cell, "a", [], {})
-            var name = deck.deck.name
-            if (name && name.length > 50) {
-                name = name.slice(0, 49) + "…"
-            }
+            const name = utils.constrain_string(deck.deck.name, 50)
             deck_link.innerText = name ?? ""
             deck_link.href = deck.deck.vdb_link ?? ""
         }

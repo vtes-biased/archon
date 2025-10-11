@@ -113,8 +113,9 @@ class TournamentConsole {
             this.tabs.get("Info")?.show()
         }
     }
-    async display(round_change: boolean = false) {
+    display(round_change: boolean = false) {
         this.info.display()
+        this.registration.display()
         if (this.tournament.state == d.TournamentState.REGISTRATION) {
             if (this.tournament.rounds.length < 1) {
                 this.help_message(
@@ -241,7 +242,6 @@ class TournamentConsole {
             this.tabs.delete(`Round ${round.index}`)
             this.nav.lastElementChild?.remove()
         }
-        this.registration.display()
         for (const round of this.rounds) {
             round.display()
         }

@@ -72,12 +72,9 @@ class LeagueListDisplay {
         for (const league of leagues) {
             const row = base.create_append(body, "tr", ["align-middle"])
             row.addEventListener("click", (ev) => { window.location.assign(`/league/${league.uid}/display.html`) })
-            var name = league.name
-            if (name.length > 50) {
-                name = name.slice(0, 49) + "…"
-            }
-            base.create_append(row, "th", ["smaller-font"], { scope: "row" }).innerText = name
-            const date = base.create_append(row, "td", ["smaller-font"])
+            const name = utils.constrain_string(league.name, 50)
+            base.create_append(row, "th", ["smaller-font", "w-100"], { scope: "row" }).innerText = name
+            const date = base.create_append(row, "td", ["smaller-font", "text-nowrap"])
             date.innerText = utils.date_string(league)
             if (league.finish) {
                 date.innerText += ` → ${utils.date_string_finish(league)}`

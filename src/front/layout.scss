@@ -77,7 +77,7 @@ tr.dragged>th {
     background-color: var(--bs-primary-bg-subtle);
 }
 
-@media (max-width: 576px) {
+@media (max-width: 768) {
     .smaller-font {
         font-size: 0.75em !important;
     }

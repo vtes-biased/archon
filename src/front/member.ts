@@ -348,9 +348,8 @@ export class PersonLookup {
     reset() {
         this.person = undefined
         this.input_vekn_id.value = ""
-        this.input_name.value = ""
+        this.name_completion.reset()
         this.button.disabled = true
-        this.name_completion._reset_focus()
     }
     async select_member_by_vekn() {
         this.person = to_public_person(await this.membersDB.get_by_vekn(this.input_vekn_id.value))

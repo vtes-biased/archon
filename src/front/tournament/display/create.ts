@@ -15,7 +15,7 @@ export class CreateTournament extends BaseTournamentDisplay {
     countries: Map<string, d.Country>
     members_map: member.MembersDB
     user: d.Person
-    leagues: d.League[]
+    leagues: d.LeagueMinimal[]
     tooltips: base.TooltipManager
     // fields
     declare form: HTMLFormElement
@@ -29,6 +29,7 @@ export class CreateTournament extends BaseTournamentDisplay {
     declare decklist_required: HTMLInputElement
     declare decklist_required_label: HTMLLabelElement
     declare league: HTMLSelectElement
+    declare league_label: HTMLLabelElement
     declare online: HTMLInputElement
     declare venue: HTMLInputElement
     declare venue_completion: VenueCompletion
@@ -66,10 +67,14 @@ export class CreateTournament extends BaseTournamentDisplay {
                 this.judges = [this.user]
             }
         }
-        { // fetch leagues
-            const res = await base.do_fetch("/api/leagues/full", {})
+        { // fetch regular leagues only (tournaments can't be in meta-leagues)
+            const res = await base.do_fetch_with_token(
+                "/api/leagues/full?league_type=League",
+                this.token,
+                {}
+            )
             if (res) {
-                this.leagues = await res.json() as d.League[]
+                this.leagues = await res.json() as d.LeagueMinimal[]
             } else {
                 this.leagues = []
             }
@@ -100,6 +105,7 @@ export class CreateTournament extends BaseTournamentDisplay {
         this.display_form()
         this.form.addEventListener("submit", (ev) => this.create_tournament(ev))
         this.cancel_button.addEventListener("click", (ev) => history.back())
+        this.update_leagues_options()
     }
     display_form() {
         this.form = base.create_append(this.root, "form", ["row", "g-3", "mt-3", "needs-validation"])
@@ -133,7 +139,7 @@ export class CreateTournament extends BaseTournamentDisplay {
                 option.value = value
             }
             this.format.value = d.TournamentFormat.Standard
-            this.format.addEventListener("change", (ev) => { this.change_value(ev); this.update_leagues_options() })
+            this.format.addEventListener("change", (ev) => { this.change_value(); this.update_leagues_options() })
             base.create_append(group, "label", ["form-label"], { for: "format" }).innerText = "Format"
         }
         { // rank
@@ -146,7 +152,7 @@ export class CreateTournament extends BaseTournamentDisplay {
                 option.value = value
             }
             this.rank.value = d.TournamentRank.BASIC
-            this.rank.addEventListener("change", (ev) => this.change_value(ev))
+            this.rank.addEventListener("change", (ev) => this.change_value())
             base.create_append(group, "label", ["form-label"], { for: "rank" }).innerText = "Rank"
         }
         // ------------------------------------------------------------------------------------------------------ line 2
@@ -171,7 +177,7 @@ export class CreateTournament extends BaseTournamentDisplay {
             )
             this.multideck_label.innerText = "Multideck"
             this.multideck.checked = false
-            this.multideck.addEventListener("change", (ev) => this.change_value(ev))
+            this.multideck.addEventListener("change", (ev) => this.change_value())
         }
         { // decklist
             const div = base.create_append(this.form, "div", ["col-md-2", "d-flex", "align-items-center"])
@@ -191,10 +197,10 @@ export class CreateTournament extends BaseTournamentDisplay {
             this.league = base.create_append(group, "select", ["form-select", "z-1"],
                 { name: "league", id: "selectLeague" }
             )
-            const option = base.create_append(this.league, "option")
-            option.value = ""
-            option.label = ""
-            base.create_append(group, "label", ["form-label"], { for: "format" }).innerText = "League"
+            base.create_append(this.league, "option", [], { value: "", label: "" })
+            this.league.disabled = true
+            this.league_label = base.create_append(group, "label", ["form-label"], { for: "format" })
+            this.league_label.innerText = "League (Start date required)"
         }
         // filler
         base.create_append(this.form, "div", ["w-100"])
@@ -206,7 +212,7 @@ export class CreateTournament extends BaseTournamentDisplay {
                 { type: "checkbox", name: "online", id: "switchOnline" }
             )
             base.create_append(field_div, "label", ["form-check-label"], { for: "switchOnline" }).innerText = "Online"
-            this.online.addEventListener("change", (ev) => { this.change_value(ev); this.update_leagues_options() })
+            this.online.addEventListener("change", (ev) => { this.change_value(); this.update_leagues_options() })
             this.online.checked = false
         }
         { // country
@@ -222,7 +228,7 @@ export class CreateTournament extends BaseTournamentDisplay {
             }
             this.country.required = true
             base.create_append(div, "div", ["invalid-feedback"]).innerText = "If not online, a country is required"
-            this.country.addEventListener("change", (ev) => this.change_value(ev))
+            this.country.addEventListener("change", (ev) => { this.change_value(); this.update_leagues_options() })
         }
         { // venue
             const div = base.create_append(this.form, "div", ["col-md-6"])
@@ -232,7 +238,7 @@ export class CreateTournament extends BaseTournamentDisplay {
             this.venue.ariaLabel = "Venue"
             this.venue.ariaAutoComplete = "list"
             this.venue.disabled = true
-            this.venue.addEventListener("change", (ev) => this.change_value(ev))
+            this.venue.addEventListener("change", (ev) => this.change_value())
         }
         // ------------------------------------------------------------------------------------------------------ line 4
         { // venue_url
@@ -267,7 +273,7 @@ export class CreateTournament extends BaseTournamentDisplay {
             this.map_url.disabled = true
         }
         // setup venue completion
-        this.venue_completion = new VenueCompletion(this.venue, this.country, this.address, this.venue_url, this.map_url)
+        this.venue_completion = new VenueCompletion(this.venue, this.token, this.country, this.address, this.venue_url, this.map_url)
         // ------------------------------------------------------------------------------------------------------ line 5
         var start_week: number = 1  // Monday
         if (["en-US", "pt-BR"].includes(
@@ -306,6 +312,7 @@ export class CreateTournament extends BaseTournamentDisplay {
                 stepping: 15,
                 promptTimeOnDateChange: true
             })
+            this.start.addEventListener("change", (ev) => { this.change_value(); this.update_leagues_options() })
             base.create_append(group, "div", ["invalid-feedback"]).innerText = "A start date is required"
         }
         { // finish
@@ -403,33 +410,27 @@ export class CreateTournament extends BaseTournamentDisplay {
             )
             this.cancel_button.innerText = "Cancel"
         }
-        this.update_leagues_options()
     }
     filter_league(league: d.League) {
         if (!this.start.value || this.start.value.length < 1) {
-            return false
-        }
-        if (this.country.value === "" && !this.online.checked) {
+            console.log("no start date: no league")
             return false
         }
         if (this.format.selectedOptions[0].value != "" &&
             this.format.selectedOptions[0].value != league.format) {
+            console.log(`format mismatch: excluding ${league.name}`)
             return false
         }
-        // let's no filter by country for now... it's too much trouble
-        // some leagues are open to other countries, some leagues are continental
-        // we'll probably need a proper IndexDB for this...
-        // if (this.country.value != "" &&
-        //     this.country.value != league.country) {
-        //     return false
-        // }
         if (this.online.checked && !league.online) {
+            console.log(`online mismatch: excluding ${league.name}`)
             return false
         }
         if (!member.can_admin_league(this.user, league)) {
+            console.log(`not admin: excluding ${league.name}`)
             return false
         }
         if (!utils.overlap(league, this.start.value, this.finish.value, this.timezone.value)) {
+            console.log(`no time overlap: excluding ${league.name}`)
             return false
         }
         return true
@@ -499,7 +500,7 @@ export class CreateTournament extends BaseTournamentDisplay {
             window.location.href = response.url
         }
     }
-    change_value(ev: Event) {
+    change_value() {
         // Ranks are only available for Standard constructed
         if (this.format.value == d.TournamentFormat.Standard) {
             this.rank.disabled = false
@@ -527,10 +528,12 @@ export class CreateTournament extends BaseTournamentDisplay {
         }
         // No physical venue for online tournaments, pre-fill venue name and URL with official discord
         if (this.online.checked) {
-            this.venue.value = "VTES Discord"
-            this.venue_url.value = (
-                "https://discord.com/servers/vampire-the-eternal-struggle-official-887471681277399091"
-            )
+            if (this.venue.value.length < 1) {
+                this.venue.value = "VTES Discord"
+                this.venue_url.value = (
+                    "https://discord.com/servers/vampire-the-eternal-struggle-official-887471681277399091"
+                )
+            }
             this.country.options.selectedIndex = 0
             this.country.disabled = true
             this.country.required = false
@@ -555,6 +558,14 @@ export class CreateTournament extends BaseTournamentDisplay {
             }
             this.address.disabled = false
             this.map_url.disabled = false
+        }
+        if (!this.start || this.start.value.length < 1) {
+            this.league.selectedIndex = 0
+            this.league.disabled = true
+            this.league_label.innerText = "League (Start date required)"
+        } else {
+            this.league.disabled = false
+            this.league_label.innerText = "League"
         }
         // Venue is disabled if country is not selected
         // do not erase the value in case someone just changes the country to test

@@ -67,6 +67,11 @@ export enum LeagueRanking {
     Score = "Score",
 }
 
+export enum LeagueKind {
+    LEAGUE = "League",
+    META = "Meta-League",
+}
+
 export enum MemberRole {
     ADMIN = "Admin",
     PRINCE = "Prince",
@@ -253,17 +258,22 @@ export interface LeagueRef {
     uid: string,
 }
 
-export interface League extends LeagueRef {
+export interface LeagueMinimal extends LeagueRef {
     start: string,
     finish?: string | null,
     timezone: string,
-    description?: string,
     online?: boolean,
     country?: string | null,
     country_flag?: string | null,
     format: TournamentFormat,
     ranking: LeagueRanking,
+    kind: LeagueKind,
     organizers?: PublicPerson[],
+    parent?: LeagueRef | null,
+}
+
+export interface League extends LeagueMinimal {
+    description?: string,
 }
 
 export interface TournamentMinimal extends TournamentRef {
@@ -328,6 +338,7 @@ export interface VenueCompletion {
 }
 
 export interface LeagueWithTournaments extends League {
+    leagues?: LeagueMinimal[]
     tournaments?: TournamentInfo[]
     rankings?: [number, LeaguePlayer][]
 }

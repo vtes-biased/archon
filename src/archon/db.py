@@ -261,6 +261,16 @@ async def init():
                 "ON leagues "
                 "USING BTREE ((finish), (uid::text))"
             )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_league_parent "
+                "ON leagues "
+                "USING BTREE((data->'parent'->>'uid'::text))"
+            )
+            await cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_league_type "
+                "ON leagues "
+                "USING BTREE((data->>'kind'::text))"
+            )
             # ################################################################## clients
             await cursor.execute(
                 "CREATE TABLE IF NOT EXISTS clients("
@@ -481,7 +491,7 @@ class Operator:
                 args.extend(
                     [
                         filter.member_uid,
-                        psycopg.types.json.Json([{"uid": filter.member_uid}]),
+                        psycopg.types.json.Jsonb([{"uid": filter.member_uid}]),
                     ]
                 )
             if filter.year:
@@ -1164,7 +1174,7 @@ class Operator:
                             else:
                                 category = models.RankingCategoy.LIMITED_ONSITE
                         ranking[category].append(rating.rating_points)
-                    data = psycopg.types.json.Json(
+                    data = psycopg.types.json.Jsonb(
                         {
                             "ratings": {
                                 k: dataclasses.asdict(v) for k, v in ratings.items()
@@ -1213,7 +1223,7 @@ class Operator:
                 data["city_geoname_id"] = geocity.geoname_id
             else:
                 data.pop("city", None)
-        return psycopg.types.json.Json(data)
+        return psycopg.types.json.Jsonb(data)
 
     def _instanciate(self, data: dict, cls: typing.Type[T]) -> T:
         if "country_iso" in data and data["country_iso"] in geo.COUNTRIES_BY_ISO:
@@ -1230,7 +1240,7 @@ class Operator:
         return cls(**data)
 
     async def create_league(self, league: models.League) -> str:
-        """Create a league, returns its uid"""
+        """Create a league, returns its uid (validation done at API layer)"""
         uid = uuid.uuid4()
         league.uid = str(uid)
         async with self.conn.cursor() as cursor:
@@ -1255,7 +1265,10 @@ class Operator:
     async def get_league_with_tournaments(
         self, uid: str
     ) -> models.LeagueWithTournaments:
-        """Get a league, with tournaments and ranking data (no lock)"""
+        """Get a league, with tournaments, sub-leagues and ranking data
+
+        For META leagues, this includes tournaments from child leagues.
+        """
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "SELECT data FROM leagues WHERE uid=%s", [uuid.UUID(uid)]
@@ -1266,12 +1279,26 @@ class Operator:
             league: models.LeagueWithTournaments = self._instanciate(
                 data[0], models.LeagueWithTournaments
             )
-            # get tournaments, latest first
+            # get child leagues if this is a meta-league
+            res = await cursor.execute(
+                "SELECT data FROM leagues "
+                "WHERE (data->'parent'->>'uid')::text=%s "
+                "ORDER BY start DESC",
+                [uid],
+            )
+            child_leagues = await res.fetchall()
+            child_league_uids = [uid]  # include parent league itself
+            for row in child_leagues:
+                child_league = self._instanciate(row[0], models.LeagueMinimal)
+                league.leagues.append(child_league)
+                child_league_uids.append(child_league.uid)
+
+            # get tournaments from this league and all child leagues, latest first
             res = await cursor.execute(
                 "SELECT data FROM tournaments "
-                "WHERE (data->'league'->>'uid')::text=%s "
+                "WHERE (data->'league'->>'uid')::text = ANY(%s) "
                 "ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC",
-                [uid],
+                [child_league_uids],
             )
             tournaments = await res.fetchall()
             for row in tournaments:
@@ -1284,6 +1311,10 @@ class Operator:
                 if tournament.state != models.TournamentState.FINISHED:
                     continue
                 ratings = engine.ratings(tournament)
+                finals_score = {
+                    seat.player_uid: seat.result
+                    for seat in tournament.rounds[-1].tables[0].seating
+                }
                 for player in tournament.players.values():
                     if player.uid not in players:
                         players[player.uid] = models.LeaguePlayer(
@@ -1296,6 +1327,11 @@ class Operator:
                         )
                     players[player.uid].tournaments.append(tournament.uid)
                     players[player.uid].score += player.result
+                    # leagues subtelty: do not count finals score
+                    # if we're opting for score, it's to avoid favoring finalists
+                    # and instead encourage participation more than with RTPs
+                    if player.uid in finals_score:
+                        players[player.uid].score -= finals_score[player.uid]
                     players[player.uid].points = 0
                     # some players are not in ratings (registerd but did not play)
                     if player.uid in ratings:
@@ -1327,7 +1363,7 @@ class Operator:
             return league
 
     async def update_league(self, league: models.League) -> str:
-        """Update a league, returns its uid"""
+        """Update a league, returns its uid (validation done at API layer)"""
         uid = uuid.UUID(league.uid)
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
@@ -1354,7 +1390,7 @@ class Operator:
 
     async def get_leagues(
         self, filter: models.LeagueFilter | None
-    ) -> list[models.League]:
+    ) -> list[models.LeagueMinimal]:
         """Get paginated leagues, filtered and ordered by start date, 100 per page"""
         Q = "SELECT data FROM leagues "
         pieces, args = [], []
@@ -1384,7 +1420,7 @@ class Operator:
         )
         async with self.conn.cursor() as cursor:
             ret = [
-                self._instanciate(row[0], models.League)
+                self._instanciate(row[0], models.LeagueMinimal)
                 async for row in cursor.stream(Q, args)
             ]
             ret_filter = models.LeagueFilter()
@@ -1396,17 +1432,33 @@ class Operator:
                 ret_filter.uid = ret[-1].uid
             return (ret_filter, ret)
 
-    async def get_minimal_leagues(self) -> list[models.LeagueMinimal]:
-        """Get minimal leagues, filtered and ordered by start date, 100 per page"""
-        Q = (
-            "SELECT data FROM leagues "
-            "ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC"
-        )
-        async with self.conn.cursor() as cursor:
-            return [
-                self._instanciate(row[0], models.LeagueMinimal)
-                async for row in cursor.stream(Q)
-            ]
+    async def get_minimal_leagues(
+        self, kind: models.LeagueKind | None = None
+    ) -> list[models.LeagueMinimal]:
+        """Get minimal leagues, optionally filtered by type, ordered by start date"""
+        if kind:
+            # Filter by specific league type
+            Q = (
+                "SELECT data FROM leagues "
+                "WHERE (data->>'kind')::text = %s "
+                "ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC"
+            )
+            async with self.conn.cursor() as cursor:
+                return [
+                    self._instanciate(row[0], models.LeagueMinimal)
+                    async for row in cursor.stream(Q, [kind.value])
+                ]
+        else:
+            # Return all leagues
+            Q = (
+                "SELECT data FROM leagues "
+                "ORDER BY timetz(data ->> 'start', data ->> 'timezone') DESC, uid DESC"
+            )
+            async with self.conn.cursor() as cursor:
+                return [
+                    self._instanciate(row[0], models.LeagueMinimal)
+                    async for row in cursor.stream(Q)
+                ]
 
 
 @contextlib.asynccontextmanager

@@ -199,3 +199,17 @@ def validation_exception_handler(
     """
     LOG.warning("Validation error: %s", exc.errors())
     return fastapi.responses.JSONResponse({"detail": exc.errors()}, 422)
+
+# Runtime errors
+@app.exception_handler(RuntimeError)
+def default_exception_handler(
+    request: fastapi.Request, exc: RuntimeError
+) -> fastapi.responses.JSONResponse:
+    """
+    Returns a well-serialized JSON error message
+    """
+    if __debug__:
+        LOG.exception("runtime error", exc_info=exc)
+    else:
+        LOG.warning(exc.args[0])
+    return fastapi.responses.JSONResponse({"detail": str(exc)}, 500)

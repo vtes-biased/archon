@@ -17,7 +17,7 @@ router = fastapi.APIRouter(
 async def api_league_get_all(
     filter: typing.Annotated[models.LeagueFilter, fastapi.Query()],
     op: dependencies.DbOperator,
-) -> tuple[models.TournamentFilter, list[models.League]]:
+) -> tuple[models.TournamentFilter, list[models.LeagueMinimal]]:
     if filter.uid or filter.country or not filter.online:
         filter = filter
     else:
@@ -28,8 +28,11 @@ async def api_league_get_all(
 @router.get("/full", summary="Get all leagues (full, minimal information)")
 async def api_league_get_all_minimal(
     op: dependencies.DbOperator,
-)-> list[models.LeagueMinimal]:
-    return await op.get_minimal_leagues()
+    _: dependencies.MemberUidFromToken,
+    kind: models.LeagueKind | None = None,
+) -> list[models.LeagueMinimal]:
+    """Get all leagues, optionally filtered by type."""
+    return await op.get_minimal_leagues(kind=kind)
 
 
 @router.post("/", summary="Create league")
@@ -41,8 +44,33 @@ async def api_league_post(
 ) -> dependencies.ItemUrl:
     dependencies.check_organizer(member)
     data.organizers = await op.get_members(
-        list(set([j.uid for j in data.organizers]) | {member.uid})
+        list({j.uid for j in data.organizers} | {member.uid})
     )
+
+    # Validate parent_league if set
+    if data.parent:
+        # League with parent must be a regular league
+        if data.kind != models.LeagueKind.LEAGUE:
+            raise fastapi.HTTPException(
+                status_code=400,
+                detail="Only regular leagues can have a parent league",
+            )
+        if data.parent.uid == data.uid:
+            raise fastapi.HTTPException(
+                status_code=400, detail="Cannot set league as its own parent"
+            )
+        # Check parent exists and is a meta-league
+        parent = await op.get_league_with_tournaments(data.parent.uid)
+        if parent.kind != models.LeagueKind.META:
+            raise fastapi.HTTPException(
+                status_code=400, detail="Parent league must be a meta-league"
+            )
+        if parent.parent:
+            raise fastapi.HTTPException(
+                status_code=400,
+                detail="Cannot create 3-level hierarchy: parent league already has a parent",
+            )
+
     LOG.info("Creating new league: %s", data)
     uid = await op.create_league(data)
     return dependencies.ItemUrl(
@@ -67,9 +95,33 @@ async def api_league_put(
     data: typing.Annotated[models.League, fastapi.Body()],
     op: dependencies.DbOperator,
 ) -> dependencies.ItemUrl:
-    league = await op.get_league(uid)
-    dependencies.check_can_admin_league(member, league)
-    data.uid = uid
+    # Get full league data for validation
+    current_league = await op.get_league_with_tournaments(uid)
+    dependencies.check_can_admin_league(member, current_league)
+    match data.kind:
+        case models.LeagueKind.LEAGUE:
+            if current_league.leagues:
+                raise fastapi.HTTPException(
+                    status_code=400,
+                    detail="Normal leagues cannot have has child leagues",
+                )
+            if data.parent:
+                if data.parent.uid == data.uid:
+                    raise fastapi.HTTPException(
+                        status_code=400, detail="Cannot set league as its own parent"
+                    )
+                parent = await op.get_league(data.parent.uid)
+                if parent.kind != models.LeagueKind.META:
+                    raise fastapi.HTTPException(
+                        status_code=400, detail="Parent league must be a meta-league"
+                    )
+        case models.LeagueKind.META:
+            if data.parent:
+                raise fastapi.HTTPException(
+                    status_code=400,
+                    detail="Meta-leagues cannot have a parent league",
+                )
+
     uid = await op.update_league(data)
     return dependencies.ItemUrl(
         uid=uid, url=str(request.url_for("league_display", uid=uid))

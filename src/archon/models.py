@@ -76,6 +76,11 @@ class LeagueRanking(enum.StrEnum):
     Score = "Score"
 
 
+class LeagueKind(enum.StrEnum):
+    LEAGUE = "League"
+    META = "Meta-League"
+
+
 class MemberRole(enum.StrEnum):
     ADMIN = "Admin"
     PRINCE = "Prince"
@@ -103,7 +108,7 @@ class PublicPerson:
 class TournamentRef:
     name: str
     uid: str = pydantic.Field(default_factory=lambda: str(uuid.uuid4()))
-    format: TournamentFormat
+    format: TournamentFormat = TournamentFormat.Standard
     online: bool = False
     start: datetime.datetime
     timezone: str = "UTC"
@@ -302,11 +307,13 @@ class LeagueMinimal(LeagueRef):
     timezone: str
     format: TournamentFormat
     ranking: LeagueRanking
+    kind: LeagueKind = LeagueKind.LEAGUE
     finish: datetime.datetime | None = None
     online: bool = False
     country: str | None = None
     country_flag: str | None = None
     organizers: list[PublicPerson] = pydantic.Field(default_factory=list)
+    parent: LeagueRef | None = None
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -391,6 +398,7 @@ class VenueCompletion:
 
 @dataclasses.dataclass
 class LeagueWithTournaments(League):
+    leagues: list[LeagueMinimal] = pydantic.Field(default_factory=list)
     tournaments: list[TournamentInfo] = pydantic.Field(default_factory=list)
     rankings: list[tuple[int, LeaguePlayer]] = pydantic.Field(default_factory=list)
 

@@ -5,7 +5,7 @@ import * as uuid from "uuid"
 import * as seating from "../seating"
 
 export interface DisplayCallback {
-    (tournament: d.Tournament, round_change: boolean): Promise<void>
+    (tournament: d.Tournament, round_change: boolean): void
 }
 
 export class Engine {

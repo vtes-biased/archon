@@ -46,10 +46,14 @@ export class InfoTab extends CreateTournament {
                 return
             }
         }
-        { // fetch leagues
-            const res = await base.do_fetch("/api/leagues/full", {})
+        { // fetch regular leagues only (tournaments can't be in meta-leagues)
+            const res = await base.do_fetch_with_token(
+                "/api/leagues/full?league_type=League",
+                this.token,
+                {}
+            )
             if (res) {
-                this.leagues = await res.json() as d.League[]
+                this.leagues = await res.json() as d.LeagueMinimal[]
             } else {
                 this.leagues = []
             }
@@ -79,6 +83,7 @@ export class InfoTab extends CreateTournament {
         this.fill_form(this.engine.tournament)
         this.form.addEventListener("submit", (ev) => this.update_tournament(ev))
         this.cancel_button.addEventListener("click", (ev) => this.display())
+        this.update_leagues_options()
     }
     fill_form(tournament: d.Tournament) {
         if (tournament?.name && tournament.name.length > 0) {
@@ -105,7 +110,6 @@ export class InfoTab extends CreateTournament {
             this.decklist_required.checked = false
             this.decklist_required.disabled = true
         }
-        this.league.value = tournament.league?.uid || ""
         this.online.checked = tournament.online ?? false
         this.country.value = tournament.country || ""
         if (tournament?.online) {
@@ -137,6 +141,9 @@ export class InfoTab extends CreateTournament {
         this.timezone.value = tournament.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         this.description.value = tournament.description || ""
         this.judges = tournament.judges ?? []
+        this.update_leagues_options()
+        this.league.value = tournament.league?.uid || ""
+        this.change_value()
     }
     display_buttons() {
         const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
@@ -164,7 +171,7 @@ export class InfoTab extends CreateTournament {
         {
             // TODO: Remove when removing vekn.net
             const temp_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2", "align-items-center"])
-            if (!this.engine.tournament?.extra["vekn_id"]) {
+            if (!this.engine.tournament.extra["vekn_id"]) {
                 const vekn_id = base.create_append(temp_div, "input", ["form-control", "me-2", "mb-2", "flex-shrink"], {
                     id: "tournamentVeknId",
                     type: "text",
