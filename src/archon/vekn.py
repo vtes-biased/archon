@@ -5,6 +5,7 @@ import datetime
 import dotenv
 import enum
 import logging
+import orjson
 import os
 import pydantic
 import typing
@@ -24,8 +25,70 @@ SITE_URL_BASE = os.getenv("SITE_URL_BASE", "http://127.0.0.1:8000")
 LOG = logging.getLogger()
 
 
-class NoVEKN(RuntimeError):
+class VEKNError(RuntimeError):
     """Raised when VEKN is not configured or the login/password are not set."""
+
+
+# source: https://bitbucket.org/vekn/vekn-api/src/master/language/en-GB/en-GB.plg_api_vekn.ini
+VEKN_MESSAGES = {
+    "PLG_API_VEKN_BAD_REQUEST_MESSAGE": "Bad request",
+    "PLG_API_VEKN_REQUIRED_DATA_EMPTY_MESSAGE": "Required data is empty",
+    "PLG_API_VEKN_REQUIRED_FILTER_MESSAGE": "Filter cannot be empty",
+    "PLG_API_VEKN_ACCOUNT_CREATED_SUCCESSFULLY_MESSAGE": "Congratulations! Your account has been created successfully",
+    "PLG_API_VEKN_PROFILE_CREATED_SUCCESSFULLY_MESSAGE": "profile created successfully",
+    "PLG_API_VEKN_UNABLE_CREATE_PROFILE_MESSAGE": "Unable to create profile",
+    "PLG_API_VEKN_EASYSOCIAL_NOT_INSTALL_MESSAGE": "Easysocial is not installed properly",
+    "PLG_API_VEKN_GET_METHOD_NOT_ALLOWED_MESSAGE": "Get method not allowed, Use post method",
+    "PLG_API_VEKN_USER_NOT_FOUND_MESSAGE": "User not found",
+    "PLG_API_VEKN_IN_DELETE_FUNCTION_MESSAGE": "in delete function",
+    "PLG_API_VEKN_LOGIN_INVALID_USER_MESSAGE": "Invalid user",
+    "PLG_API_VEKN_LOGIN_INVALID_PASSWORD_MESSAGE": "Invalid password",
+    "PLG_API_VEKN_REGISTRY_NOT_AUTHORIZED_MESSAGE": "Not authorized",
+    "PLG_API_VEKN_REGISTRY_INVALID_VEKNID_MESSAGE": "Invalid VEKN Id",
+    "PLG_API_VEKN_ARCHON_INVALID_PARAMETER_MESSAGE": "Invalid parameter",
+    "PLG_API_VEKN_ARCHON_EVENT_NOT_FOUND_MESSAGE": "Event not found",
+    "PLG_API_VEKN_ARCHON_WRONG_USER_MESSAGE": "The connected user does not match the event creator.",
+    "PLG_API_VEKN_ARCHON_ARCHON_ALREADY_SUBMITTED_MESSAGE": "An archon has already been submitted for this event.",
+    "PLG_API_VEKN_ARCHON_MISSING_VEKN_NUMBER_MESSAGE": "Some players do not have a VEKN number, or there are some duplicates.",
+    "PLG_API_VEKN_ARCHON_ARCHON_PARSE_ERROR_MESSAGE": "An error occurred while parsing the archon data",
+    "PLG_API_VEKN_ARCHON_ROUNDS_MISMATCH_MESSAGE": "The provided number of rounds do not match the expected number of rounds from the calendar.",
+    "PLG_API_VEKN_ARCHON_TABLE_ROUNDS_MISMATCH_MESSAGE": "The number of rounds covered by the tables do not match the expected number of rounds.",
+    "PLG_API_VEKN_ARCHON_TABLE_VEKN_NUMBERS_MISMATCH_MESSAGE": "The VEKN numbers of the players in the tables do not match the VEKN numbers of the ranking.",
+    "PLG_API_VEKN_ARCHON_TABLE_DUPLICATE_VEKN_ID_ON_ROUND": "Duplicate VEKN id on a table",
+    "PLG_API_VEKN_ARCHON_TABLE_MORE_THAN_ONE_FINAL_TABLE": "More than one final table was found.",
+    "PLG_API_VEKN_START_DATE_BEFORE_END_DATE_MESSAGE": "Start date must be before end date.",
+    "PLG_API_VEKN_EVENT_NAME_LENGTH_MESSAGE": "Event name must be between 3 and 120 characters.",
+    "PLG_API_VEKN_INVALID_ROUNDS_MESSAGE": "Invalid numbers of rounds, must be between 2, 3 or 4.",
+    "PLG_API_VEKN_INVALID_EVENT_TYPE_MESSAGE": "Invalid event type.",
+    "PLG_API_VEKN_NOT_A_PRINCE_MESSAGE": "You are not a prince.",
+    "PLG_API_VEKN_INVALID_VENUE_MESSAGE": "Invalid venue.",
+    "PLG_API_TOO_MANY_EVENTS_MESSAGE": "You have created too many events over the past month.",
+    "PLG_API_VEKN_EVENT_ALREADY_EXISTS_MESSAGE": "An event with the same name already exists for this date.",
+    "PLG_API_VEKN_ORGANIZER_VEKN_ID_INVALID_MESSAGE": "Invalid VEKN ID: organizer",
+    "PLG_API_VEKN_UNSUPPORTED_METHOD": "Unsupported method,please use post method",
+    "PLG_API_VEKN_UNSUPPORTED_METHOD_POST": "Unsupported method,please use get method",
+}
+
+
+async def get_vekn_data(response: aiohttp.ClientResponse) -> dict[str, str]:
+    try:
+        response.raise_for_status()
+        result = await response.json(loads=orjson.loads)
+        LOG.debug("VEKN data: %s", result)
+        result = result["data"]
+        if result["code"] not in [200, "200"]:
+            message = result.get("message", "Unknown error")
+            message = VEKN_MESSAGES.get(message, message)
+            raise VEKNError(f"VEKN server internal error: {message}")
+        return result
+    except aiohttp.ClientConnectionError as err:
+        raise VEKNError("VEKN server unavailable") from err
+    except aiohttp.ContentTypeError as err:
+        raise VEKNError("VEKN data not JSON") from err
+    except orjson.JSONDecodeError as err:
+        raise VEKNError("VEKN data is invalid JSON") from err
+    except KeyError as err:
+        raise VEKNError(f"VEKN data format invalid: {result}") from err
 
 
 async def get_token(session: aiohttp.ClientSession) -> str:
@@ -34,12 +97,8 @@ async def get_token(session: aiohttp.ClientSession) -> str:
         "https://www.vekn.net/api/vekn/login",
         data={"username": VEKN_LOGIN, "password": VEKN_PASSWORD},
     ) as response:
-        try:
-            result = await response.json()
-            return result["data"]["auth"]
-        except KeyError:
-            LOG.exception("VEKN authentication failure")
-            raise NoVEKN()
+        result = await get_vekn_data(response)
+        return result["auth"]
 
 
 ADMINS = {
@@ -504,9 +563,8 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
                 f"https://www.vekn.net/api/vekn/registry?filter={prefix}",
                 headers={"Authorization": f"Bearer {token}"},
             ) as response:
-                response.raise_for_status()
-                result = await response.json()
-                players = result["data"]["players"]
+                result = await get_vekn_data(response)
+                players = result["players"]
                 LOG.debug("prefix: %s — %s", prefix, len(players))
                 if players:
                     yield [_member_from_vekn_data(data) for data in players]
@@ -585,9 +643,8 @@ async def get_event(
         f"https://www.vekn.net/api/vekn/event/{num}",
         headers={"Authorization": f"Bearer {token}"},
     ) as response:
-        response.raise_for_status()
-        result = await response.json()
-        data = result["data"]["events"]
+        result = await get_vekn_data(response)
+        data = result["events"]
     if not data:
         LOG.info("No data for event #%s: %s", num, result)
         return
@@ -623,9 +680,8 @@ async def get_venue(
         f"https://www.vekn.net/api/vekn/venue/{venue_id}",
         headers={"Authorization": f"Bearer {token}"},
     ) as response:
-        response.raise_for_status()
-        result = await response.json()
-    data = result["data"]["venues"]
+        result = await get_vekn_data(response)
+        data = result["venues"]
     if not data:
         LOG.warning("No data for venue #%s: %s", venue_id, result)
         return {}
@@ -777,11 +833,10 @@ async def get_rankings() -> dict[str, dict[models.RankingCategoy, int]]:
                 "https://www.vekn.net/api/vekn/ranking",
                 headers={"Authorization": f"Bearer {token}"},
             ) as response:
-                response.raise_for_status()
-                result = await response.json()
-                ranking = result["data"]["players"][:1000]
+                result = await get_vekn_data(response)
+                ranking = result["players"][:1000]
                 del result
-    except aiohttp.ClientError:
+    except (VEKNError, KeyError):
         LOG.exception("Ranking unavailable")
         ranking = []
     return {
@@ -908,80 +963,60 @@ async def upload_tournament(
         finish = tournament.finish.astimezone(tz=datetime.timezone.utc)
     else:
         finish = start + datetime.timedelta(minutes=1)
-    try:
-        async with aiohttp.ClientSession() as session:
-            token = await get_token(session)
-            data = aiohttp.FormData(
-                {
-                    "name": tournament.name[:120],
-                    "type": type,
-                    "venueid": 0 if tournament.online else 3800,
-                    "online": int(tournament.online),
-                    "startdate": start.date().isoformat(),
-                    "starttime": f"{start:%H:%M}",
-                    "enddate": finish.date().isoformat(),
-                    "endtime": f"{finish:%H:%M}",
-                    "timelimit": "2h",
-                    "rounds": rounds,
-                    "final": True,
-                    "multideck": tournament.multideck,
-                    "proxies": tournament.proxies,
-                    "website": urllib.parse.urljoin(
-                        SITE_URL_BASE, f"/tournament/{tournament.uid}/display.html"
-                    ),
-                    "description": tournament.description[:1000],
-                }
-            )
-            event_id = None
-            # http POST https://www.vekn.net/api/vekn/event
-            # "Authorization: Bearer <TOKEN>"
-            # "Vekn-Id: <USER_VEKN>"
-            # -f name=<NAME> type=<TYPE> <...>
-            async with session.post(
-                "https://www.vekn.net/api/vekn/event",
-                headers={"Authorization": f"Bearer {token}", "Vekn-Id": user_vekn},
-                data=data,
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-                LOG.info("VEKN answered: %s", result)
-                if result["data"]["code"] != 200:
-                    raise RuntimeError(
-                        f"VEKN error: {result['data'].get('message', 'Unknown error')}"
-                    )
-                event_id = result["data"]["id"]
-                tournament.extra["vekn_id"] = event_id
-    except aiohttp.ClientError:
-        LOG.exception("VEKN Upload failed")
-        raise
+    async with aiohttp.ClientSession() as session:
+        token = await get_token(session)
+        data = aiohttp.FormData(
+            {
+                "name": tournament.name[:120],
+                "type": type,
+                "venueid": 0 if tournament.online else 3800,
+                "online": int(tournament.online),
+                "startdate": start.date().isoformat(),
+                "starttime": f"{start:%H:%M}",
+                "enddate": finish.date().isoformat(),
+                "endtime": f"{finish:%H:%M}",
+                "timelimit": "2h",
+                "rounds": rounds,
+                "final": True,
+                "multideck": tournament.multideck,
+                "proxies": tournament.proxies,
+                "website": urllib.parse.urljoin(
+                    SITE_URL_BASE, f"/tournament/{tournament.uid}/display.html"
+                ),
+                "description": tournament.description[:1000],
+            }
+        )
+        # http POST https://www.vekn.net/api/vekn/event
+        # "Authorization: Bearer <TOKEN>"
+        # "Vekn-Id: <USER_VEKN>"
+        # -f name=<NAME> type=<TYPE> <...>
+        async with session.post(
+            "https://www.vekn.net/api/vekn/event",
+            headers={"Authorization": f"Bearer {token}", "Vekn-Id": user_vekn},
+            data=data,
+        ) as response:
+            result = await get_vekn_data(response)
+            LOG.info("VEKN answered: %s", result)
+            tournament.extra["vekn_id"] = result["id"]
 
 
 async def upload_tournament_result(
     tournament: models.Tournament, token: str | None = None
 ) -> None:
-    try:
-        async with aiohttp.ClientSession() as session:
-            if not token:
-                token = await get_token(session)
-            # http POST https://www.vekn.net/api/vekn/archon
-            # "Authorization: Bearer <TOKEN>"
-            # -f archondata=<ARCHON_STRING>
-            async with session.post(
-                f"https://www.vekn.net/api/vekn/archon/{tournament.extra['vekn_id']}",
-                headers={"Authorization": f"Bearer {token}"},
-                data=aiohttp.FormData({"archondata": to_archondata(tournament)}),
-            ) as response:
-                response.raise_for_status()
-                result = await response.json()
-                LOG.info("VEKN Archon answered: %s", result)
-                if result["data"]["code"] != 200:
-                    raise RuntimeError(
-                        f"VEKN error: {result['data'].get('message', 'Unknown error')}"
-                    )
-                tournament.extra["vekn_submitted"] = True
-    except aiohttp.ClientError:
-        LOG.exception("VEKN Upload failed")
-        raise
+    async with aiohttp.ClientSession() as session:
+        if not token:
+            token = await get_token(session)
+        # http POST https://www.vekn.net/api/vekn/archon
+        # "Authorization: Bearer <TOKEN>"
+        # -f archondata=<ARCHON_STRING>
+        async with session.post(
+            f"https://www.vekn.net/api/vekn/archon/{tournament.extra['vekn_id']}",
+            headers={"Authorization": f"Bearer {token}"},
+            data=aiohttp.FormData({"archondata": to_archondata(tournament)}),
+        ) as response:
+            result = await get_vekn_data(response)
+            LOG.info("VEKN Archon answered: %s", result)
+            tournament.extra["vekn_submitted"] = True
 
 
 def to_archondata(tournament: models.Tournament) -> str:
@@ -1026,8 +1061,4 @@ async def create_member(member: models.Member) -> None:
                 "city": member.city or "N/A",
             },
         ) as response:
-            response.raise_for_status()
-            result = await response.json()
-            result = result["data"]
-            if result["code"] != 200:
-                raise RuntimeError(f"Failed to create member on vekn.net: {result}")
+            await get_vekn_data(response)

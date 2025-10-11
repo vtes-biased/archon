@@ -206,16 +206,10 @@ async def vekn_sync(tournament: models.Tournament, rounds: int, user: models.Per
         return
     if not user.vekn:
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
-    try:
-        if not tournament.extra.get("vekn_id"):
-            await vekn.upload_tournament(tournament, rounds, user.vekn)
-        if tournament.state == models.TournamentState.FINISHED:
-            await vekn.upload_tournament_result(tournament)
-    except vekn.NoVEKN:
-        raise fastapi.HTTPException(
-            fastapi.status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="VEKN is not available at the moment, please try again later.",
-        )
+    if not tournament.extra.get("vekn_id"):
+        await vekn.upload_tournament(tournament, rounds, user.vekn)
+    if tournament.state == models.TournamentState.FINISHED:
+        await vekn.upload_tournament_result(tournament)
 
 
 def async_timed_cache(duration: datetime.timedelta = datetime.timedelta(minutes=5)):
