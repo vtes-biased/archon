@@ -49,12 +49,12 @@ export class SeedFinalsModal extends base.Modal {
         this.toss_button.innerHTML = `<i class="bi bi-coin"></i> Toss`
         this.tooltips.add(this.toss_button, "Toss to break ties", true)
         this.toss_button.addEventListener("click", (ev) => { ev.preventDefault(); this.do_toss() })
-        this.to_toss = []
     }
 
     show() {
         if (!this.engine.tournament) { return }
         this.players = []
+        this.to_toss = []
         for (const [rank, player] of utils.standings(this.engine.tournament, undefined, true)) {
             if (rank > 5) {
                 break
