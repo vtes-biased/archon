@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import dotenv
 import fastapi
+import fastapi.exceptions
 import fastapi.responses
 import fastapi.staticfiles
 import importlib.resources
@@ -186,3 +187,15 @@ def db_exception_handler(
     else:
         LOG.warning(exc.args[0])
     return fastapi.responses.JSONResponse({"detail": exc.args[0]}, 400)
+
+
+# pydantic validation errors with detailed messages
+@app.exception_handler(fastapi.exceptions.RequestValidationError)
+def validation_exception_handler(
+    request: fastapi.Request, exc: fastapi.exceptions.RequestValidationError
+) -> fastapi.responses.JSONResponse:
+    """
+    Returns detailed validation error messages
+    """
+    LOG.warning("Validation error: %s", exc.errors())
+    return fastapi.responses.JSONResponse({"detail": exc.errors()}, 422)
