@@ -593,12 +593,16 @@ class Operator:
     async def delete_tournament(self, uid: str) -> None:
         """Delete a tournament"""
         async with self.conn.cursor() as cursor:
+            # take a lock on the tournament
+            await cursor.execute(
+                "SELECT uid FROM tournaments WHERE uid=%s FOR UPDATE", [uuid.UUID(uid)]
+            )
             res = await cursor.execute(
                 "SELECT jsonb_object_keys(data->'players') "
-                "FROM tournaments WHERE uid=%s FOR UPDATE",
+                "FROM tournaments WHERE uid=%s",  # no FOR UPDATE allowed because of aggregate
                 [uuid.UUID(uid)],
             )
-            player_uids = res.fetchall()
+            player_uids = await res.fetchall()
             res = await cursor.execute(
                 "DELETE FROM tournaments WHERE uid=%s", [uuid.UUID(uid)]
             )
