@@ -719,7 +719,6 @@ class Operator:
                 [timestamp],
             )
             deleted = await deleted.fetchall()
-            LOG.debug("updated: %s, deleted: %s", updated, deleted)
             if deleted or updated:
                 last_modified = max(
                     datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
