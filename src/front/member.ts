@@ -9,14 +9,6 @@ import { DateTime } from 'luxon'
 // Increment this number if/when the person model changes
 const VERSION = 1
 
-export interface LookupInfo {
-    name: string,
-    uid: string,
-    vekn: string,
-    country: string,
-    country_flag: string,
-}
-
 function normalize_string(s: string) {
     var res = unidecode(s).toLowerCase()
     // remove non-letters non-numbers
@@ -29,7 +21,7 @@ function normalize_string(s: string) {
 export class MembersDB {
     token: base.Token
     db: idb.IDBPDatabase
-    trie: Map<string, Map<string, LookupInfo>>
+    trie: Map<string, Map<string, d.PublicPerson>>
     root: HTMLElement
 
     constructor(token: base.Token, el: HTMLElement) {
@@ -222,8 +214,8 @@ export class MembersDB {
         return await this.db.getFromIndex("members", "vekn", vekn)
     }
 
-    complete_name(s: string): LookupInfo[] {
-        var members_list: LookupInfo[] | undefined = undefined
+    complete_name(s: string): d.PublicPerson[] {
+        var members_list: d.PublicPerson[] | undefined = undefined
         for (const part of this._get_trie_parts(s)) {
             const lookup = this.trie.get(part)
             if (lookup) {
@@ -268,7 +260,7 @@ export async function get_user(token: base.Token) {
     }
 }
 
-export function to_public_person(person: d.Person): d.PublicPerson {
+export function to_public_person(person: d.Person | d.Member): d.PublicPerson {
     return {
         uid: person.uid,
         name: person.name,
@@ -279,31 +271,28 @@ export function to_public_person(person: d.Person): d.PublicPerson {
     }
 }
 
-export class PersonNameCompletion extends base.Completion<LookupInfo> {
+export class PersonNameCompletion extends base.Completion<d.PublicPerson> {
     membersDB: MembersDB
     input_vekn_id: HTMLInputElement
     button: HTMLButtonElement
-    constructor(membersDB: MembersDB, input: HTMLInputElement, button: HTMLButtonElement) {
+    callback: { (lookup: d.PublicPerson): void }
+    constructor(membersDB: MembersDB, input: HTMLInputElement, callback: { (lookup: d.PublicPerson): void }, button: HTMLButtonElement) {
         super(input)
         this.membersDB = membersDB
-        this.input_vekn_id = input
+        this.callback = callback
         this.button = button
     }
-    async complete_input(value: string): Promise<LookupInfo[]> {
+    async complete_input(value: string): Promise<d.PublicPerson[]> {
         return this.membersDB.complete_name(value)
     }
-    item_label(item: LookupInfo): string {
+    item_label(item: d.PublicPerson): string {
+        if (item.country) {
+            return `${item.name} (${item.country_flag} ${item.country})`
+        }
         return item.name
     }
-    item_selected(item: LookupInfo): void {
-        if (item) {
-            this.input_vekn_id.value = item.vekn
-            this.button.disabled = false
-        }
-        else {
-            this.input_vekn_id.value = ""
-            this.button.disabled = true
-        }
+    item_selected(item: d.PublicPerson): void {
+        this.callback(item)
     }
 }
 
@@ -314,7 +303,7 @@ export class PersonLookup {
     name_completion: PersonNameCompletion
     button: HTMLButtonElement
     membersDB: MembersDB
-    person: d.Person | undefined
+    person: d.PublicPerson | undefined
     constructor(members_db: MembersDB, root: HTMLElement, label: string, inline: boolean = false) {
         this.membersDB = members_db
         const form_uid = uuid.v4()
@@ -332,14 +321,13 @@ export class PersonLookup {
         )
         this.input_vekn_id.ariaAutoComplete = "none"
         this.input_vekn_id.spellcheck = false
-        const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2", "dropdown"])
-        this.input_name = base.create_append(dropdown_div, "input", ["form-control", "dropdown-toggle"], {
+        const dropdown_div = base.create_append(top_div, "div", ["me-2", "mb-2"])
+        this.input_name = base.create_append(dropdown_div, "input", ["form-control"], {
             type: "text",
             placeholder: "Name",
             autocomplete: "off",
             form: form_uid,
             name: "new-name",
-            "data-bs-toggle": "dropdown"
         })
         this.input_name.ariaAutoComplete = "none"
         this.input_name.spellcheck = false
@@ -349,7 +337,12 @@ export class PersonLookup {
         )
         this.button.innerText = label
         this.button.disabled = true
-        this.name_completion = new PersonNameCompletion(this.membersDB, this.input_name, this.button)
+        this.name_completion = new PersonNameCompletion(
+            this.membersDB,
+            this.input_name,
+            (p) => this.select_member_by_name(p),
+            this.button
+        )
         this.input_vekn_id.addEventListener("input", (ev) => this.select_member_by_vekn())
     }
     reset() {
@@ -360,15 +353,22 @@ export class PersonLookup {
         this.name_completion._reset_focus()
     }
     async select_member_by_vekn() {
-        this.person = await this.membersDB.get_by_vekn(this.input_vekn_id.value)
+        this.person = to_public_person(await this.membersDB.get_by_vekn(this.input_vekn_id.value))
         if (this.person) {
             this.input_name.value = this.person.name
             this.button.disabled = false
+            this.button.focus()
         }
         else {
             this.input_name.value = ""
             this.button.disabled = true
         }
+    }
+    select_member_by_name(person: d.PublicPerson) {
+        this.person = to_public_person(person)
+        this.input_vekn_id.value = this.person.vekn
+        this.button.disabled = false
+        this.button.focus()
     }
 }
 

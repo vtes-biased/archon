@@ -6,29 +6,33 @@ import DOMPurify from 'isomorphic-dompurify'
 import { marked, Tokens } from 'marked'
 
 export class VenueCompletion extends base.Completion<d.VenueCompletion> {
+    token: base.Token | undefined
     country: HTMLSelectElement
     address: HTMLInputElement
     venue_url: HTMLInputElement
     map_url: HTMLInputElement
     constructor(
         input: HTMLInputElement,
+        token: base.Token | undefined,
         country: HTMLSelectElement,
         address: HTMLInputElement,
         venue_url: HTMLInputElement,
         map_url: HTMLInputElement
     ) {
         super(input)
+        this.token = token
         this.country = country
         this.address = address
         this.venue_url = venue_url
         this.map_url = map_url
     }
     async complete_input(value: string): Promise<d.VenueCompletion[]> {
-        const res = await base.do_fetch(
+        const res = await base.do_fetch_with_token(
             "/api/tournaments/venue-completion/"
             + encodeURIComponent(this.country.value)
             + "/"
             + encodeURIComponent(value),
+            this.token,
             {}
         )
         var venues_list: d.VenueCompletion[] = []

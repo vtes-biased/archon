@@ -242,10 +242,13 @@ export abstract class Completion<T> {
     constructor(input: HTMLInputElement) {
         this.focus = undefined
         this.input = input
-        this.dropdown_menu = create_append(input, "ul", ["dropdown-menu"])
+        input.classList.add("dropdown-toggle")
+        input.setAttribute("data-bs-toggle", "dropdown")
+        input.parentElement.classList.add("dropdown")
+        this.dropdown_menu = create_append(input.parentElement, "ul", ["dropdown-menu"])
         create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"], { type: "button" }
         ).innerText = "Start typing..."
-        this.debounced_show = debounce_async(async (ev) => this._show())
+        this.debounced_show = debounce_async(async (ev) => await this._show())
         this.keydown_handler = (ev) => this._keydown(ev)
         this.input.addEventListener("input", this.debounced_show)
         this.dropdown = bootstrap.Dropdown.getOrCreateInstance(this.input)
@@ -262,17 +265,20 @@ export abstract class Completion<T> {
         if (this.input.value.length < 1) {
             create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
                 { type: "button" }).innerText = "Start typing..."
+            this.dropdown.show()
             return
         }
         if (this.input.value.length < 3) {
             create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
                 { type: "button" }).innerText = "Type some more..."
+            this.dropdown.show()
             return
         }
         const items = await this.complete_input(this.input.value)
         if (!items || items.length < 1) {
             create_append(this.dropdown_menu, "li", ["dropdown-item", "disabled"],
                 { type: "button" }).innerText = "No result"
+            this.dropdown.show()
             return
         }
         for (const item of items.slice(0, 10)) {
