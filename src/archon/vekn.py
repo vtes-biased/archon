@@ -76,7 +76,8 @@ async def get_vekn_data(response: aiohttp.ClientResponse) -> dict[str, str]:
         result = await response.json(loads=orjson.loads)
         LOG.debug("VEKN data: %s", result)
         result = result["data"]
-        if result["code"] not in [200, "200"]:
+        # some endpoints do not return the 200 code, eg. /api/vekn/event/<NUM>
+        if result.get("code", 200) not in [200, "200"]:
             message = result.get("message", "Unknown error")
             message = VEKN_MESSAGES.get(message, message)
             raise VEKNError(f"VEKN server internal error: {message}")
