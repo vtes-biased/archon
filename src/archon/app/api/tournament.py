@@ -50,7 +50,12 @@ async def api_tournaments_post(
     data.judges = await op.get_members(
         list(set([j.uid for j in data.judges]) | {member.uid})
     )
+    league = await op.get_league(data.league.uid) if data.league else None
+    # Validation happens in create_tournament which uses TournamentOrchestrator
     LOG.info("Creating new tournament: %s", data)
+    # Create a temporary orchestrator just for validation
+    temp_orchestrator = engine.TournamentOrchestrator(**dataclasses.asdict(data))
+    temp_orchestrator.update_config(data, member, league)
     uid = await op.create_tournament(data)
     return dependencies.ItemUrl(
         uid=uid, url=str(request.url_for("tournament_display", uid=uid))
@@ -69,7 +74,8 @@ async def api_tournament_put(
     - **uid**: The tournament unique ID
     """
     data.judges = await op.get_members([judge.uid for judge in data.judges])
-    orchestrator.update_config(data, member)  # checks member can admin
+    league = await op.get_league(data.league.uid) if data.league else None
+    orchestrator.update_config(data, member, league)  # checks member can admin
     await op.update_tournament(orchestrator)
     return orchestrator
 

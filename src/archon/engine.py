@@ -1,5 +1,6 @@
 import collections
 import dataclasses
+import datetime
 import io
 import itertools
 import krcg.seating
@@ -7,6 +8,7 @@ import krcg.deck
 import logging
 import math
 import random
+import zoneinfo
 
 from . import geo
 from . import models
@@ -717,18 +719,30 @@ class BannedCards(DeckIssue):
         return f"Banned cards: {','.join(self.args[1])}."
 
 
+class LeagueCompatibilityError(TournamentError):
+    def __init__(self, message: str):
+        super().__init__(message)
+
+    def __str__(self):
+        return self.args[0]
+
+
 class TournamentOrchestrator(TournamentManager):
     """Implements all input checks and raise meaningful errors"""
 
     def update_config(
-        self, config: models.TournamentConfig, member: models.Person
+        self,
+        config: models.TournamentConfig,
+        member: models.Person,
+        league: models.League | None = None,
     ) -> None:
         self._check_judge(None, member)
         LOG.info("Updating tournament config: %s", config)
         if not config.judges:
             raise ConfigError("A tournament must have at least one judge")
         if (
-            config.format != models.TournamentFormat.Standard
+            config.format
+            not in [models.TournamentFormat.Standard, models.TournamentFormat.V5]
             and config.rank != models.TournamentRank.BASIC
         ):
             raise ConfigError("Non-Standard tournaments must have Basic rank")
@@ -738,6 +752,9 @@ class TournamentOrchestrator(TournamentManager):
             raise ConfigError("Only Basic rank tournaments can allow multideck")
         if config.multideck and config.decklist_required:
             raise ConfigError("Multideck tournaments cannot require decklists")
+        if config.league and league:
+            assert league.uid == config.league.uid
+            self._check_league_compatibility(config, member, league)
         for field in dataclasses.fields(config):
             if field.name in ["uid", "state"]:
                 continue
@@ -791,6 +808,60 @@ class TournamentOrchestrator(TournamentManager):
         if can_admin_tournament(member, self):
             return
         raise NotJudge(ev)
+
+    def _check_league_compatibility(
+        self,
+        config: models.TournamentConfig,
+        member: models.Person,
+        league: models.League,
+    ) -> None:
+        """Validate that tournament configuration is compatible with its league.
+
+        Checks format compatibility, online/onsite match, organizer permissions,
+        and date overlap (with 1-day tolerance).
+
+        Raises LeagueCompatibilityError if validation fails.
+        """
+        if member.uid not in [j.uid for j in league.organizers]:
+            self._check_judge(None, member)
+        if league.format == models.TournamentFormat.Standard and config.format not in [
+            models.TournamentFormat.Standard,
+            models.TournamentFormat.V5,
+        ]:
+            raise LeagueCompatibilityError(
+                "Standard league only accepts Standard or V5 tournaments"
+            )
+        if (
+            league.format != models.TournamentFormat.Standard
+            and config.format != league.format
+        ):
+            raise LeagueCompatibilityError(
+                "League format doesn't match tournament format"
+            )
+        if config.online and not league.online:
+            raise LeagueCompatibilityError(
+                "Online tournament cannot be part of onsite league"
+            )
+
+        # Check date overlap (with 1 day tolerance)
+        tournament_start = config.start.replace(
+            tzinfo=zoneinfo.ZoneInfo(config.timezone)
+        )
+        league_start = league.start.replace(tzinfo=zoneinfo.ZoneInfo(league.timezone))
+        tournament_finish = (config.finish or league_start).replace(
+            tzinfo=zoneinfo.ZoneInfo(config.timezone)
+        )
+        league_finish = (league.finish or tournament_start).replace(
+            tzinfo=zoneinfo.ZoneInfo(league.timezone)
+        )
+        one_day = datetime.timedelta(days=1)
+        if not (
+            tournament_start <= league_finish + one_day
+            and league_start <= tournament_finish + one_day
+        ):
+            raise LeagueCompatibilityError(
+                "Tournament dates don't overlap with league dates"
+            )
 
     def open_registration(
         self, ev: events.OpenRegistration, member: models.Person
