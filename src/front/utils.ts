@@ -34,6 +34,9 @@ export function format_badge(event: d.TournamentMinimal | d.League): string {
         case d.TournamentFormat.Standard:
             cls = "text-bg-secondary"
             break;
+        case d.TournamentFormat.V5:
+            cls = "text-bg-warning"
+            break;
         case d.TournamentFormat.Limited:
             cls = "text-bg-warning"
             break;

@@ -867,6 +867,7 @@ class TournamentType(enum.IntEnum):
     LIMITED_NATIONAL_CHAMPIONSHIP = 13
     LIMITED_CONTINENTAL_CHAMPIONSHIP = 14
     GRAND_PRIX = 15
+    V5_CONSTRUCTED = 16
 
 
 TOURNAMENT_TYPE_TO_FORMAT_RANK = {
@@ -925,6 +926,10 @@ TOURNAMENT_TYPE_TO_FORMAT_RANK = {
     ),
     TournamentType.GRAND_PRIX: (
         models.TournamentFormat.Standard,
+        models.TournamentRank.GP,
+    ),
+    TournamentType.V5_CONSTRUCTED: (
+        models.TournamentFormat.V5,
         models.TournamentRank.GP,
     ),
 }

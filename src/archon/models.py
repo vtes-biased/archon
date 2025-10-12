@@ -11,6 +11,7 @@ from . import scoring
 
 class TournamentFormat(enum.StrEnum):
     Standard = "Standard"
+    V5 = "V5"
     Limited = "Limited"
     Draft = "Draft"
 

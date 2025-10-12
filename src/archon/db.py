@@ -1187,7 +1187,10 @@ class Operator:
                             < cutoff
                         ):
                             continue
-                        if rating.tournament.format == models.TournamentFormat.Standard:
+                        if rating.tournament.format in [
+                            models.TournamentFormat.Standard,
+                            models.TournamentFormat.V5,
+                        ]:
                             if rating.tournament.online:
                                 category = models.RankingCategoy.CONSTRUCTED_ONLINE
                             else:

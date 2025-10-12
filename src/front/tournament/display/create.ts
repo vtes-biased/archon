@@ -416,21 +416,25 @@ export class CreateTournament extends BaseTournamentDisplay {
             console.log("no start date: no league")
             return false
         }
-        if (this.format.selectedOptions[0].value != "" &&
-            this.format.selectedOptions[0].value != league.format) {
-            console.log(`format mismatch: excluding ${league.name}`)
+        // Standard leagues accept both Standard and V5 tournaments
+        // V5 leagues only accept V5 tournaments
+        const tournament_format = this.format.selectedOptions[0].value as d.TournamentFormat
+        if (league.format == d.TournamentFormat.Standard &&
+            tournament_format != d.TournamentFormat.Standard &&
+            tournament_format != d.TournamentFormat.V5) {
+            return false
+        }
+        if (league.format != d.TournamentFormat.Standard &&
+            tournament_format != league.format) {
             return false
         }
         if (this.online.checked && !league.online) {
-            console.log(`online mismatch: excluding ${league.name}`)
             return false
         }
         if (!member.can_admin_league(this.user, league)) {
-            console.log(`not admin: excluding ${league.name}`)
             return false
         }
         if (!utils.overlap(league, this.start.value, this.finish.value, this.timezone.value)) {
-            console.log(`no time overlap: excluding ${league.name}`)
             return false
         }
         return true
@@ -501,8 +505,9 @@ export class CreateTournament extends BaseTournamentDisplay {
         }
     }
     change_value() {
-        // Ranks are only available for Standard constructed
-        if (this.format.value == d.TournamentFormat.Standard) {
+        // Ranks are only available for Standard and V5 constructed
+        if (this.format.value == d.TournamentFormat.Standard ||
+            this.format.value == d.TournamentFormat.V5) {
             this.rank.disabled = false
         } else {
             this.rank.value = d.TournamentRank.BASIC

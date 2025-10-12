@@ -2,6 +2,7 @@ import * as events from "./events"
 
 export enum TournamentFormat {
     Standard = "Standard",
+    V5 = "V5",
     Limited = "Limited",
     Draft = "Draft",
 }

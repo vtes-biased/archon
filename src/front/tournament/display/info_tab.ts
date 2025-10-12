@@ -91,7 +91,8 @@ export class InfoTab extends CreateTournament {
         }
         this.format.value = tournament.format
         this.rank.value = tournament.rank ?? ""
-        if (this.format.value != d.TournamentFormat.Standard) {
+        if (this.format.value != d.TournamentFormat.Standard &&
+            this.format.value != d.TournamentFormat.V5) {
             this.rank.value = d.TournamentRank.BASIC
             this.rank.disabled = true
         }

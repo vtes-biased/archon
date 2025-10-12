@@ -129,6 +129,9 @@ export class BaseTournamentDisplay {
             case d.TournamentFormat.Standard:
                 format_badge.classList.add("text-bg-secondary")
                 break;
+            case d.TournamentFormat.V5:
+                format_badge.classList.add("text-bg-warning")
+                break;
             case d.TournamentFormat.Limited:
                 format_badge.classList.add("text-bg-warning")
                 break;
