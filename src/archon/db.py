@@ -413,9 +413,13 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
-                # TODO remove the "players" check once the vekn sync is stabilized
+                # TODO remove the "external" check once the vekn sync is stabilized
                 # we don't want to overwrite, see update tournament
-                if not data[0]["extra"].get("external"):
+                # we overwrite tournaments finished in vekn archon and not here
+                if not data[0]["extra"].get("external") and (
+                    not tournament.state == models.TournamentState.FINISHED
+                    or data[0]["state"] == models.TournamentState.FINISHED
+                ):
                     return
                 uid = uuid.UUID(data[0]["uid"])
                 tournament.uid = str(uid)
