@@ -6,6 +6,7 @@ import fastapi.exceptions
 import fastapi.responses
 import fastapi.staticfiles
 import importlib.resources
+import krcg.vtes
 import logging
 import os
 import starlette.middleware.sessions
@@ -91,6 +92,7 @@ async def lifespan(app: fastapi.FastAPI):
         # sync VEKN asynchronously, start in the meantime
         task = asyncio.create_task(sync_vekn())
         task.add_done_callback(log_sync_errors)
+        krcg.vtes.VTES.load()
         yield
         task.cancel()
     LOG.debug("Exiting APP lifespan")

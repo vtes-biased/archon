@@ -151,6 +151,14 @@ export class InfoTab extends CreateTournament {
         const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
         edit_button.innerHTML = '<i class="bi bi-pencil"></i> Edit'
         edit_button.addEventListener("click", (ev) => this.display_edit())
+        if (this.engine.tournament.state == d.TournamentState.FINISHED) {
+            const report_button = base.create_append(buttons_div, "button",
+                ["btn", "btn-secondary", "text-nowrap", "me-2", "mb-2"],
+                { role: "button" }
+            )
+            report_button.innerHTML = '<i class="bi bi-printer-fill"></i> Report'
+            report_button.addEventListener("click", async (ev) => await this.export_report())
+        }
         if (this.user.roles?.includes(d.MemberRole.ADMIN)) {
             const download_button = base.create_append(buttons_div, "button",
                 ["btn", "btn-secondary", "text-nowrap", "me-2", "mb-2"],
@@ -250,6 +258,21 @@ export class InfoTab extends CreateTournament {
                 stringify(tournament_info_data)
             ),
             download: `${this.engine.tournament.name}.txt`,
+            role: "button"
+        })
+        download_link.click()
+    }
+    async export_report() {
+        const res = await base.do_fetch_with_token(
+            `/api/tournaments/${this.engine.tournament?.uid}/report`,
+            this.token,
+            { method: "get" }
+        )
+        if (!res) { return }
+        const report_text = await res.text()
+        const download_link = base.create_element("a", [], {
+            href: "data:text/plain;charset=utf-8," + encodeURIComponent(report_text),
+            download: `${this.engine.tournament.name}_report.txt`,
             role: "button"
         })
         download_link.click()

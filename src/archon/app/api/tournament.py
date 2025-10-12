@@ -121,6 +121,22 @@ async def api_tournament_get_decks(
     return res
 
 
+@router.get("/{uid}/report", summary="Get tournament text report")
+async def api_tournament_get_report(
+    op: dependencies.DbOperator,
+    uid: typing.Annotated[str, fastapi.Path(title="Tournament unique ID")],
+    member: dependencies.PersonFromToken,
+) -> fastapi.responses.PlainTextResponse:
+    """Get tournament report with standings and winner decklist in TWD format
+
+    - **uid**: The tournament unique ID
+    """
+    tournament = await op.get_tournament(uid)
+    dependencies.check_can_admin_tournament(member, tournament)
+    report = dependencies.tournament_report(tournament)
+    return fastapi.responses.PlainTextResponse(content=report)
+
+
 @router.get(
     "/venue-completion/{country}/{prefix}",
     summary="Get venue completion for given country and prefiw",

@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import base64
+import dataclasses
 import datetime
 import dotenv
 import fastapi_mail
@@ -11,13 +12,14 @@ import hmac
 import importlib
 import itsdangerous.url_safe
 import jwt
+import krcg.deck
 import logging
 import os
 import pydantic.dataclasses
 import typing
 import urllib.parse
 import uuid
-
+import zoneinfo
 
 from .. import db
 from .. import engine
@@ -756,3 +758,117 @@ async def get_member_from_token(
 MemberFromToken = typing.Annotated[
     models.Member, fastapi.Depends(get_member_from_token)
 ]
+
+
+# #################################################################### Tournament Report
+def winners_deck(tournament: models.Tournament) -> krcg.deck.Deck | None:
+    """Winner's decklist as KRCG deck with relevant info filled"""
+    if not tournament.winner:
+        return None
+    winner_player = tournament.players.get(tournament.winner)
+    if not winner_player:
+        return None
+
+    # Find winner's deck
+    winner_deck = None
+    if tournament.multideck and tournament.rounds:
+        # For multideck, get the finals deck
+        finals_round = tournament.rounds[-1]
+        for table in finals_round.tables:
+            for seat in table.seating:
+                if seat.player_uid == tournament.winner:
+                    winner_deck = seat.deck
+                    break
+    else:
+        winner_deck = winner_player.deck
+
+    if not winner_deck:
+        return None
+    deck = krcg.deck.Deck()
+    deck.from_json(dataclasses.asdict(winner_deck))
+    deck.event = tournament.name
+    deck.event_link = urllib.parse.urljoin(
+        SITE_URL_BASE, f"/tournaments/{tournament.uid}"
+    )
+    # Location (Online or Country)
+    if tournament.online:
+        deck.place = "Online"
+    elif tournament.country:
+        deck.place = tournament.country
+
+    # Date formatting
+    if tournament.finish:
+        finish_dt = tournament.finish.replace(
+            tzinfo=zoneinfo.ZoneInfo(tournament.timezone)
+        )
+        deck.date = finish_dt.date()
+    else:
+        start_dt = tournament.start.replace(
+            tzinfo=zoneinfo.ZoneInfo(tournament.timezone)
+        )
+        deck.date = start_dt.date()
+
+    # Format (2R+F or 3R+F)
+    num_rounds = len(tournament.rounds)
+    if num_rounds > 0:
+        if tournament.finals_seeds and num_rounds <= 4:
+            deck.tournament_format = f"{num_rounds - 1}R+F"
+        elif num_rounds <= 3:
+            deck.tournament_format = f"{num_rounds}R"
+
+    # Number of active players
+    active_players = [p for p in tournament.players.values() if p.rounds_played > 0]
+    deck.players_count = len(active_players)
+
+    # Winner name
+    if tournament.winner:
+        winner = tournament.players.get(tournament.winner)
+        deck.player = winner.name
+
+    return deck
+
+
+def tournament_report(tournament: models.Tournament) -> str:
+    """Generate a human-readable text report of the tournament."""
+    report = []
+
+    # Tournament name
+    report.append(f"Tournament report: {tournament.name}")
+    report.append("")
+
+    # Standings
+    report.append("=" * 80)
+    report.append("STANDINGS")
+    report.append("=" * 80)
+    report.append("")
+
+    standings_list = engine.standings(tournament)
+    if standings_list:
+        # Header
+        report.append(f"{'Rank':<6} {'Name':<30} {'Country':<20} {'Score':<15}")
+        report.append("-" * 80)
+
+        for rank, player in standings_list:
+            score_str = (
+                f"{player.result.gw}GW{player.result.vp}"
+                if player.result.gw
+                else f"{player.result.vp}VP"
+            )
+            country_str = player.country or ""
+            report.append(
+                f"{rank:<6} {player.name:<30} {country_str:<20} {score_str:<15}"
+            )
+
+    report.append("")
+    report.append("")
+
+    deck = winners_deck(tournament)
+    if deck:
+        report.append("=" * 80)
+        report.append("WINNER'S DECKLIST")
+        report.append("=" * 80)
+        report.append("")
+        report.append(deck.to_txt("twd"))
+        report.append("")
+
+    return "\n".join(report)
