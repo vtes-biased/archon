@@ -14,6 +14,7 @@ export enum TournamentRank {
 }
 
 export enum TournamentState {
+    PLANNED = "Planned",
     REGISTRATION = "Registration",
     WAITING = "Waiting",
     PLAYING = "Playing",

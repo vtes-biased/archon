@@ -11,6 +11,8 @@ def uuid_str() -> str:
 
 class EventType(enum.StrEnum):
     REGISTER = "REGISTER"
+    OPEN_REGISTRATION = "OPEN_REGISTRATION"
+    CLOSE_REGISTRATION = "CLOSE_REGISTRATION"
     OPEN_CHECKIN = "OPEN_CHECKIN"
     CANCEL_CHECKIN = "CANCEL_CHECKIN"
     CHECK_IN = "CHECK_IN"
@@ -65,6 +67,16 @@ class Register(Event):
     player_uid: str = pydantic.Field(default_factory=uuid_str)
     country: str | None = ""
     city: str | None = ""
+
+
+@dataclasses.dataclass(kw_only=True)
+class OpenRegistration(Event):
+    type: typing.Literal[EventType.OPEN_REGISTRATION]
+
+
+@dataclasses.dataclass(kw_only=True)
+class CloseRegistration(Event):
+    type: typing.Literal[EventType.CLOSE_REGISTRATION]
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -193,6 +205,8 @@ class FinishTournament(Event):
 
 TournamentEvent = typing.Union[
     Register,
+    OpenRegistration,
+    CloseRegistration,
     OpenCheckin,
     CancelCheckin,
     CheckIn,
@@ -230,6 +244,24 @@ OPENAPI_EXAMPLES = {
             "vekn": "12300001",
             "player_uid": "24AAC87E-DE63-46DF-9784-AB06B2F37A24",
         },
+    },
+    "Open Registration": {
+        "summary": "Open player registration. JUDGE ONLY",
+        "description": (
+            "Opens the tournament for player self-registration. "
+            "Judges can register players at any time, but players can only "
+            "self-register when registration is open."
+        ),
+        "value": {"type": "OpenRegistration"},
+    },
+    "Close Registration": {
+        "summary": "Close player registration. JUDGE ONLY",
+        "description": (
+            "Closes the tournament for player self-registration. "
+            "Returns the tournament to PLANNED state. "
+            "Judges can still register players manually."
+        ),
+        "value": {"type": "CloseRegistration"},
     },
     "Open Check-in": {
         "summary": "Open the check-in. JUDGE ONLY",

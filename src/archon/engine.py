@@ -37,6 +37,10 @@ class TournamentManager(models.Tournament):
         match ev.type:
             case events.EventType.REGISTER:
                 self.register(ev, member)
+            case events.EventType.OPEN_REGISTRATION:
+                self.open_registration(ev, member)
+            case events.EventType.CLOSE_REGISTRATION:
+                self.close_registration(ev, member)
             case events.EventType.OPEN_CHECKIN:
                 self.open_checkin(ev, member)
             case events.EventType.CANCEL_CHECKIN:
@@ -148,6 +152,16 @@ class TournamentManager(models.Tournament):
             self.players[ev.player_uid].state = models.PlayerState.FINISHED
         if self.decklist_required:
             self.players[ev.player_uid].barriers.append(models.Barrier.MISSING_DECK)
+
+    def open_registration(
+        self, ev: events.OpenRegistration, member: models.Person
+    ) -> None:
+        self.state = models.TournamentState.REGISTRATION
+
+    def close_registration(
+        self, ev: events.CloseRegistration, member: models.Person
+    ) -> None:
+        self.state = models.TournamentState.PLANNED
 
     def open_checkin(self, ev: events.OpenCheckin, member: models.Person) -> None:
         self.state = models.TournamentState.WAITING
@@ -635,6 +649,16 @@ class CheckinClosed(TournamentError):
         return "Check-in is closed"
 
 
+class RegistrationClosed(TournamentError):
+    def __str__(self):
+        return "Registration is closed"
+
+
+class CheckinInProgress(TournamentError):
+    def __str__(self):
+        return "Check-in is in progress"
+
+
 class ResultRecorded(TournamentError):
     def __str__(self):
         return "Impossible: results have been recorded for this round"
@@ -749,6 +773,10 @@ class TournamentOrchestrator(TournamentManager):
         if not ev.vekn:
             # only a judge can register a player without VEKN
             self._check_judge(ev, member)
+        # Non-judges can only register when state is REGISTRATION
+        if not can_admin_tournament(member, self):
+            if self.state != models.TournamentState.REGISTRATION:
+                raise RegistrationClosed(ev)
         super().register(ev, member)
 
     def _check_not_playing(self, ev: events.TournamentEvent):
@@ -764,6 +792,26 @@ class TournamentOrchestrator(TournamentManager):
             return
         raise NotJudge(ev)
 
+    def open_registration(
+        self, ev: events.OpenRegistration, member: models.Person
+    ) -> None:
+        self._check_judge(ev, member)
+        self._check_not_playing(ev)
+        if self.state == models.TournamentState.WAITING:
+            raise CheckinInProgress(ev)
+        super().open_registration(ev, member)
+
+    def close_registration(
+        self, ev: events.CloseRegistration, member: models.Person
+    ) -> None:
+        self._check_judge(ev, member)
+        if self.state not in [
+            models.TournamentState.PLANNED,
+            models.TournamentState.REGISTRATION,
+        ]:
+            raise RegistrationClosed(ev)
+        super().close_registration(ev, member)
+
     def open_checkin(self, ev: events.OpenCheckin, member: models.Person) -> None:
         self._check_not_playing(ev)
         self._check_judge(ev, member)
@@ -771,6 +819,8 @@ class TournamentOrchestrator(TournamentManager):
 
     def cancel_checkin(self, ev: events.CancelCheckin, member: models.Person) -> None:
         self._check_not_playing(ev)
+        if self.state == models.TournamentState.PLANNED:
+            raise CheckinClosed(ev)
         self._check_judge(ev, member)
         super().cancel_checkin(ev, member)
 

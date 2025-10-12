@@ -236,7 +236,8 @@ export class Registration {
                     button.addEventListener("click", (ev) => { this.check_out(player) })
                 }
             }
-            if (this.engine.tournament.state == d.TournamentState.REGISTRATION
+            if (this.engine.tournament.state == d.TournamentState.PLANNED
+                || this.engine.tournament.state == d.TournamentState.REGISTRATION
                 || this.engine.tournament.state == d.TournamentState.FINISHED
                 || this.engine.tournament.state == d.TournamentState.WAITING
             ) {
@@ -249,7 +250,8 @@ export class Registration {
             }
         }
         base.remove_children(this.action_row)
-        if (this.engine.tournament.state == d.TournamentState.REGISTRATION ||
+        if (this.engine.tournament.state == d.TournamentState.PLANNED ||
+            this.engine.tournament.state == d.TournamentState.REGISTRATION ||
             this.engine.tournament.state == d.TournamentState.WAITING
         ) {
             const standings_select = base.create_append(this.action_row, "select", ["form-select", "me-2", "mb-2", "w-auto"])
@@ -268,7 +270,22 @@ export class Registration {
                 )
             })
         }
+        if (this.engine.tournament.state == d.TournamentState.PLANNED) {
+            const button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
+            )
+            button.innerText = "Open Registration"
+            this.tooltips.add(button, "Open player registration")
+            button.addEventListener("click", (ev) => { this.engine.open_registration() })
+        }
         if (this.engine.tournament.state == d.TournamentState.REGISTRATION) {
+            const close_button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-secondary"]
+            )
+            close_button.innerText = "Close Registration"
+            this.tooltips.add(close_button, "Close player registration")
+            close_button.addEventListener("click", (ev) => { this.engine.close_registration() })
+
             const button = base.create_append(this.action_row, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
             )
@@ -288,7 +305,8 @@ export class Registration {
             print_standings.innerHTML = '<i class="bi bi-printer-fill"></i> Standings'
             print_standings.href = `/tournament/${this.engine.tournament.uid}/print-standings.html`
         }
-        if (this.engine.tournament.state == d.TournamentState.REGISTRATION ||
+        if (this.engine.tournament.state == d.TournamentState.PLANNED ||
+            this.engine.tournament.state == d.TournamentState.REGISTRATION ||
             this.engine.tournament.state == d.TournamentState.WAITING
         ) {
             const checkin_code = base.create_append(this.action_row, "a",
@@ -347,7 +365,8 @@ export class Registration {
             this.tooltips.add(seat_span, tooltip_message)
             seat_button.addEventListener("click", (ev) => { this.engine.start_round() })
         }
-        if (this.engine.tournament.state == d.TournamentState.REGISTRATION ||
+        if (this.engine.tournament.state == d.TournamentState.PLANNED ||
+            this.engine.tournament.state == d.TournamentState.REGISTRATION ||
             this.engine.tournament.state == d.TournamentState.WAITING
         ) {
             if (this.engine.tournament.rounds.length > 1) {

@@ -107,6 +107,14 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                 this.set_alert("Finals in progress: you are not participating", d.AlertLevel.INFO)
                 return
             }
+            if (tournament.state == d.TournamentState.PLANNED) {
+                this.set_alert(
+                    "Registration has not opened yet <br>" +
+                    "<em>Please check back later or contact a Judge to register you</em>",
+                    d.AlertLevel.INFO
+                )
+                return
+            }
             if (!this.user.vekn || this.user.vekn.length < 1) {
                 this.set_alert(
                     "A VEKN ID# is required to register to this event: " +
@@ -209,6 +217,9 @@ export class PlayerDisplay extends BaseTournamentDisplay {
         // _________________________________________________________________________________________________ ADD: Status
         var status: string
         switch (tournament.state) {
+            case d.TournamentState.PLANNED:
+                status = "Tournament planned — Registrations not yet open"
+                break;
             case d.TournamentState.REGISTRATION:
                 if (current_round > 0) {
                     status = `Round ${current_round} finished`
@@ -283,7 +294,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             this.tooltips.add(drop_button, "Let the organizers know you are leaving")
             drop_button.addEventListener("click", (ev) => {
                 this.confirmation_modal.show(
-                    "You will not participate in future rounds.",
+                    "You will not participate in future rounds",
                     () => this.engine.drop(player.uid)
                 )
             })
@@ -293,12 +304,12 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             const cutoff_div = base.create_append(this.root, "div", ["my-2", "text-bg-info", "rounded", "p-2"])
             cutoff_div.innerHTML = `<strong>Cutoff for top 5:</strong> ${utils.score_string(this.cutoff)}`
         }
-        // _________________________________________________________________________________________ Open (registration)
-        if (tournament.state == d.TournamentState.REGISTRATION) {
+        // ______________________________________________________________________________________ Planned / Registration
+        if (tournament.state in [d.TournamentState.PLANNED, d.TournamentState.REGISTRATION]) {
             this.set_alert(
                 "You are registered <br>" +
                 "<em>You can upload (and re-upload) you deck list at any time until the first round starts — " +
-                "not even judges can see your deck list until it starts.</em>",
+                "not even judges can see your deck list until it starts</em>",
                 d.AlertLevel.SUCCESS
             )
             return

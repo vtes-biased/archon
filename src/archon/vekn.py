@@ -750,7 +750,7 @@ def _tournament_from_vekn_data(
         judges=judges,
     )
     if not data["players"]:
-        ret.state = models.TournamentState.REGISTRATION
+        ret.state = models.TournamentState.PLANNED
         return ret
     for idx, pdata in enumerate(data["players"], 1):
         member = members.get(pdata["veknid"])

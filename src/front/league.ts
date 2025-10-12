@@ -307,6 +307,10 @@ export class LeagueDisplay {
                 const status_cell = base.create_append(row, "td", ["smaller-font"])
                 const status_badge = base.create_append(status_cell, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
                 switch (tournament.state) {
+                    case d.TournamentState.PLANNED:
+                        status_badge.classList.add("text-bg-secondary")
+                        status_badge.innerText = "Planned"
+                        break;
                     case d.TournamentState.REGISTRATION:
                         status_badge.classList.add("text-bg-info")
                         status_badge.innerText = "Registration"

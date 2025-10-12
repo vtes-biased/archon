@@ -23,6 +23,7 @@ class TournamentRank(enum.StrEnum):
 
 
 class TournamentState(enum.StrEnum):
+    PLANNED = "Planned"
     REGISTRATION = "Registration"
     WAITING = "Waiting"
     PLAYING = "Playing"
@@ -327,7 +328,7 @@ class TournamentMinimal(TournamentRef):
     country: str | None = None
     country_flag: str | None = None
     league: LeagueRef | None = None
-    state: TournamentState = TournamentState.REGISTRATION
+    state: TournamentState = TournamentState.PLANNED
 
 
 @dataclasses.dataclass(kw_only=True)

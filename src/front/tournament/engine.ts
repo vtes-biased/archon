@@ -125,6 +125,20 @@ export class Engine {
         }
         return await this.handle_tournament_event(event)
     }
+    async open_registration(): Promise<boolean> {
+        const event: events.OpenRegistration = {
+            type: events.EventType.OPEN_REGISTRATION,
+            uid: uuid.v4(),
+        }
+        return await this.handle_tournament_event(event)
+    }
+    async close_registration(): Promise<boolean> {
+        const event: events.CloseRegistration = {
+            type: events.EventType.CLOSE_REGISTRATION,
+            uid: uuid.v4(),
+        }
+        return await this.handle_tournament_event(event)
+    }
     async open_checkin(): Promise<boolean> {
         const event: events.OpenCheckin = {
             type: events.EventType.OPEN_CHECKIN,

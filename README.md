@@ -155,7 +155,49 @@ For deployment information, see [DESIGN.md](DESIGN.md).
 
 For detailed architecture and design information including offline mode, event-driven architecture, and state management, see [DESIGN.md](DESIGN.md).
 
+### Tournament States
+
+Tournaments progress through the following states:
+
+- **PLANNED**: Initial state. Registration is closed. Only judges can register players.
+- **REGISTRATION**: Registration is open. Players can self-register and judges can register players.
+- **WAITING**: Check-in is open. Players must check in to play the next round. They can still self-register.
+- **PLAYING**: A round is in progress. Judges can add/remove players to the round. Players can self-register for next one.
+- **FINALS**: The finals round is in progress.
+- **FINISHED**: Tournament is complete.
+
+**State transitions:**
+- PLANNED → (OpenRegistration) → REGISTRATION
+- REGISTRATION → (CloseRegistration) → PLANNED
+- REGISTRATION → (OpenCheckin) → WAITING
+- WAITING → (CancelCheckin) → REGISTRATION
+- WAITING → (RoundStart) → PLAYING
+- PLAYING → (RoundFinish/RoundFinish) → REGISTRATION
+
 ### Tournament Events
+
+#### OpenRegistration
+
+Opens player registration. Players can then self-register to the tournament.
+Only judges can open registration. Only works from PLANNED state.
+
+```json
+{
+    "type": "OPEN_REGISTRATION"
+}
+```
+
+#### CloseRegistration
+
+Closes player registration. Puts the tournament back in PLANNED state.
+Players can no longer self-register, but judges can still register players manually.
+Only judges can close registration. Only works from REGISTRATION state.
+
+```json
+{
+    "type": "CLOSE_REGISTRATION"
+}
+```
 
 #### Register
 

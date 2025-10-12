@@ -106,6 +106,10 @@ export class BaseTournamentDisplay {
         const badges_div = base.create_append(this.root, "div", ["mt-2", "d-md-flex", "align-items-center"])
         const status_badge = base.create_append(badges_div, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
         switch (tournament.state) {
+            case d.TournamentState.PLANNED:
+                status_badge.classList.add("text-bg-secondary")
+                status_badge.innerText = "Planned"
+                break;
             case d.TournamentState.REGISTRATION:
                 status_badge.classList.add("text-bg-info")
                 status_badge.innerText = "Registration"
@@ -154,11 +158,11 @@ export class BaseTournamentDisplay {
         }
         if (tournament.proxies) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-secondary"]
             ).innerText = "Proxies Allowed"
         } else {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-secondary"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-warning"]
             ).innerText = "No Proxy"
         }
         if (tournament.multideck) {
@@ -172,7 +176,7 @@ export class BaseTournamentDisplay {
         }
         if (tournament.decklist_required) {
             base.create_append(badges_div, "span",
-                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-info"]
+                ["me-2", "mb-2", "text-nowrap", "badge", "text-bg-warning"]
             ).innerText = "Decklist required"
         }
         if (tournament.league) {
