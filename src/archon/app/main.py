@@ -56,6 +56,7 @@ async def sync_vekn() -> int | None:
         return 1
     async with db.operator(autocommit=True) as op:
         await op.purge_tournament_events()
+        await op.close_old_tournaments()
         await sync_vekn_members(op)
         members = await op.get_members_vekn_dict()
         async for event in vekn.get_events_serial(members):

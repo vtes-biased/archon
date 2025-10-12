@@ -654,6 +654,26 @@ class Operator:
             )
             return res.rowcount
 
+    async def close_old_tournaments(self) -> int:
+        """Close tournaments that are > 30 days old and not finished.
+        Returns the number of tournaments closed.
+        """
+        cutoff = datetime.datetime.now(datetime.timezone.utc)
+        cutoff -= datetime.timedelta(days=30)
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "UPDATE tournaments "
+                "SET data = jsonb_set(data, '{state}', %s) "
+                "WHERE data->>'state' != %s "
+                "AND timetz(data ->> 'start', data ->> 'timezone') < %s",
+                [
+                    psycopg.types.json.Jsonb(models.TournamentState.FINISHED),
+                    models.TournamentState.FINISHED,
+                    cutoff,
+                ],
+            )
+            return res.rowcount
+
     async def insert_members(self, members: list[models.Member]) -> None:
         """Insert members from VEKN.
         Modify the members list in place to match DB (ie. uuids).

@@ -97,17 +97,22 @@ def sync_events() -> None:
     asyncio.run(get_events())
 
 
-async def db_purge() -> int:
+async def db_purge() -> tuple[int, int]:
     async with db.POOL:
         async with db.operator() as op:
-            return await op.purge_tournament_events()
+            events_count = await op.purge_tournament_events()
+            tournaments_count = await op.close_old_tournaments()
+            return events_count, tournaments_count
 
 
 @app.command()
 def purge() -> None:
-    """Purge deprecated historical data"""
-    count = asyncio.run(db_purge())
-    print(f"{count} record{'s' if count > 1 else ''} deleted")
+    """Purge deprecated historical data and close old tournaments"""
+    events_count, tournaments_count = asyncio.run(db_purge())
+    print(f"{events_count} event record", f"{'s' if events_count != 1 else ''} deleted")
+    print(
+        f"{tournaments_count} tournament{'s' if tournaments_count != 1 else ''} closed"
+    )
 
 
 async def async_add_client(name: str) -> tuple[str, str]:
