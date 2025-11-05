@@ -9,6 +9,7 @@ import importlib.resources
 import krcg.vtes
 import logging
 import os
+import psycopg.errors
 import starlette.middleware.sessions
 import uvicorn.logging
 
@@ -202,6 +203,22 @@ def validation_exception_handler(
     """
     LOG.warning("Validation error: %s", exc.errors())
     return fastapi.responses.JSONResponse({"detail": exc.errors()}, 422)
+
+
+# DB issue
+@app.exception_handler(psycopg.errors.Error)
+def psycopg_exception_handler(
+    request: fastapi.Request, exc: psycopg.errors.Error
+) -> fastapi.responses.JSONResponse:
+    """
+    Returns a well-serialized JSON error message
+    """
+    if __debug__:
+        LOG.exception("Database error", exc_info=exc)
+    else:
+        LOG.warning(exc.args[0])
+    return fastapi.responses.JSONResponse({"detail": str(exc)}, 500)
+
 
 # Runtime errors
 @app.exception_handler(RuntimeError)
