@@ -20,7 +20,8 @@
   ansible.builtin.template:
     src: env.j2
     dest: "/etc/profile.d/{{ r.service_name }}.env"
-    mode: '600'
+    owner: "{{ username }}"
+    mode: 0600
 
 - name: Add service
   ansible.builtin.template:
