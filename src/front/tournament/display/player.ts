@@ -285,6 +285,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             this.display_user_register(buttons_div)
             return
         }
+        this.set_alert("You are registered to this tournament", d.AlertLevel.INFO)
         // ____________________________________________________________________________________________ ADD: Drop button
         {
             const drop_button = base.create_append(buttons_div, "button",

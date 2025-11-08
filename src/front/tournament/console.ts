@@ -104,12 +104,14 @@ class TournamentConsole {
             this.tabs.get(`Finals`)?.show()
         } else if (this.tournament.state == d.TournamentState.PLAYING) {
             this.tabs.get(`Round ${this.rounds.length}`)?.show()
-        } else if (this.tournament.state == d.TournamentState.WAITING) {
+        } else if (
+            this.tournament.state == d.TournamentState.WAITING ||
+            this.tournament.state == d.TournamentState.REGISTRATION
+        ) {
             this.tabs.get("Registration")?.show()
         } else if (this.tournament.state != d.TournamentState.FINISHED && this.tournament.rounds.length > 0) {
             this.tabs.get("Registration")?.show()
-        }
-        else {
+        } else {
             this.tabs.get("Info")?.show()
         }
     }
