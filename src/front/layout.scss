@@ -1,10 +1,9 @@
 @use "../../node_modules/@eonasdan/tempus-dominus/src/scss/tempus-dominus" as tempus;
 
-$bootstrap-icons-font-dir: "../../node_modules/bootstrap-icons/font/fonts";
+@use "../../node_modules/bootstrap/scss/bootstrap" as *;
 
-@import "../../node_modules/bootstrap/scss/bootstrap";
-
-@import "../../node_modules/bootstrap-icons/font/bootstrap-icons";
+@use "../../node_modules/bootstrap-icons/font/bootstrap-icons" with ($bootstrap-icons-font-dir: "../../node_modules/bootstrap-icons/font/fonts"
+);
 
 
 .bg-discord {
