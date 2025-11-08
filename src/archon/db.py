@@ -340,7 +340,7 @@ class Operator:
         client.uid = client.uid or str(uuid.uuid4())
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "INSERT INTO clients (uid, data) " "VALUES (%s, %s) RETURNING uid",
+                "INSERT INTO clients (uid, data) VALUES (%s, %s) RETURNING uid",
                 [client.uid, jsonize(client)],
             )
             return str((await res.fetchone())[0])
@@ -434,8 +434,7 @@ class Operator:
                 tournament.uid = str(uid)
                 tournament.extra["external"] = True
                 res = await cursor.execute(
-                    "INSERT INTO tournaments (uid, data) "
-                    "VALUES (%s, %s) RETURNING uid",
+                    "INSERT INTO tournaments (uid, data) VALUES (%s, %s) RETURNING uid",
                     [uid, self._jsonize(tournament)],
                 )
                 return str((await res.fetchone())[0])
@@ -486,12 +485,7 @@ class Operator:
                 pieces.append("data ->> 'state' = ANY(%s)")
                 args.append(filter.states)
             if filter.member_uid:
-                pieces.append(
-                    "("
-                    "data->'players' ? %s OR "
-                    "data->'judges' @> %s"
-                    ")"
-                )
+                pieces.append("(data->'players' ? %s OR data->'judges' @> %s)")
                 args.extend(
                     [
                         filter.member_uid,
@@ -767,7 +761,9 @@ class Operator:
                 delete=[str(row[1]) for row in deleted],
             )
 
-    async def get_members_generator(self, vekn_only: bool) -> tuple[
+    async def get_members_generator(
+        self, vekn_only: bool
+    ) -> tuple[
         datetime.datetime,
         typing.Callable[[None], typing.AsyncGenerator[models.Person, None]],
     ]:
@@ -783,6 +779,7 @@ class Operator:
 
         async def generator():
             async with self.conn.cursor() as cursor:
+                await cursor.execute("SET statement_timeout='120s'")
                 async for row in cursor.stream(Q):
                     yield self._instanciate(row[0], models.Person)
 
@@ -806,6 +803,7 @@ class Operator:
     async def get_members_vekn_dict(self) -> dict[str, models.Person]:
         """Get all members with a VEKN"""
         async with self.conn.cursor() as cursor:
+            await cursor.execute("SET statement_timeout='120s'")
             return {
                 data[0]: self._instanciate(data[1], models.Person)
                 async for data in cursor.stream(
@@ -883,8 +881,7 @@ class Operator:
             # if the email exists already, use it
             if user.email:
                 res = await cursor.execute(
-                    "SELECT data FROM members "
-                    "WHERE data ->> 'email' = %s FOR UPDATE",
+                    "SELECT data FROM members WHERE data ->> 'email' = %s FOR UPDATE",
                     [user.email],
                 )
                 data = await res.fetchone()
@@ -920,7 +917,7 @@ class Operator:
     async def upsert_member_email(self, email: str) -> models.Member:
         async with self.conn.cursor() as cursor, member_consistency():
             res = await cursor.execute(
-                "SELECT data FROM members " "WHERE data ->> 'email' = %s FOR UPDATE",
+                "SELECT data FROM members WHERE data ->> 'email' = %s FOR UPDATE",
                 [email],
             )
             data = await res.fetchone()
@@ -954,7 +951,7 @@ class Operator:
     async def get_member_by_email(self, email: str) -> models.Member:
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                "SELECT data FROM members " "WHERE data ->> 'email' = %s",
+                "SELECT data FROM members WHERE data ->> 'email' = %s",
                 [email],
             )
             data = await res.fetchone()
@@ -1166,10 +1163,7 @@ class Operator:
                 cutoff = cutoff.replace(month=cutoff.month + 6)
             # build a temporary staging table for ratings and rankings
             await cursor.execute(
-                "CREATE TEMP TABLE staging_ratings ( "
-                "uid UUID PRIMARY KEY, "
-                "data JSONB "
-                ")"
+                "CREATE TEMP TABLE staging_ratings ( uid UUID PRIMARY KEY, data JSONB )"
             )
             async with cursor.copy(
                 "COPY staging_ratings (uid, data) FROM STDIN"
@@ -1362,19 +1356,24 @@ class Operator:
                     players[player.uid].points = 0
                     # some players are not in ratings (registerd but did not play)
                     if player.uid in ratings:
-                        match(league.ranking):
+                        match league.ranking:
                             case models.LeagueRanking.RTP:
-                                players[player.uid].points += ratings[player.uid].rating_points
+                                players[player.uid].points += ratings[
+                                    player.uid
+                                ].rating_points
                             case models.LeagueRanking.GP:
-                                players[player.uid].points += ratings[player.uid].gp_points
+                                players[player.uid].points += ratings[
+                                    player.uid
+                                ].gp_points
 
-            match(league.ranking):
+            match league.ranking:
                 case models.LeagueRanking.RTP:
                     key = "points"
                 case models.LeagueRanking.GP:
                     key = "points"
                 case models.LeagueRanking.Score:
                     key = "score"
+
             def sort(p):
                 return getattr(p, key)
 
