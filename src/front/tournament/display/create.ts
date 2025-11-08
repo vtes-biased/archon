@@ -413,7 +413,6 @@ export class CreateTournament extends BaseTournamentDisplay {
     }
     filter_league(league: d.League) {
         if (!this.start.value || this.start.value.length < 1) {
-            console.log("no start date: no league")
             return false
         }
         // Standard leagues accept both Standard and V5 tournaments
@@ -494,7 +493,6 @@ export class CreateTournament extends BaseTournamentDisplay {
             return
         }
         const tournament_data = this.get_tournament_data()
-        console.log("posting", tournament_data)
         const res = await base.do_fetch_with_token("/api/tournaments/", this.token,
             { method: "post", body: JSON.stringify(tournament_data) }
         )

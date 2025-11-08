@@ -500,7 +500,6 @@ class MemberDisplay {
             form.addEventListener("submit", (ev) => { ev.preventDefault(); this.add_sanction(new FormData(form)) })
         }
         // _____________________________________________________________________________________________________ Results
-        console.log(this.target.ratings)
         if (this.target.ratings && Object.keys(this.target.ratings).length > 0) {
             base.create_append(this.root, "h2", ["mt-4"]).innerText = "Events"
             const nav = base.create_append(this.root, "nav")

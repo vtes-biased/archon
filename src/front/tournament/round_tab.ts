@@ -165,7 +165,7 @@ export class RoundTab {
             this.reseat_button.addEventListener("click", (ev) => {
                 this.start_reseat()
             })
-        }   
+        }
         const round = this.engine.tournament.rounds[this.index - 1]
         this.next_table_index = 1
         for (const table of round.tables) {
@@ -481,7 +481,6 @@ export class RoundTab {
     }
 
     dragend_row(ev: DragEvent) {
-        console.log("dragend", ev)
         this.player_drag.end()
         this.display_seating_issues()
     }

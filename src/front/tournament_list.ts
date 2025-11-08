@@ -212,7 +212,6 @@ class TournamentListDisplay {
         }
         const res = await base.do_fetch(url.href, {})
         const result = await res.json()
-        console.log("tournaments Q result", result)
         return result
     }
     set_query_string() {

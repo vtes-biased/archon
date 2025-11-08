@@ -115,7 +115,6 @@ export class DeckSubmit {
         round: number | undefined = undefined,
         submit_disabled: boolean = false
     ) {
-        console.log("decksubmit init")
         this.player_uid = player_uid
         this.tournament = tournament
         this.deck.value = ""
@@ -157,7 +156,6 @@ export class DeckSubmit {
     }
     display_round(round: number) {
         var current_deck: d.KrcgDeck | undefined = undefined
-        console.log("display_round", round)
         if (this.tournament.multideck && round > 0) {
             for (const table of this.tournament.rounds[round - 1].tables) {
                 for (const seating of table.seating) {

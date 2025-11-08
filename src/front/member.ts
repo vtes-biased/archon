@@ -95,7 +95,6 @@ export class MembersDB {
             await tr.done
         }
         else if (res.headers.get("content-type") == "application/x-ndjson") {
-            console.log("ndjson")
             // wait for the whole stream: we can refine later if needed
             // but we cannot wait on the stream during the IndexDB transaction anyway
             const old_keys = new Set(await this.db.getAllKeys("members"))
@@ -127,8 +126,6 @@ export class MembersDB {
             }
             // process tail
             if (buffer.trim()) {
-                // TODO remove if we have no tail
-                console.log("tail", buffer)
                 const tr = this.db.transaction("members", "readwrite")
                 try {
                     const person = JSON.parse(buffer) as d.Person

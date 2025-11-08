@@ -69,7 +69,6 @@ export class Engine {
         )
         if (!res) { return false }
         this.tournament = await res.json() as d.Tournament
-        console.log(this.tournament)
         await this.display_callback(
             this.tournament, [
                 events.EventType.ROUND_START,

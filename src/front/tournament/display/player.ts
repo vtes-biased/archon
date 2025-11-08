@@ -329,11 +329,8 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             return
         }
         // ____________________________________________________________________________________________________ Check-In
-        console.log("meh")
         if (tournament.state == d.TournamentState.WAITING) {
-            console.log("waiting", player.state)
             if (player.state == d.PlayerState.CHECKED_IN) {
-                console.log("setting alert")
                 this.set_alert(`You are checked in and ready to play`, d.AlertLevel.SUCCESS)
                 return
             }

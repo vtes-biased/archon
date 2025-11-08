@@ -100,7 +100,6 @@ export async function do_fetch(url: string, options: Object) {
     try {
         const response = await fetch(url, options)
         if (!response.ok && response.status != 304) {
-            console.log(response)
             var message = await response.text()
             try {
                 message = JSON.parse(message)["detail"]
@@ -262,7 +261,6 @@ export abstract class Completion<T> {
         this.dropdown.dispose()
     }
     async _show() {
-        console.log("show completion")
         remove_children(this.dropdown_menu)
         this._reset_focus()
         if (this.input.value.length < 1) {

@@ -11,7 +11,6 @@ async function load() {
         if (leagueDisplay.dataset.leagueUid) {
             league_uid = leagueDisplay.dataset.leagueUid
         }
-        console.log("league uid", league_uid)
         const token = await base.fetchToken()
         await display.init(token, undefined, undefined, league_uid)
         if (league_uid) {

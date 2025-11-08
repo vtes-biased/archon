@@ -710,7 +710,6 @@ export class LeagueDisplay {
             json_data.parent = null
         }
         json_data.organizers = [...this.organizers]
-        console.log("sending", json_data)
         // checkboxes are "on" if checked, non-listed otherwise - do it by hand
         var url = "/api/leagues/"
         var method = "post"
@@ -720,7 +719,6 @@ export class LeagueDisplay {
             method = "put"
             json_data.uid = this.league.uid
         }
-        console.log("url", url)
         const res = await base.do_fetch_with_token(url, this.token, {
             method: method, body: JSON.stringify(json_data)
         })
