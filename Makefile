@@ -40,5 +40,4 @@ build: clean
 
 release: porcelain build
 	git push origin "${NEXT_VERSION}"
-	twine upload -r test-pypi dist/*
 	twine upload dist/* 
