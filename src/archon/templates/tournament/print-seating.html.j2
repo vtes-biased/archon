@@ -8,7 +8,7 @@
     <meta name="keywords" content="Archon, Vampire, the Eternal Struggle, VTES, Tournament">
     <meta name="format-detection" content="telephone=no">
     <link rel="shortcut icon" href="{{ url_for('img', path='favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path=asset_url('layout.css')) }}">
     {% if finals %}
     <title>Finals</title>
     {% else %}

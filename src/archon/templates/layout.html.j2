@@ -11,9 +11,9 @@
     {% block meta %}{% endblock %}
     <meta name="login-data" content="Login-related data" data-discord-oauth="{{ discord_oauth }}">
     <link rel="shortcut icon" href="{{ url_for('img', path='favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='layout.css') }}">
-    <script async src="{{ url_for('static', path='login.js') }}" type="module"></script>
-    <script async src="{{ url_for('static', path='topnav.js') }}" type="module"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path=asset_url('layout.css')) }}">
+    <script async src="{{ url_for('static', path=asset_url('login.js')) }}" type="module"></script>
+    <script async src="{{ url_for('static', path=asset_url('topnav.js')) }}" type="module"></script>
     {% block scripts %}{% endblock %}
     <title>Archon: VTES Tournament Manager</title>
     {% endblock %}

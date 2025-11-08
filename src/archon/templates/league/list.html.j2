@@ -1,7 +1,7 @@
 {% extends "layout.html.j2" %}
 
 {% block scripts %}
-<script async src="{{ url_for('static', path='league_list.js') }}" type="module"></script>
+<script async src="{{ url_for('static', path=asset_url('league_list.js')) }}" type="module"></script>
 {% endblock%}
 
 {% block content %}

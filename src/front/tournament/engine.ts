@@ -1,7 +1,7 @@
 import * as d from "../d"
 import * as base from "../base"
 import * as events from "../events"
-import * as uuid from "uuid"
+import { v4 as uuidv4 } from "uuid"
 import * as seating from "../seating"
 
 export interface DisplayCallback {
@@ -84,7 +84,7 @@ export class Engine {
     async register_player(member: d.Person): Promise<boolean> {
         const event: events.Register = {
             type: events.EventType.REGISTER,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             name: member.name,
             vekn: member.vekn ?? "",
             player_uid: member.uid,
@@ -96,7 +96,7 @@ export class Engine {
     async check_in(player_uid: string, code: string | undefined = undefined): Promise<boolean> {
         const event: events.CheckIn = {
             type: events.EventType.CHECK_IN,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             player_uid: player_uid,
             code: code,
         }
@@ -105,14 +105,14 @@ export class Engine {
     async check_everyone_in(): Promise<boolean> {
         const event: events.CheckEveryoneIn = {
             type: events.EventType.CHECK_EVERYONE_IN,
-            uid: uuid.v4(),
+            uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
     }
     async check_out(player_uid: string): Promise<boolean> {
         const event: events.CheckOut = {
             type: events.EventType.CHECK_OUT,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             player_uid: player_uid,
         }
         return await this.handle_tournament_event(event)
@@ -120,7 +120,7 @@ export class Engine {
     async drop(player_uid: string): Promise<boolean> {
         const event: events.Drop = {
             type: events.EventType.DROP,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             player_uid: player_uid,
         }
         return await this.handle_tournament_event(event)
@@ -128,28 +128,28 @@ export class Engine {
     async open_registration(): Promise<boolean> {
         const event: events.OpenRegistration = {
             type: events.EventType.OPEN_REGISTRATION,
-            uid: uuid.v4(),
+            uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
     }
     async close_registration(): Promise<boolean> {
         const event: events.CloseRegistration = {
             type: events.EventType.CLOSE_REGISTRATION,
-            uid: uuid.v4(),
+            uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
     }
     async open_checkin(): Promise<boolean> {
         const event: events.OpenCheckin = {
             type: events.EventType.OPEN_CHECKIN,
-            uid: uuid.v4(),
+            uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
     }
     async cancel_checkin() {
         const event: events.CancelCheckin = {
             type: events.EventType.CANCEL_CHECKIN,
-            uid: uuid.v4(),
+            uid: uuidv4(),
         }
         await this.handle_tournament_event(event)
     }
@@ -169,7 +169,7 @@ export class Engine {
         )
         const event: events.RoundStart = {
             type: events.EventType.ROUND_START,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             seating: s
         }
         return await this.handle_tournament_event(event)
@@ -177,7 +177,7 @@ export class Engine {
     async override_table(round_number: number, table_number: number, comment: string): Promise<boolean> {
         const event: events.Override = {
             type: events.EventType.OVERRIDE,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             round: round_number,
             table: table_number,
             comment: comment,
@@ -187,7 +187,7 @@ export class Engine {
     async unoverride_table(round_number: number, table_number: number): Promise<boolean> {
         const event: events.Unoverride = {
             type: events.EventType.UNOVERRIDE,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             round: round_number,
             table: table_number,
         }
@@ -196,7 +196,7 @@ export class Engine {
     async set_score(player_uid: string, round_number: number, vps: number): Promise<boolean> {
         const event: events.SetResult = {
             type: events.EventType.SET_RESULT,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             player_uid: player_uid,
             round: round_number,
             vps: vps,
@@ -210,7 +210,7 @@ export class Engine {
         attribution: boolean = false
     ): Promise<boolean> {
         const tev = {
-            uid: uuid.v4(),
+            uid: uuidv4(),
             type: events.EventType.SET_DECK,
             player_uid: player_uid,
             deck: deck,
@@ -222,21 +222,21 @@ export class Engine {
     async finish_round(): Promise<boolean> {
         const event: events.RoundFinish = {
             type: events.EventType.ROUND_FINISH,
-            uid: uuid.v4(),
+            uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
     }
     async cancel_round(): Promise<boolean> {
         const event: events.RoundCancel = {
             type: events.EventType.ROUND_CANCEL,
-            uid: uuid.v4(),
+            uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
     }
     async seed_finals(seeds: string[], toss: Record<string, number>): Promise<boolean> {
         const event: events.SeedFinals = {
             type: events.EventType.SEED_FINALS,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             seeds: seeds,
             toss: toss,
         }
@@ -245,7 +245,7 @@ export class Engine {
     async alter_seating(round: number, seating: string[][]): Promise<boolean> {
         const event: events.RoundAlter = {
             type: events.EventType.ROUND_ALTER,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             round: round,
             seating: seating,
         }
@@ -254,7 +254,7 @@ export class Engine {
     async seat_finals(seating: string[]): Promise<boolean> {
         const event: events.SeatFinals = {
             type: events.EventType.SEAT_FINALS,
-            uid: uuid.v4(),
+            uid: uuidv4(),
             seating: seating,
         }
         return await this.handle_tournament_event(event)
@@ -262,7 +262,7 @@ export class Engine {
     async finish_tournament(): Promise<boolean> {
         const event: events.FinishTournament = {
             type: events.EventType.FINISH_TOURNAMENT,
-            uid: uuid.v4()
+            uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
     }

@@ -2,9 +2,8 @@ import * as d from "./d"
 import * as base from "./base"
 import * as bootstrap from 'bootstrap'
 import * as idb from 'idb'
-import * as uuid from 'uuid'
+import { v4 as uuidv4 } from "uuid"
 import unidecode from 'unidecode'
-import { DateTime } from 'luxon'
 
 // Increment this number if/when the person model changes
 const VERSION = 1
@@ -306,7 +305,7 @@ export class PersonLookup {
     person: d.PublicPerson | undefined
     constructor(members_db: MembersDB, root: HTMLElement, label: string, inline: boolean = false) {
         this.membersDB = members_db
-        const form_uid = uuid.v4()
+        const form_uid = uuidv4()
         // create an empty form on top of the body, so it can be used inside a "real" form
         this.form = base.create_prepend(document.body, "form", [], { id: form_uid })
         const top_div = base.create_append(root, "div", ["d-sm-flex"])
@@ -589,7 +588,7 @@ export class AddMemberModal extends base.Modal {
     async submit(ev: SubmitEvent) {
         ev.preventDefault()
         const member = {
-            uid: uuid.v4(),
+            uid: uuidv4(),
             name: this.name.value,
             vekn: "",
             country: this.country.value,

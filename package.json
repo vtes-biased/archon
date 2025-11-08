@@ -1,29 +1,29 @@
 {
   "devDependencies": {
     "@eonasdan/tempus-dominus": "^6.10.4",
-    "@parcel/transformer-sass": "^2.15",
-    "@parcel/transformer-typescript-tsc": "^2.15.1",
+    "@parcel/transformer-sass": "^2.16",
+    "@parcel/transformer-typescript-tsc": "^2.16.1",
     "@types/bootstrap": "^5.2",
-    "@types/luxon": "^3.6.2",
-    "@types/qrcode": "^1.5.5",
+    "@types/luxon": "^3.7.1",
+    "@types/qrcode": "^1.5.6",
     "@types/unidecode": "^1.1.0",
-    "bootstrap": "^5.3.6",
+    "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "buffer": "^6.0.3",
     "idb": "^8.0.3",
-    "isomorphic-dompurify": "^2.25.0",
-    "js-base64": "^3.7.7",
-    "luxon": "^3.6.1",
-    "marked": "^15.0.12",
-    "parcel": "^2.15",
-    "pm2": "^6.0.6",
+    "isomorphic-dompurify": "^2.31.0",
+    "js-base64": "^3.7.8",
+    "luxon": "^3.7.2",
+    "marked": "^17.0.0",
+    "parcel": "^2.16",
+    "pm2": "^6.0.13",
     "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.4",
-    "sass": "^1.89.0",
-    "typescript": "^5.8.3",
+    "sass": "^1.93.3",
+    "typescript": "^5.9.3",
     "unidecode": "^1.1.0",
-    "uuid": "^11.1.0",
-    "yaml": "^2.8.0"
+    "uuid": "^13.0.0",
+    "yaml": "^2.8.1"
   },
   "targets": {
     "default": {
@@ -46,6 +46,9 @@
         "src/front/layout.scss"
       ]
     }
+  },
+  "alias": {
+    "uuid": "uuid/dist/index.js"
   },
   "scripts": {
     "front": "parcel watch",

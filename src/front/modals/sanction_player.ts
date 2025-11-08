@@ -3,7 +3,7 @@ import * as d from "../d"
 import * as events from "../events"
 import * as utils from "../utils"
 import * as bootstrap from 'bootstrap'
-import * as uuid from 'uuid'
+import { v4 as uuidv4 } from "uuid"
 import { DeckSubmit } from "./deck"
 import { Engine } from "../tournament/engine"
 import * as member from "../member"
@@ -223,9 +223,9 @@ export class SanctionPlayerModal extends base.Modal {
     async submit(ev: SubmitEvent) {
         ev.preventDefault()
         if (!this.member) { return }
-        const sanction_uid: string = uuid.v4()
+        const sanction_uid: string = uuidv4()
         var tev = {
-            uid: uuid.v4(),
+            uid: uuidv4(),
             type: events.EventType.SANCTION,
             sanction_uid: sanction_uid,
             player_uid: this.member.uid,
@@ -246,7 +246,7 @@ export class SanctionPlayerModal extends base.Modal {
 
     async remove_sanction(sanction_uid: string) {
         var tev = {
-            uid: uuid.v4(),
+            uid: uuidv4(),
             type: events.EventType.UNSANCTION,
             sanction_uid: sanction_uid,
             player_uid: this.member?.uid,

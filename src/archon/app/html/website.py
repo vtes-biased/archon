@@ -17,6 +17,15 @@ from ... import scoring
 
 LOG = logging.getLogger()
 
+# Cache the package version for asset URLs
+try:
+    from importlib.metadata import version
+
+    _PKG_VERSION = version("vtes-archon")
+except Exception:
+    # Fallback for development
+    _PKG_VERSION = "dev"
+
 
 def jsonable(obj: typing.Any) -> typing.Any:
     """Useful filter for Jinja templates: `{{ data | jsonable | tojson }}`"""
@@ -29,6 +38,16 @@ def country_with_flag(country_name: str) -> str:
     return geo.COUNTRIES_BY_NAME[country_name].flag + " " + country_name
 
 
+def asset_url(filename: str) -> str:
+    """
+    Resolve an asset filename with version-based cache busting.
+
+    Usage in templates: {{ asset_url('login.js') }}
+    Returns: filename?v=version (e.g., "login.js?v=1.2.3")
+    """
+    return f"{filename}?v={_PKG_VERSION}"
+
+
 def __init_templates() -> fastapi.templating.Jinja2Templates:
     """Initialize Jinja2 templates engine"""
     with importlib.resources.path("archon", "templates") as templates:
@@ -37,6 +56,8 @@ def __init_templates() -> fastapi.templating.Jinja2Templates:
         )
         templates.env.filters["jsonable"] = jsonable
         templates.env.filters["country_with_flag"] = country_with_flag
+        # Add asset_url as a global function for version-based cache busting
+        templates.env.globals["asset_url"] = asset_url
         return templates
 
 
@@ -65,15 +86,18 @@ async def html_auth_oauth(
         # User already authorized, redirect with code
         next = fastapi.datastructures.URL(redirect_uri)
         next = next.include_query_params(
-            state=state, code=dependencies.create_authorization_code(client_id, member.uid, redirect_uri)
+            state=state,
+            code=dependencies.create_authorization_code(
+                client_id, member.uid, redirect_uri
+            ),
         )
         return fastapi.responses.RedirectResponse(next)
-    
+
     # Get client info for consent page
     client = await op.get_client(client_id)
     if not client:
         raise fastapi.HTTPException(status_code=404, detail="Client not found")
-    
+
     # Show consent page
     return TEMPLATES.TemplateResponse(
         request=fastapi.Request,
@@ -84,7 +108,7 @@ async def html_auth_oauth(
             "redirect_uri": redirect_uri,
             "state": state,
             "member": member,
-        }
+        },
     )
 
 
@@ -108,11 +132,14 @@ async def html_auth_oauth_consent(
             "authorized_at": datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
         }
         await op.update_member(member)
-        
+
         # Redirect with authorization code
         next = fastapi.datastructures.URL(redirect_uri)
         next = next.include_query_params(
-            state=state, code=dependencies.create_authorization_code(client_id, member.uid, redirect_uri)
+            state=state,
+            code=dependencies.create_authorization_code(
+                client_id, member.uid, redirect_uri
+            ),
         )
         return fastapi.responses.RedirectResponse(next)
     else:
@@ -139,12 +166,12 @@ async def html_auth_oauth_token(
     if grant_type != "authorization_code":
         raise fastapi.HTTPException(status_code=403)
     member_uid = dependencies.check_authorization_code(client_uid, code)
-    
+
     # Verify user has authorized this client
     member = await op.get_member(member_uid, cls=models.Member)
     if client_uid not in member.authorized_clients:
         raise fastapi.HTTPException(status_code=403, detail="Client not authorized")
-    
+
     access_token = dependencies.create_access_token(member_uid)
     return dependencies.Token(access_token=access_token, token_type="Bearer")
 
@@ -161,7 +188,7 @@ async def html_auth_oauth_revoke(
 ):
     if client_uid not in member.authorized_clients:
         raise fastapi.HTTPException(status_code=404, detail="Authorization not found")
-    
+
     member.authorized_clients.pop(client_uid, None)
     await op.update_member(member)
     return {"message": "Authorization revoked successfully"}
@@ -425,7 +452,9 @@ async def tournament_display(
         context["deck_infos"] = engine.deck_infos(tournament, context["member"])
     # non-members get only public info
     if not member_uid:
-        context["tournament"] = models.TournamentConfig(**dataclasses.asdict(tournament))
+        context["tournament"] = models.TournamentConfig(
+            **dataclasses.asdict(tournament)
+        )
         return TEMPLATES.TemplateResponse(
             request=request,
             name="tournament/display.html.j2",
@@ -652,9 +681,9 @@ async def member_display(
     if member.uid != uid and not member.vekn:
         target = await op.get_member(uid)
         dependencies.check_can_contact(member, target)
-    
+
     # No need to add authorized apps to context - handled in TypeScript
-    
+
     return TEMPLATES.TemplateResponse(
         request=request,
         name="member/display.html.j2",

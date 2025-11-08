@@ -3,7 +3,7 @@
 NEXT_VERSION ?= `python -m setuptools_scm --strip-dev`
 
 clean:
-	rm src/archon/static/* || true
+	rm -rf src/archon/static/*
 	rm -rf dist
 	rm -rf .parcel-cache
 
@@ -34,7 +34,7 @@ serve-pdb: serve-front
 	npm run back
 
 build: clean
-	parcel build --no-cache --no-scope-hoist
+	NODE_ENV=production parcel build --no-scope-hoist
 	git tag "${NEXT_VERSION}"
 	python -m build
 

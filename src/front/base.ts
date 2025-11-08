@@ -2,7 +2,7 @@
 // note it is only imported in other ts files: it is not meant to be loaded directly
 
 import * as bootstrap from 'bootstrap'
-import * as uuid from 'uuid'
+import { v4 as uuidv4 } from "uuid"
 
 
 export function create_element<K extends keyof HTMLElementTagNameMap>(
@@ -180,7 +180,7 @@ export class Modal {
     modal_title: HTMLHeadingElement
     modal_body: HTMLDivElement
     constructor(el: HTMLElement) {
-        const label_id = uuid.v4()
+        const label_id = uuidv4()
         this.modal_div = create_append(el, "div", ["modal", "fade"],
             { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": label_id }
         )
