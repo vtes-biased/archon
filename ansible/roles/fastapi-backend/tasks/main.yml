@@ -16,6 +16,12 @@
     virtualenv: "{{ r.site_root }}/venv"
     virtualenv_command: /usr/bin/python3 -m venv
 
+- name: Add env file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "/etc/profile.d/{{ r.service_name }}.env"
+    mode: '600'
+
 - name: Add service
   ansible.builtin.template:
     src: service.j2
