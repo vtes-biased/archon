@@ -22,6 +22,7 @@ class PasswordModal extends base.Modal {
         )
         base.create_append(form, "button", ["btn", "btn-primary"], { type: "submit" }).innerText = "Submit"
         form.addEventListener("submit", async (ev) => { ev.preventDefault(); await this.submit() })
+        this.modal_div.addEventListener("shown.bs.modal", () => { this.password.focus() })
     }
     show(token: base.Token, email: string) {
         this.token = token

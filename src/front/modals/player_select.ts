@@ -18,6 +18,7 @@ export class PlayerSelectModal extends base.Modal {
         base.create_append(this.select, "option", [], { value: "", label: "" })
         this.select.addEventListener("change", (ev) => this.select_player())
         this.players = new Map()
+        this.modal_div.addEventListener("shown.bs.modal", () => { this.select.focus() })
     }
 
     init(callback: PlayerSelectCallback, players: d.Player[]) {

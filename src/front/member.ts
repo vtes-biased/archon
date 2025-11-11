@@ -500,9 +500,6 @@ export class AddMemberModal extends base.Modal {
         super(el)
         this.members_map = members_map
         this.callback = callback
-        this.modal_div = base.create_append(el, "div", ["modal", "fade"],
-            { tabindex: "-1", "aria-hidden": "true", "aria-labelledby": "AddMemberModalLabel" }
-        )
         this.modal_title.innerText = "Add Member"
         this.form = base.create_append(this.modal_body, "form")
         const alert = base.create_append(this.form, "div", ["alert", "alert-warning"], { role: "alert" })
@@ -536,6 +533,7 @@ export class AddMemberModal extends base.Modal {
         this.city.required = false
         this.country.addEventListener("change", (ev) => this.change_country())
         this.form.addEventListener("submit", (ev) => this.submit(ev))
+        this.modal_div.addEventListener("shown.bs.modal", () => { this.name.focus() })
     }
 
     async init(token: base.Token | undefined = undefined, countries: d.Country[] | undefined = undefined, assign_vekn: boolean = false) {
@@ -628,6 +626,7 @@ export class ExistingVeknModal extends base.Modal {
         this.vekn_input.ariaAutoComplete = "none"
         this.submit_button = base.create_append(this.form, "button", ["btn", "btn-primary", "me-2", "mb-2"], { type: "submit" })
         this.form.addEventListener("submit", (ev) => this.submit(ev).then())
+        this.modal_div.addEventListener("shown.bs.modal", () => { this.vekn_input.focus() })
     }
     async init(
         token: base.Token | undefined = undefined,
@@ -672,6 +671,7 @@ export class ExistingVeknModal extends base.Modal {
         this.modal.hide()
     }
     show() {
+        this.vekn_input.value = ""
         this.modal.show()
     }
 }

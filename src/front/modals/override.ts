@@ -41,6 +41,7 @@ export class OverrideModal extends base.Modal {
         )
         this.cancel_button.innerText = "Cancel"
         this.cancel_button.addEventListener("click", (ev) => { this.table_number = undefined; this.modal.hide() })
+        this.modal_div.addEventListener("shown.bs.modal", () => { this.comment.focus() })
     }
 
     show(round: number, table: d.Table, table_number: number) {
