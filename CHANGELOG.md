@@ -1,4 +1,4 @@
-# Beta version 0.50
+# Beta version 0.51
 
 - Vastly improved performances
 - Fixed many bugs, improved errors display
