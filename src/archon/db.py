@@ -388,6 +388,22 @@ class Operator:
                 return self._instanciate(data[0], models.Client)
             return None
 
+    async def get_all_clients(
+        self, client_uids: list[str] = None
+    ) -> list[models.Client]:
+        """Get all clients"""
+        async with self.conn.cursor() as cursor:
+            Q = "SELECT data FROM clients"
+            if client_uids:
+                Q += " WHERE uid = ANY(%s)"
+                args = [client_uids]
+            else:
+                args = []
+            return [
+                self._instanciate(row[0], models.Client)
+                async for row in cursor.stream(Q, args)
+            ]
+
     async def create_tournament(self, tournament: models.TournamentConfig) -> str:
         """Create a tournament, returns its uid"""
         uid = uuid.uuid4()

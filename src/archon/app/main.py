@@ -17,6 +17,7 @@ from .. import db
 from .. import engine
 from .. import vekn
 from . import dependencies
+from .api import admin as api__admin
 from .api import league as api__league
 from .api import tournament as api__tournament
 from .api import vekn as api__vekn
@@ -143,6 +144,7 @@ with (
 
 # mount routers
 app.include_router(html__website.router)
+app.include_router(api__admin.router)
 app.include_router(api__league.router)
 app.include_router(api__tournament.router)
 app.include_router(api__vekn.router)
@@ -161,6 +163,24 @@ def auth_exception_handler(
     return fastapi.responses.RedirectResponse(
         url=request.url_for("login").include_query_params(next=str(request.url))
     )
+
+
+# 403 Forbidden handler (website endpoints only)
+@app.exception_handler(fastapi.HTTPException)
+def forbidden_exception_handler(
+    request: fastapi.Request, exc: fastapi.HTTPException
+) -> fastapi.responses.HTMLResponse:
+    """
+    Redirect to 403 page for HTML requests on website endpoints only
+    """
+    if exc.status_code == 403 and not request.url.path.startswith("/api/"):
+        return html__website.TEMPLATES.TemplateResponse(
+            request=request,
+            name="403.html.j2",
+            context={},
+            status_code=403,
+        )
+    raise exc
 
 
 # engine errors display

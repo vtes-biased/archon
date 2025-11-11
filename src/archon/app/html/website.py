@@ -75,6 +75,7 @@ router = fastapi.APIRouter(
     tags=["oauth"],
 )
 async def html_auth_oauth(
+    request: fastapi.Request,
     client_id: typing.Annotated[str, fastapi.Query()],
     redirect_uri: typing.Annotated[str, fastapi.Query()],
     state: typing.Annotated[str, fastapi.Query()],
@@ -100,7 +101,7 @@ async def html_auth_oauth(
 
     # Show consent page
     return TEMPLATES.TemplateResponse(
-        request=fastapi.Request,
+        request=request,
         name="oauth/consent.html.j2",
         context={
             "client_id": client_id,
@@ -735,5 +736,27 @@ async def league_create(
     return TEMPLATES.TemplateResponse(
         request=request,
         name="league/display.html.j2",
+        context=context,
+    )
+
+
+@router.get("/admin/display.html")
+async def admin_display(
+    request: fastapi.Request,
+    context: dependencies.SessionContext,
+    member: dependencies.MemberFromSession,
+    op: dependencies.DbOperator,
+):
+    """Admin page for managing client apps"""
+    if models.MemberRole.ADMIN not in member.roles:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    clients = await op.get_all_clients()
+    context["clients"] = clients
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="admin/display.html.j2",
         context=context,
     )

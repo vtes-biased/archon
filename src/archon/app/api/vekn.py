@@ -349,3 +349,12 @@ async def api_vekn_member_sanction_delete(
         raise fastapi.HTTPException(fastapi.status.HTTP_404_NOT_FOUND)
     target.sanctions = [s for s in target.sanctions if s.uid != sanction_uid]
     return _filter_member_data(member, await op.update_member(target))
+
+
+@router.get("/clients", summary="List authorized clients for this member")
+async def api_vekn_clients(
+    member: dependencies.MemberFromToken,
+    op: dependencies.DbOperator,
+) -> list[models.Client]:
+    """List all authorized clients for this member"""
+    return await op.get_all_clients(list(member.authorized_clients.keys()))

@@ -29,6 +29,7 @@
     "default": {
       "distDir": "src/archon/static/",
       "source": [
+        "src/front/admin.ts",
         "src/front/base.ts",
         "src/front/checkin.ts",
         "src/front/tournament/console.ts",

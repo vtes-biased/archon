@@ -21,28 +21,49 @@
 
 <body>
     <header role="banner">
-        <nav id="navigation" class="navbar bg-dark navbar-expand-sm mb-3" data-bs-theme="dark">
+        <nav id="navigation" class="navbar bg-dark navbar-expand mb-3" data-bs-theme="dark">
             <div class="container-fluid">
                 <a class="navbar-brand" href="{{ url_for('index') }}">
                     <img src="{{ url_for('img', path='black-chantry-icon.webp') }}" alt="BCP logo" width="48px">
                 </a>
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">Rankings</a>
+                        <a class="nav-link" href="{{ url_for('index') }}">
+                            <i class="bi bi-list-ol"></i>
+                            <span class="d-none d-lg-inline ms-1">Rankings</span>
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('tournament_list') }}">Tournaments</a>
+                        <a class="nav-link" href="{{ url_for('tournament_list') }}">
+                            <i class="bi bi-trophy-fill"></i>
+                            <span class="d-none d-lg-inline ms-1">Tournaments</span>
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('league_list') }}">Leagues</a>
+                        <a class="nav-link" href="{{ url_for('league_list') }}">
+                            <i class="bi bi-award-fill"></i>
+                            <span class="d-none d-lg-inline ms-1">Leagues</span>
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('member_list') }}">Members</a>
+                        <a class="nav-link" href="{{ url_for('member_list') }}">
+                            <i class="bi bi-people"></i>
+                            <span class="d-none d-lg-inline ms-1">Members</span>
+                        </a>
                     </li>
+                    {% if member and 'Admin' in member.roles %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_display') }}">
+                            <i class="bi bi-gear"></i>
+                            <span class="d-none d-lg-inline ms-1">Admin</span>
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item dropdown">
                         <a class="dropdown-toggle nav-link" href="/document" role="button" data-bs-toggle="dropdown"
                             aria-expanded="false">
                             <i class="bi bi-journal-text"></i>
+                            <span class="d-none d-lg-inline ms-1">Documents</span>
                         </a>
                         <ul class="dropdown-menu">
 
@@ -64,11 +85,13 @@
                 </ul>
                 {% if member %}
                 <a type="button" class="btn btn-secondary ms-2" href="{{ url_for('member_display', uid=member.uid) }}">
-                    <i class="bi bi-person-fill"></i> Profile
+                    <i class="bi bi-person-fill"></i>
+                    <span class="d-none d-lg-inline ms-1">Profile</span>
                 </a>
                 {% else %}
                 <button type="button" class="btn btn-primary ms-2" id="loginButton">
-                    <i class="bi bi-box-arrow-in-right"></i> Login
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span class="d-none d-lg-inline ms-1">Login</span>
                 </button>
                 {% endif %}
             </div>

@@ -372,9 +372,8 @@ class MemberDisplay {
         }
         // ___________________________________________________________________________________________ Authorized Apps
         if (this.target.uid == this.member.uid && this.target.authorized_clients && Object.keys(this.target.authorized_clients).length > 0) {
-            const apps_container = base.create_append(this.root, "div", ["container", "mt-4"])
-            const apps_row = base.create_append(apps_container, "div", ["row", "justify-content-center"])
-            const apps_col = base.create_append(apps_row, "div", ["col-md-8"])
+            const apps_row = base.create_append(this.root, "div", ["row", "mt-4"])
+            const apps_col = base.create_append(apps_row, "div", ["col-12"])
             const apps_card = base.create_append(apps_col, "div", ["card"])
 
             const apps_header = base.create_append(apps_card, "div", ["card-header"])
@@ -391,8 +390,14 @@ class MemberDisplay {
         // ___________________________________________________________________________________________________ Sanctions
         var sanction_div: HTMLDivElement
         if (m.can_sanction(this.member) || (this.target.sanctions && this.target.sanctions.length > 0)) {
-            base.create_append(this.root, "h2", ["mt-4"]).innerText = "Sanctions"
-            sanction_div = base.create_append(this.root, "div", ["d-xl-flex", "gap-2"])
+            const sanctions_row = base.create_append(this.root, "div", ["row", "mt-4"])
+            const sanctions_col = base.create_append(sanctions_row, "div", ["col-12"])
+            const sanctions_card = base.create_append(sanctions_col, "div", ["card"])
+            const sanctions_header = base.create_append(sanctions_card, "div", ["card-header"])
+            const sanctions_title = base.create_append(sanctions_header, "h5", ["mb-0"])
+            base.create_append(sanctions_title, "i", ["bi", "bi-exclamation-triangle"])
+            sanctions_title.append(document.createTextNode(" Sanctions"))
+            sanction_div = base.create_append(sanctions_card, "div", ["card-body"])
         }
         if (this.target.sanctions && this.target.sanctions.length > 0) {
             const sanctions_accordion = base.create_append(sanction_div, "div", ["accordion", "w-100", "mb-4"],
