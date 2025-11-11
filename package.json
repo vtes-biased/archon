@@ -52,6 +52,6 @@
   },
   "scripts": {
     "front": "parcel watch",
-    "back": "uvicorn archon.app.main:app --reload --reload-include='*.j2' --reload-include='*.css' --reload-include='*.js'"
+    "back": "uvicorn archon.app.main:app --reload --reload-include='*.j2' --reload-include='*.css' --reload-include='*.js' --reload-include='.env'"
   }
 }
