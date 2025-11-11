@@ -279,6 +279,10 @@ async def parse_if_none_match(
     if inm_raw is None:
         return None
 
+    # Handle null-like strings from clients (e.g., JavaScript serializing null)
+    if inm_raw.lower() in ("null", "none", ""):
+        return None
+
     try:
         dt = datetime.datetime.fromisoformat(inm_raw)
     except (TypeError, ValueError):
