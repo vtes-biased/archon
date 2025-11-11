@@ -3,6 +3,7 @@
 Tournament management
 
 > 📋 For detailed architecture and design information, see [DESIGN.md](DESIGN.md)
+> 📝 For version history and changes, see [CHANGELOG.md](CHANGELOG.md)
 
 ## Quick Start
 
