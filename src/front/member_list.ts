@@ -104,6 +104,15 @@ class MemberListDisplay {
         const add_member_button = base.create_append(this.buttons_row, "button", ["btn", "btn-primary", "me-2", "mb-2"])
         add_member_button.innerHTML = '<i class="bi bi-person-fill-add"></i> Add Member'
         add_member_button.addEventListener("click", (ev) => this.add_member_modal.show())
+        const reload_button = base.create_append(this.buttons_row, "button", ["btn", "btn-secondary", "me-2", "mb-2"])
+        reload_button.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Reload'
+        reload_button.addEventListener("click", async (ev) => {
+            base.remove_children(this.members_table)
+            reload_button.disabled = true
+            await this.members_map.reload()
+            reload_button.disabled = false
+            await this.display()
+        })
 
         this.set_filters_from_url(url)
         this.display()

@@ -43,11 +43,6 @@ export class MembersDB {
 
     async init() {
         this.trie = new Map()
-        const perf_nav = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-        if (perf_nav.type == "reload") {
-            sessionStorage.removeItem("members_refresh")
-            console.log("trigger full refresh from reload")
-        }
         this.db = await idb.openDB("VEKN", VERSION, {
             upgrade(db, oldVersion, newVersion, transaction, event) {
                 const membersStore = db.createObjectStore("members", { keyPath: "uid" })
@@ -67,7 +62,12 @@ export class MembersDB {
         await this.refresh()
         await this.build_trie()
     }
-
+    async reload() {
+        sessionStorage.removeItem("members_refresh")
+        this.trie = new Map()
+        await this.refresh()
+        await this.build_trie()
+    }
     async refresh() {
         console.log("refreshing db")
         const options = {

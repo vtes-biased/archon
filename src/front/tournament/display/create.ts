@@ -189,7 +189,7 @@ export class CreateTournament extends BaseTournamentDisplay {
                 { for: "switchDecklistRequired" }
             )
             this.decklist_required_label.innerText = "Decklist required"
-            this.decklist_required.checked = true
+            this.decklist_required.checked = false
         }
         { // league
             const div = base.create_append(this.form, "div", ["col-md-6", "d-flex", "align-items-center"])
