@@ -1,7 +1,8 @@
-# Beta version 0.XX
+# Beta version 0.50
 
 - Vastly improved performances
 - Fixed many bugs, improved errors display
+- Improved mobile layout/display
 - Display tournament winner deck
 - Display rating points in standings
 - Automatically drop players who did not show up
