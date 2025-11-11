@@ -8,7 +8,6 @@ import typing
 from .. import dependencies
 from ... import geo
 from ... import models
-from ... import vekn as vekn_net
 
 LOG = logging.getLogger()
 router = fastapi.APIRouter(
@@ -96,8 +95,8 @@ class JSONLResponse(fastapi.responses.ORJSONResponse):
 )
 async def api_vekn_members(
     request: fastapi.Request,
-    member: dependencies.PersonFromToken,
-    op: dependencies.DbOperator,
+    member_uid: dependencies.MemberUidFromToken,
+    op: dependencies.AutocommitDbOperator,
     since: dependencies.IfNoneMatch,
 ) -> fastapi.Response:
     """
@@ -108,38 +107,45 @@ async def api_vekn_members(
     - If you're not, you get only the public officials (Princes and NCs) as normal JSON:
       `Content-Type: application/json`
     """
-    if member.vekn:
-        LOG.debug("fetching members since: %s", since)
-        if since:
-            timestamp, people_update = await op.get_members_since(
-                since, vekn_only=models.MemberRole.ADMIN not in member.roles
-            )
-            if not people_update:
-                return fastapi.responses.Response(status_code=304)
-            return fastapi.responses.ORJSONResponse(
-                people_update,
-                headers={
-                    "ETag": timestamp.astimezone(datetime.timezone.utc).isoformat(),
-                    "Cache-Control": "no-store",
-                },
-            )
-        else:
-            timestamp, generator = await op.get_members_generator(
-                vekn_only=models.MemberRole.ADMIN not in member.roles
-            )
-            return fastapi.responses.StreamingResponse(
-                _json_l(request, generator()),
-                media_type="application/x-ndjson",
-                headers={
-                    "ETag": timestamp.astimezone(datetime.timezone.utc).isoformat(),
-                    "Cache-Control": "no-store",
-                },
-            )
-    else:
+    # fetch member by hand because the dependency uses a transaction DB op
+    member = await op.get_member(member_uid, cls=models.Person)
+    if member is None:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not member.vekn:
         return fastapi.responses.ORJSONResponse(
             await op.get_externally_visible_members(member),
             headers={
                 "X-Data-Scope": "public",
+                "Cache-Control": "no-store",
+            },
+        )
+    LOG.debug("fetching members since: %s", since)
+    if since:
+        timestamp, people_update = await op.get_members_since(
+            since, vekn_only=models.MemberRole.ADMIN not in member.roles
+        )
+        if not people_update:
+            return fastapi.responses.Response(status_code=304)
+        return fastapi.responses.ORJSONResponse(
+            people_update,
+            headers={
+                "ETag": timestamp.astimezone(datetime.timezone.utc).isoformat(),
+                "Cache-Control": "no-store",
+            },
+        )
+    else:
+        timestamp, generator = await op.get_members_generator(
+            vekn_only=models.MemberRole.ADMIN not in member.roles
+        )
+        return fastapi.responses.StreamingResponse(
+            _json_l(request, generator()),
+            media_type="application/x-ndjson",
+            headers={
+                "ETag": timestamp.astimezone(datetime.timezone.utc).isoformat(),
                 "Cache-Control": "no-store",
             },
         )
@@ -151,7 +157,7 @@ def _filter_member_data(user: models.Person, target: models.Member) -> M:
         return target
     if not user.vekn:
         return models.PublicPerson(**data)
-    if dependencies.check_can_contact(user, target):
+    if dependencies.can_contact(user, target):
         return target
     return models.PersonWithRatings(**data)
 
@@ -191,8 +197,11 @@ async def api_vekn_add_member(
         member.city = city.unique_name
     else:
         member.city = ""
-    ret = await op.insert_member(member)
-    return _filter_member_data(posting_member, ret)
+    member.sponsor = posting_member.uid
+    member = await op.insert_member(member)
+    member = await op.update_member_new_vekn(member)
+    await dependencies.vekn_sync_member(member)
+    return _filter_member_data(posting_member, member)
 
 
 @router.post("/members/password", summary="Change your password")
@@ -255,7 +264,7 @@ async def api_vekn_member_sponsor(
     target = await op.get_member(uid, True)
     target.sponsor = member.uid
     ret = await op.update_member_new_vekn(target)
-    await vekn_net.create_member(ret)
+    await dependencies.vekn_sync_member(ret)
     return _filter_member_data(member, ret)
 
 

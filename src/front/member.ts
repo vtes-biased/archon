@@ -505,6 +505,12 @@ export class AddMemberModal extends base.Modal {
         )
         this.modal_title.innerText = "Add Member"
         this.form = base.create_append(this.modal_body, "form")
+        const alert = base.create_append(this.form, "div", ["alert", "alert-warning"], { role: "alert" })
+        alert.innerText = (
+            "Do not register people from an online contact: "
+            + "ask them to create an account and send you a link to their profile "
+            + "to assign them a VEKN ID"
+        )
         this.name = base.create_append(this.form, "input", ["form-control", "my-2"],
             { type: "text", autocomplete: "new-name", name: "new-name" }
         )

@@ -768,6 +768,10 @@ class Operator:
         typing.Callable[[None], typing.AsyncGenerator[models.Person, None]],
     ]:
         """Streams all members. returns a 'fuzzy' timestamp in the past."""
+        if not self.conn.autocommit:
+            raise RuntimeError(
+                "Operator.get_members_generator() can only be called in autocommit mode"
+            )
         async with self.conn.cursor() as cursor:
             timestamp_data = await cursor.execute(
                 "SELECT (now() - INTERVAL '1 hour')::timestamptz"
@@ -802,6 +806,10 @@ class Operator:
 
     async def get_members_vekn_dict(self) -> dict[str, models.Person]:
         """Get all members with a VEKN"""
+        if not self.conn.autocommit:
+            raise RuntimeError(
+                "Operator.get_members_vekn_dict() can only be called in autocommit mode"
+            )
         async with self.conn.cursor() as cursor:
             await cursor.execute("SET statement_timeout='120s'")
             return {

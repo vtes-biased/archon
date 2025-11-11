@@ -95,12 +95,20 @@ class DiscordAuth:
 
 
 # ############################################################################# Database
-async def get_db_op() -> typing.AsyncIterator[db.Operator]:
-    async with db.POOL.connection() as conn:
-        yield db.Operator(conn)
+def get_db_op(
+    autocommit: bool = False,
+) -> typing.Callable[[], typing.AsyncIterator[db.Operator]]:
+    async def ret_function() -> typing.AsyncIterator[db.Operator]:
+        async with db.operator(autocommit=autocommit) as op:
+            yield op
+
+    return ret_function
 
 
-DbOperator = typing.Annotated[db.Operator, fastapi.Depends(get_db_op)]
+DbOperator = typing.Annotated[db.Operator, fastapi.Depends(get_db_op(autocommit=False))]
+AutocommitDbOperator = typing.Annotated[
+    db.Operator, fastapi.Depends(get_db_op(autocommit=True))
+]
 
 
 def get_member_uid_from_session(request: fastapi.Request) -> str:
@@ -214,6 +222,14 @@ async def vekn_sync(tournament: models.Tournament, rounds: int, user: models.Per
         await vekn.upload_tournament_result(tournament)
 
 
+async def vekn_sync_member(member: models.Member) -> None:
+    if not member.sponsor or not member.vekn:
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    if not VEKN_PUSH:
+        return
+    await vekn.create_member(member)
+
+
 def async_timed_cache(duration: datetime.timedelta = datetime.timedelta(minutes=5)):
     def wrapper(async_fun):
         lock = asyncio.Lock()
@@ -237,7 +253,7 @@ def async_timed_cache(duration: datetime.timedelta = datetime.timedelta(minutes=
 
 
 async def parse_if_none_match(
-    inm_raw: str | None = fastapi.Header(None, alias="If-None-Match")
+    inm_raw: str | None = fastapi.Header(None, alias="If-None-Match"),
 ) -> datetime.datetime | None:
     """
     Dependency that reads the If-None-Match header, parses it,
@@ -402,8 +418,6 @@ def check_can_sanction(member: models.Person):
     member_roles = set(member.roles)
     if member_roles & {
         models.MemberRole.ADMIN,
-        models.MemberRole.RULEMONGER,
-        models.MemberRole.JUDGE,
         models.MemberRole.ETHICS,
     }:
         return
@@ -421,20 +435,25 @@ def check_can_change_vekn(member: models.Person, target: models.Person):
     raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
-def check_can_contact(member: models.Person, target: models.Person):
+def can_contact(member: models.Person, target: models.Person):
     if member.uid == target.uid or models.MemberRole.ADMIN in member.roles:
-        return
+        return True
     if models.MemberRole.NC in target.roles:
-        return
+        return True
     if models.MemberRole.PRINCE in target.roles:
-        return
+        return True
     if member.country == target.country and (
         models.MemberRole.PRINCE in member.roles or models.MemberRole.NC in member.roles
     ):
-        return
+        return True
     if models.MemberRole.NC in member.roles and models.MemberRole.ADMIN in target.roles:
-        return
-    raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+        return True
+    return False
+
+
+def check_can_contact(member: models.Person, target: models.Person):
+    if not can_contact(member, target):
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
 
 
 # #################################################################### Security: Session
@@ -563,8 +582,7 @@ def check_member_password(member: models.Member, password: str) -> bool:
 async def send_reset_email(email: str) -> None:
     url = email_login_url(email)
     html = (
-        "<p>Reset your Archon account password with "
-        f'<a href="{url}">this link</a>.</p>'
+        f'<p>Reset your Archon account password with <a href="{url}">this link</a>.</p>'
     )
     message = fastapi_mail.MessageSchema(
         subject="Archon: Password reset",
