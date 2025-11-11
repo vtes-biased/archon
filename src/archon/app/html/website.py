@@ -297,12 +297,14 @@ async def html_vekn_claim(
 ):
     new_member = await op.claim_vekn(member_uid, vekn)
     if new_member is None:
-        raise fastapi.HTTPException(
-            fastapi.status.HTTP_403_FORBIDDEN,
-            detail="This VEKN does not exist or is already claimed",
+        request.session["message"] = "This VEKN does not exist or is already claimed"
+        return fastapi.responses.RedirectResponse(
+            request.url_for("member_display", uid=member_uid)
         )
     dependencies.authenticated_session(request, new_member)
-    dependencies.LOG.warning("uid is now %s", new_member.uid)
+    dependencies.LOG.info(
+        "%s claimed VEKN %s, their uid is now %s", member_uid, vekn, new_member.uid
+    )
     return fastapi.responses.RedirectResponse(
         request.url_for("member_display", uid=new_member.uid)
     )
@@ -316,12 +318,12 @@ async def html_vekn_abandon(
 ):
     new_member = await op.abandon_vekn(member_uid)
     if new_member is None:
-        raise fastapi.HTTPException(
-            fastapi.status.HTTP_404_NOT_FOUND,
-            detail="No VEKN to abandon",
-        )
+        # user removed, go to login
+        return fastapi.responses.RedirectResponse(request.url_for("login"))
     dependencies.authenticated_session(request, new_member)
-    dependencies.LOG.warning("uid is now %s", new_member.uid)
+    dependencies.LOG.info(
+        "%s abandoned VEKN, their uid is now %s", member_uid, new_member.uid
+    )
     return fastapi.responses.RedirectResponse(
         request.url_for("member_display", uid=new_member.uid)
     )
@@ -683,7 +685,9 @@ async def member_display(
         dependencies.check_can_contact(member, target)
 
     # No need to add authorized apps to context - handled in TypeScript
-
+    message = request.session.pop("message", None)
+    if message:
+        context["message"] = message
     return TEMPLATES.TemplateResponse(
         request=request,
         name="member/display.html.j2",
