@@ -230,10 +230,17 @@ async def vekn_sync_member(member: models.Member) -> None:
     await vekn.create_member(member)
 
 
+# Registry for cache invalidation functions
+_cache_invalidators: list[typing.Callable[[], None]] = []
+
+
 def async_timed_cache(duration: datetime.timedelta = datetime.timedelta(minutes=5)):
     def wrapper(async_fun):
         lock = asyncio.Lock()
         cache = []
+
+        def invalidate():
+            cache.clear()
 
         @functools.wraps(async_fun)
         async def inner(*args, **kwargs):
@@ -247,9 +254,17 @@ def async_timed_cache(duration: datetime.timedelta = datetime.timedelta(minutes=
                 LOG.debug("Using cached value for %s", async_fun.__name__)
             return cache[1]
 
+        inner.invalidate = invalidate
+        _cache_invalidators.append(invalidate)
         return inner
 
     return wrapper
+
+
+def invalidate_caches():
+    """Invalidate all ranking-related caches"""
+    for invalidator in _cache_invalidators:
+        invalidator()
 
 
 async def parse_if_none_match(

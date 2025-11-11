@@ -434,6 +434,9 @@ class MemberDisplay {
                     case events.SanctionLevel.DISQUALIFICATION:
                         level_badge.classList.add("text-bg-danger")
                         break;
+                    case events.SanctionLevel.BAN:
+                        level_badge.classList.add("text-bg-danger")
+                        break;
                 }
                 if (sanction.category != events.SanctionCategory.NONE) {
                     const category_badge = base.create_append(button, "div", ["badge", "mx-1", "text-bg-secondary"])

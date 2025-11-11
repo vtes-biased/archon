@@ -12,6 +12,7 @@ import typing
 from .. import dependencies
 from ... import geo
 from ... import models
+from ... import events
 from ... import engine
 from ... import scoring
 
@@ -338,6 +339,11 @@ async def root(request: fastapi.Request):
 
 
 def _ranked(members: list[models.Person], category: models.RankingCategoy):
+    members = [
+        m
+        for m in members
+        if not any(s.level == events.SanctionLevel.BAN for s in m.sanctions)
+    ]
     members.sort(key=lambda x: -x.ranking.get(category, 0))
     rank, passed, rating = 0, 0, math.inf
     for member in members:

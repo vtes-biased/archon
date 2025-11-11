@@ -237,6 +237,10 @@ async def api_tournament_event_post(
 
     - **uid**: The tournament unique ID
     """
+    if event.type == events.EventType.REGISTER:
+        member = await op.get_member(event.player_uid)
+        if any(s.level == events.SanctionLevel.BAN for s in member.sanctions):
+            raise engine.BannedPlayer()
     orchestrator.handle_event(event, actor)
     await op.record_event(orchestrator.uid, actor.uid, event)
     await op.update_tournament(orchestrator)
@@ -257,12 +261,14 @@ async def api_tournament_event_post(
             )
         )
         await op.update_member(member)
+        dependencies.invalidate_caches()
     if event.type == events.EventType.UNSANCTION:
         member = await op.get_member(event.player_uid, for_update=True)
         for idx, sanction in enumerate(member.sanctions):
             if sanction.uid == event.sanction_uid:
                 del member.sanctions[idx]
         await op.update_member(member)
+        dependencies.invalidate_caches()
     if event.type == events.EventType.FINISH_TOURNAMENT:
         await dependencies.vekn_sync(
             orchestrator, max(1, len(orchestrator.rounds)), actor

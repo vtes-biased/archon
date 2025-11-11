@@ -332,7 +332,9 @@ async def api_vekn_member_sanction(
         # for now, tournament sanctions should be delivered through tournament events
         raise fastapi.HTTPException(fastapi.status.HTTP_400_BAD_REQUEST)
     target.sanctions.append(sanction)
-    return _filter_member_data(member, await op.update_member(target))
+    await op.update_member(target)
+    dependencies.invalidate_caches()
+    return _filter_member_data(member, target)
 
 
 @router.delete("/members/{uid}/sanction/{sanction_uid}", summary="Remove a sanction")
@@ -348,7 +350,9 @@ async def api_vekn_member_sanction_delete(
     if not any(s.uid == sanction_uid for s in target.sanctions):
         raise fastapi.HTTPException(fastapi.status.HTTP_404_NOT_FOUND)
     target.sanctions = [s for s in target.sanctions if s.uid != sanction_uid]
-    return _filter_member_data(member, await op.update_member(target))
+    await op.update_member(target)
+    dependencies.invalidate_caches()
+    return _filter_member_data(member, target)
 
 
 @router.get("/clients", summary="List authorized clients for this member")

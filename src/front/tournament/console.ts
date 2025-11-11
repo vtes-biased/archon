@@ -305,6 +305,9 @@ class TournamentConsole {
                 if (sanction.tournament?.uid && sanction.tournament?.uid != this.engine.tournament.uid) {
                     return true
                 }
+                if (sanction.level == events.SanctionLevel.BAN) {
+                    return true
+                }
             }
         }
         const local_sanctions = this.engine.tournament.sanctions[player_uid]

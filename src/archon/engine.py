@@ -216,7 +216,10 @@ class TournamentManager(models.Tournament):
                 if player.state != models.PlayerState.FINISHED:
                     # If this is the first round and player is not checked in, drop them
                     # This avoids mistakes when using check_everyone_in in subsequent rounds
-                    if len(self.rounds) == 1 and player.state != models.PlayerState.CHECKED_IN:
+                    if (
+                        len(self.rounds) == 1
+                        and player.state != models.PlayerState.CHECKED_IN
+                    ):
                         player.state = models.PlayerState.FINISHED
                     else:
                         player.state = models.PlayerState.REGISTERED
@@ -387,7 +390,7 @@ class TournamentManager(models.Tournament):
         else:
             deck_data = deck.to_json()
             if not deck_data.get("author", "") and ev.attribution:
-                deck_data["author"]= member.name
+                deck_data["author"] = member.name
                 deck.author = member.name
             player.deck = models.KrcgDeck(**deck_data, vdb_link=deck.to_vdb())
         if self.decklist_required:
@@ -530,6 +533,11 @@ class DisqualifiedPlayer(TournamentError):
         return "Player was disqualified"
 
 
+class BannedPlayer(TournamentError):
+    def __str__(self):
+        return "Player is banned from tournament play"
+
+
 class UnnamedPlayer(TournamentError):
     def __str__(self):
         return "Player has no name: a name is required."
@@ -551,7 +559,6 @@ class BadTableNumber(TournamentError):
 
 
 class CheckinBarrier(TournamentError):
-
     def __init__(self, ev: events.TournamentEvent, barriers: list[models.Barrier]):
         super().__init__(ev, barriers)
 
@@ -560,7 +567,6 @@ class CheckinBarrier(TournamentError):
 
 
 class InvalidTables(TournamentError):
-
     def __init__(self, ev: events.TournamentEvent, tables: list[int]):
         super().__init__(ev, tables)
 
@@ -574,7 +580,6 @@ class NotJudge(TournamentError):
 
 
 class SeatingDuplicates(TournamentError):
-
     def __init__(self, ev: events.TournamentEvent, players: list[models.Player]):
         super().__init__(ev, players)
 
@@ -1296,7 +1301,10 @@ def optimise_table_seating(
         tournament.rounds[-1].tables[table].seating[i].player_uid = uid
     return score
 
-def deck_infos(tournament: models.Tournament, member: models.Person) -> list[models.DeckInfo]:
+
+def deck_infos(
+    tournament: models.Tournament, member: models.Person
+) -> list[models.DeckInfo]:
     res = []
     if tournament.multideck:
         for idx, round_ in enumerate(tournament.rounds, 1):
@@ -1328,9 +1336,7 @@ def deck_infos(tournament: models.Tournament, member: models.Person) -> list[mod
                         finalist=(player.uid in tournament.finals_seeds),
                     )
                 )
-    res.sort(
-        key=lambda info: (-int(info.winner), -int(info.finalist), info.score)
-    )
+    res.sort(key=lambda info: (-int(info.winner), -int(info.finalist), info.score))
     if can_admin_tournament(member, tournament):
         return res
     if tournament.decklists_mode == models.DeckListsMode.ALL:
