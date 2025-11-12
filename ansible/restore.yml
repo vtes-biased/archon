@@ -1,0 +1,10 @@
+---
+- name: Restore the archon database
+  hosts: vekn
+  become: true
+  gather_facts: false
+  vars:
+    username: ubuntu
+    db_name: archondb
+  roles:
+    - role: postgresql-restore

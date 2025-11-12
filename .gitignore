@@ -14,3 +14,5 @@ src/archon/static
 *.DS_Store
 # Ansible vault
 .vault_password
+# DB backups
+ansible/backups/

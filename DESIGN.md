@@ -153,6 +153,22 @@ To re-install (or update) the archon service, just run:
 ansible-playbook ansible/archon.yml
 ```
 
+## Database backups
+
+Get a backup of the Archon database:
+
+```bash
+ansible-playbook ansible/backup.yml
+```
+
+The backup is saved in your local `ansible/backups` folder. You can restore it with:
+
+```bash
+ansible-playbook archon-restore.yml -e "backup_file=2024-02-06-212239/archondb.dump.gz"
+```
+
+Note you should provide the backup file name _without_ the `ansible/backups/` folder prefix.
+
 ## Integration Points
 
 **VEKN Integration:** Member synchronization, tournament result submission, independent rating calculations using official VEKN rules  

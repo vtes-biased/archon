@@ -1,0 +1,25 @@
+---
+- name: "Set timestamp of the backup"
+  set_fact:
+    ts_now: '{{ lookup("pipe", "date +%F-%H%M%S") }}'
+
+- name: "Create a backup directory"
+  file:
+    path: "/var/lib/{{ r.db_name }}/backups/{{ ts_now }}/"
+    mode: "0777"
+    owner: "{{ username }}"
+    state: directory
+
+- name: "Back up the database"
+  community.postgresql.postgresql_db:
+    state: dump
+    name: "{{ r.db_name }}"
+    target: "/var/lib/{{ r.db_name }}/backups/{{ ts_now }}/{{ r.db_name }}.dump.gz"
+  become: true
+  become_user: postgres
+
+- name: "Fetch backup from the server"
+  fetch:
+    src: "/var/lib/{{ r.db_name }}/backups/{{ ts_now }}/{{ r.db_name }}.dump.gz"
+    dest: "backups/{{ ts_now }}/{{ r.db_name }}.dump.gz"
+    flat: true

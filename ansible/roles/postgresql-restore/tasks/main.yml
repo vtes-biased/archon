@@ -1,0 +1,25 @@
+---
+- name: "Create a backup directory"
+  file:
+    path: "/var/lib/{{ r.database }}/backups/uploads/{{ backup_file | dirname }}"
+    mode: "0777"
+    owner: "{{ username }}"
+    state: directory
+
+- name: "Copy backup to the server"
+  copy:
+    src: "backups/{{ backup_file }}"
+    dest: "/var/lib/{{ r.db_name }}/backups/uploads/{{ backup_file }}"
+
+- name: "Restore the database"
+  postgresql_db:
+    state: restore
+    name: "{{r.db_name}}"
+    target: "/var/lib/{{ r.db_name }}/backups/uploads/{{ backup_file }}"
+  become: true
+  become_user: postgres
+
+- name: Reload PostgreSQL service
+  ansible.builtin.service:
+    name: postgresql
+    state: reloaded
