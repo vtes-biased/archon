@@ -94,7 +94,7 @@ class TournamentConsole {
             if (res) {
                 countries = await res.json() as d.Country[]
             }
-            await this.add_member_modal.init(this.token, countries, true)
+            await this.add_member_modal.init(this.token, countries)
             await this.info.init(this.engine, countries, this.members_map)
         }
         await this.display(true)

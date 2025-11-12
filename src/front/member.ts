@@ -239,13 +239,6 @@ export class MembersDB {
     async getAll() {
         return await this.db.getAll("members")
     }
-
-    async assign_vekn(uid: string): Promise<d.Person | void> {
-        const res = await base.do_fetch_with_token(`/api/vekn/members/${uid}/sponsor`, this.token, { method: "post" })
-        if (res) {
-            return await res.json()
-        }
-    }
 }
 
 export async function get_user(token: base.Token) {
@@ -536,7 +529,7 @@ export class AddMemberModal extends base.Modal {
         this.modal_div.addEventListener("shown.bs.modal", () => { this.name.focus() })
     }
 
-    async init(token: base.Token | undefined = undefined, countries: d.Country[] | undefined = undefined, assign_vekn: boolean = false) {
+    async init(token: base.Token | undefined = undefined, countries: d.Country[] | undefined = undefined) {
         if (token) {
             this.token = token
         } else {
@@ -554,7 +547,6 @@ export class AddMemberModal extends base.Modal {
             option.label = country.country
             this.country.options.add(option)
         }
-        this.assign_vekn = assign_vekn
     }
 
     show() {
@@ -597,9 +589,6 @@ export class AddMemberModal extends base.Modal {
             email: this.email.value
         } as d.Member
         var person = await this.members_map.add_online(member)
-        if (person && this.assign_vekn) {
-            person = await this.members_map.assign_vekn(person.uid) || person
-        }
         if (person) {
             this.callback(person)
         }
