@@ -12,7 +12,7 @@
     chdir: "{{ r.site_root }}"
     name: "{{ r.package }}"
     state: latest
-    extra_args: "--update --no-cache-dir"
+    extra_args: "--no-cache-dir"
     virtualenv: "{{ r.site_root }}/venv"
     virtualenv_command: /usr/bin/python3 -m venv
 
