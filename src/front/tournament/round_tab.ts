@@ -432,7 +432,7 @@ export class RoundTab {
             }
             for (const instance of instances) {
                 for (const player_uid of instance) {
-                    if (warnings.has(player_uid) && warnings[player_uid][0] < idx + 1) {
+                    if (warnings.has(player_uid) && warnings.get(player_uid)![0] < idx + 1) {
                         continue
                     }
                     warnings.set(player_uid, [idx + 1, message || ""])
@@ -447,7 +447,7 @@ export class RoundTab {
                 icon.remove()
             }
             if (player_uid && warnings.has(player_uid)) {
-                const [level, message] = warnings[player_uid]
+                const [level, message] = warnings.get(player_uid)!
                 const classes = ["bi", "bi-exclamation-triangle-fill", "me-1"]
                 if (level < 2) {
                     // Rule 1 is forbidden by the rules (repeated predator-prey)
