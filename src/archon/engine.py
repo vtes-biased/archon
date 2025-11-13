@@ -1342,7 +1342,5 @@ def deck_infos(
     if tournament.decklists_mode == models.DeckListsMode.ALL:
         return res
     if tournament.decklists_mode == models.DeckListsMode.FINALISTS:
-        res.decks = [info for info in res[:5] if info.finalist]
-        return res
-    res.decks = [info for info in res[:1] if info.winner]
-    return res
+        return [info for info in res[:5] if info.finalist]
+    return [info for info in res[:1] if info.winner]
