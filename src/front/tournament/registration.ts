@@ -359,11 +359,23 @@ export class Registration {
             const seat_button = base.create_append(seat_span, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", seat_button_color_class]
             )
-            seat_button.innerText = `Seat Round ${this.engine.tournament.rounds.length + 1}`
             seat_button.disabled = seat_button_disabled
             seat_button.innerText = seat_button_text
-            this.tooltips.add(seat_span, tooltip_message)
-            seat_button.addEventListener("click", (ev) => { this.engine.start_round() })
+            const seat_tooltip = this.tooltips.add(seat_span, tooltip_message)
+            seat_button.addEventListener("click", async (ev) => {
+                seat_button.disabled = true
+                seat_tooltip.hide()
+                seat_button.innerHTML = (
+                    '<span class="spinner-border spinner-border-sm me-2" '
+                    + 'role="status" aria-hidden="true"></span>'
+                    + 'Computing...'
+                )
+                // allow the UI to update before calling start_round
+                await new Promise(resolve => setTimeout(resolve, 0))
+                await this.engine.start_round()
+                seat_button.innerText = seat_button_text
+                seat_button.disabled = false
+            })
         }
         if (this.engine.tournament.state == d.TournamentState.PLANNED ||
             this.engine.tournament.state == d.TournamentState.REGISTRATION ||

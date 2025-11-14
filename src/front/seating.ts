@@ -404,6 +404,11 @@ class Seating {
     }
 }
 
+function temperate(min: number, max: number, temperature: number): number {
+    // interpolation between min and max following temperature rule
+    return min + Math.round((max - min) * temperature)
+}
+
 export function initial_seating(previous_rounds: string[][][], players: string[]): string[][] {
     players = players.slice()
     if (previous_rounds.length <= 0) {
@@ -421,45 +426,82 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
     }
     const E = new Evaluator(all_players)
     const base_measure = E.measure_rounds(previous_rounds)
-    shuffle_array(players)
     if (players.length < 1) {
         return default_seating(players)
     }
-    var best_seating = new Seating(default_seating(players))
-    var best_issues = E.issues(add3(base_measure, E.measure(best_seating.seating)))
-    // keep it simple, guided monte-carlo
-    for (var it = 0; it < 2000; it++) {
-        var seating = new Seating(best_seating.seating)
-        const players_to_switch: Set<string> = new Set()
-        for (const rule of best_issues) {
-            for (const players of rule) {
-                const switchable = players.filter(p => present_players.has(p))
-                if (switchable.length < 1) {
-                    continue
+    // expermientally, 4 parallel computations yield stable results
+    // decreasing their count, even only at the end of iterations,
+    // leads to less stable results
+    const parallels_inital_count = 4
+    const parallels = new Array(parallels_inital_count)
+    for (var i = 0; i < parallels.length; i++) {
+        shuffle_array(players)
+        const seating = new Seating(default_seating(players))
+        parallels[i] = [
+            seating,
+            E.issues(add3(base_measure, E.measure(seating.seating)))
+        ]
+    }
+    // simulated annealing
+    const max_switches = Math.floor(players.length / 2)
+    const max_iterations = 3000
+    for (var it = 0; it < max_iterations; it++) {
+        // temperature starts hot (1) and decreases to cold (0) logarithmically
+        const temperature = 1 - Math.log(it + 1) / Math.log(max_iterations)
+        // logarithmic decay from max_switches to 1
+        var target_switches = temperate(1, max_switches, temperature)
+        // adding some noise at minimum yield the best results
+        // although keeping the occasional single switch matters too
+        if (target_switches < 2 && Math.random() > 0.5) {
+            target_switches += 1
+        }
+        for (var p = 0; p < parallels.length; p++) {
+            var seating = new Seating(parallels[p][0].seating)
+            const players_to_switch: Set<string> = new Set()
+            for (const rule of parallels[p][1]) {
+                for (const players of rule) {
+                    const switchable = players.filter(p => present_players.has(p))
+                    if (switchable.length < 1) {
+                        continue
+                    }
+                    if (switchable.length < 2) {
+                        players_to_switch.add(switchable[0])
+                    } else {
+                        // if it's an issue concerning two players, switching one suffices
+                        players_to_switch.add(switchable[Math.floor(Math.random() * switchable.length)])
+                    }
+                    if (players_to_switch.size >= target_switches) {
+                        break
+                    }
                 }
-                if (switchable.length < 2) {
-                    players_to_switch.add(players[0])
-                } else {
-                    players_to_switch.add(players[Math.floor(Math.random() * players.length)])
+                // don't switch too many players at once, respect temperature
+                if (players_to_switch.size >= target_switches) {
+                    break
                 }
             }
-        }
-        for (const player of players_to_switch) {
-            seating.random_swap(player)
-        }
-        const new_issues = E.issues(add3(base_measure, E.measure(seating.seating)))
-        if (compare_issues(new_issues, best_issues) < 0) {
-            best_issues = new_issues
-            best_seating = seating
-        }
-        if (zero_issues(best_issues)) {
-            break
+            // add random players as needed to reach temperature-based target
+            const all_switchable = Array.from(present_players).filter(p => !players_to_switch.has(p))
+            while (players_to_switch.size < target_switches && all_switchable.length > 0) {
+                players_to_switch.add(all_switchable.splice(Math.floor(Math.random() * all_switchable.length), 1)[0])
+            }
+            for (const player of players_to_switch) {
+                seating.random_swap(player)
+            }
+            const new_issues = E.issues(add3(base_measure, E.measure(seating.seating)))
+            if (compare_issues(new_issues, parallels[p][1]) < 0) {
+                parallels[p] = [seating, new_issues]
+            }
+            if (zero_issues(parallels[p][1])) {
+                console.log(`optimal found after ${it} iterations`)
+                return parallels[p][0].seating
+            }
         }
     }
-    console.log("best seating found", best_seating.seating, best_issues)
-    return best_seating.seating
+    parallels.sort((a, b) => compare_issues(a[1], b[1]))
+    const result = parallels[0]
+    console.log("best seating found", result[1].map(x => x.length).join(", "))
+    return result[0].seating
 }
-
 
 export function compute_issues(rounds: string[][][]): string[][][] {
     const all_players = new Set<string>()

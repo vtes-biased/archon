@@ -393,9 +393,10 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"]
         )
         upload_deck_button.innerText = "Decklist"
+        var tooltip: bootstrap.Tooltip | undefined
         if (tournament.decklist_required && current_round > 0) {
             if (player.deck) {
-                this.tooltips.add(tooltip_span, "Only a judge can modify your deck list")
+                tooltip = this.tooltips.add(tooltip_span, "Only a judge can modify your deck list")
             } else {
                 const alert = base.create_prepend(this.root, "div",
                     ["alert", "alert-danger", "alert-dismissible", "fade", "show"],
@@ -406,12 +407,12 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                     { type: "button", "data-bs-dismiss": "alert", "arial-label": "Close" }
                 )
                 bootstrap.Alert.getOrCreateInstance(alert)
-                this.tooltips.add(tooltip_span,
+                tooltip = this.tooltips.add(tooltip_span,
                     "Once uploaded, you will not be able to modify your decklist"
                 )
             }
         } else {
-            this.tooltips.add(tooltip_span,
+            tooltip = this.tooltips.add(tooltip_span,
                 "You can re-upload a new version anytime before the tournament begins"
             )
         }
@@ -422,6 +423,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             upload_deck_button.classList.add("btn-secondary")
         }
         upload_deck_button.addEventListener("click", (ev) => {
+            tooltip?.hide()
             this.deck_modal.show(this.engine, player, submit_disabled)
         })
 
