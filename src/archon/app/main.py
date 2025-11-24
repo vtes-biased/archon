@@ -168,7 +168,7 @@ def auth_exception_handler(
 
 
 # return web pages for non-api endpoints
-@app.exception_handler(starlette.exceptions.StarletteHTTPException)
+@app.exception_handler(starlette.exceptions.HTTPException)
 async def forbidden_exception_handler(
     request: fastapi.Request, exc: fastapi.HTTPException
 ) -> fastapi.responses.HTMLResponse:
