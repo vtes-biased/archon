@@ -3,6 +3,7 @@ import contextlib
 import dotenv
 import fastapi
 import fastapi.exceptions
+import fastapi.exception_handlers
 import fastapi.responses
 import fastapi.staticfiles
 import importlib.resources
@@ -10,6 +11,7 @@ import krcg.vtes
 import logging
 import os
 import psycopg.errors
+import starlette.exceptions
 import starlette.middleware.sessions
 import uvicorn.logging
 
@@ -165,22 +167,22 @@ def auth_exception_handler(
     )
 
 
-# 403 Forbidden handler (website endpoints only)
-@app.exception_handler(fastapi.HTTPException)
-def forbidden_exception_handler(
+# return web pages for non-api endpoints
+@app.exception_handler(starlette.exceptions.StarletteHTTPException)
+async def forbidden_exception_handler(
     request: fastapi.Request, exc: fastapi.HTTPException
 ) -> fastapi.responses.HTMLResponse:
     """
     Redirect to 403 page for HTML requests on website endpoints only
     """
-    if exc.status_code == 403 and not request.url.path.startswith("/api/"):
+    if not request.url.path.startswith("/api/"):
         return html__website.TEMPLATES.TemplateResponse(
             request=request,
-            name="403.html.j2",
-            context={},
-            status_code=403,
+            name="error.html.j2",
+            context={"detail": exc.detail},
+            status_code=exc.status_code,
         )
-    raise exc
+    return await fastapi.exception_handlers.http_exception_handler(request, exc)
 
 
 # engine errors display
