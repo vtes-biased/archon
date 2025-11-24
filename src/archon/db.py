@@ -95,7 +95,7 @@ async def init():
             )
             # Index vekn ID#
             # TODO remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_member_email")
+            await cursor.execute("DROP INDEX IF EXISTS idx_member_vekn")
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_vekn "
                 "ON members "
