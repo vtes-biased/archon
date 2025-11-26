@@ -40,6 +40,7 @@
           MAIL_USERNAME: "codex.of.the.damned@gmail.com"
           MAIL_FROM: "codex.of.the.damned@gmail.com"
           MAIL_FROM_NAME: "Archon Online"
+          VEKN_PUSH: "1"
           VEKN_LOGIN: archon_vekn
           DISCORD_CLIENT_ID: "1381856472161456139"
           TOKEN_SECRET: !vault |

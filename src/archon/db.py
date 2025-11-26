@@ -85,8 +85,6 @@ async def init():
                 "USING BTREE ((data -> 'discord' ->> 'id'::text))"
             )
             # Unique index on email
-            # TODO remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_member_email")
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_email "
                 "ON members "
@@ -94,8 +92,6 @@ async def init():
                 "WHERE (data->>'email') IS NOT NULL AND (data->>'email') <> ''::text "
             )
             # Index vekn ID#
-            # TODO remove after migration
-            await cursor.execute("DROP INDEX IF EXISTS idx_member_vekn")
             await cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_member_vekn "
                 "ON members "
@@ -1036,7 +1032,9 @@ class Operator:
             )
             return member
 
-    async def claim_vekn(self, uid: str, vekn: str) -> models.Member | None:
+    async def claim_vekn(
+        self, uid: str, vekn: str, sponsor_uid: str | None = None
+    ) -> models.Member | None:
         """Claim an existing vekn ID: returns a **new uid** for the member."""
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
@@ -1062,7 +1060,7 @@ class Operator:
             if not data:
                 LOG.warning("no VEKN record found for %s", vekn)
                 return None
-            vekn_member = self._instanciate(data[0], models.Member)
+            vekn_member: models.Member = self._instanciate(data[0], models.Member)
             if vekn_member.discord:
                 if vekn_member.discord.id != member.discord.id:
                     LOG.warning(
@@ -1075,6 +1073,8 @@ class Operator:
             vekn_member.email = member.email
             vekn_member.whatsapp = member.whatsapp
             vekn_member.verified = member.verified
+            if sponsor_uid and not vekn_member.sponsor:
+                vekn_member.sponsor = sponsor_uid
             # delete initial (non-vekn) member
             await cursor.execute("DELETE FROM members WHERE uid=%s", [uid])
             # update the VEKN record
@@ -1516,6 +1516,7 @@ async def operator(autocommit: bool = False) -> typing.AsyncIterator[Operator]:
     """Yields an async DB Operator to execute DB operations.
 
     Does not use a transaction if autocommit=True
+    The connection context manager automatically commits on success or rolls back on exception.
     """
     async with POOL.connection() as conn:
         try:

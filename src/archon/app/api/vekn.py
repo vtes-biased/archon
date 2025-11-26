@@ -279,7 +279,7 @@ async def api_vekn_member_assign_vekn(
     target = await op.get_member(uid, True)
     dependencies.check_can_change_vekn(member, target)
     target.sponsor = member.uid
-    ret = await op.claim_vekn(target.uid, param.vekn)
+    ret = await op.claim_vekn(target.uid, param.vekn, member.uid)
     if not ret:
         raise fastapi.HTTPException(fastapi.status.HTTP_400_BAD_REQUEST)
     return _filter_member_data(member, ret)

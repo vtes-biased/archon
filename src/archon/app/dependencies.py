@@ -213,6 +213,11 @@ TournamentOrchestrator = typing.Annotated[
 # ################################################################################ Utils
 async def vekn_sync(tournament: models.Tournament, rounds: int, user: models.Person):
     if not VEKN_PUSH:
+        LOG.warning(
+            "VEKN_PUSH not configured, skipping sync for tournament %s (%s)",
+            tournament.name,
+            tournament.uid,
+        )
         return
     if not user.vekn:
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
@@ -226,6 +231,11 @@ async def vekn_sync_member(member: models.Member) -> None:
     if not member.sponsor or not member.vekn:
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
     if not VEKN_PUSH:
+        LOG.warning(
+            "VEKN_PUSH not configured, skipping sync for member %s (VEKN: %s)",
+            member.uid,
+            member.vekn,
+        )
         return
     await vekn.create_member(member)
 
