@@ -144,6 +144,91 @@ def recompute_ratings() -> None:
     asyncio.run(async_recompute_ratings())
 
 
+async def async_push_vekn() -> None:
+    """Push Archon-created members and tournaments to vekn.net."""
+    async with db.POOL:
+        async with db.operator(autocommit=True) as op:
+            # First: push members created by Archon
+            # Get the ceiling: any Archon-created VEKN must be below this
+            ceiling = await op.get_next_vekn()
+            print(f"Next VEKN to be assigned: {ceiling}")
+            print(f"Checking for Archon-created members in range [1000000, {ceiling})")
+
+            # Get potential Archon members from our DB
+            potential_members = await op.get_potential_archon_members(ceiling)
+            print(f"Found {len(potential_members)} potential members in DB")
+
+            if potential_members:
+                # Query vekn.net to see which already exist
+                print("Querying vekn.net for existing members...")
+                existing_on_vekn = await vekn.get_existing_vekns_in_range(ceiling)
+                print(f"Found {len(existing_on_vekn)} members already on vekn.net")
+
+                # Filter to only members that don't exist on vekn.net
+                members_to_push = [
+                    m for m in potential_members if m.vekn not in existing_on_vekn
+                ]
+                print(f"Members to push: {len(members_to_push)}")
+
+                for member in members_to_push:
+                    try:
+                        await vekn.create_member(member)
+                        print(f"Pushed member {member.name} (VEKN: {member.vekn})")
+                    except Exception as e:
+                        print(f"Failed to push member {member.name}: {e}")
+
+            # Second: push tournaments finished in Archon but not submitted to VEKN
+            tournaments_to_push = await op.get_tournaments_to_push()
+            print(f"Found {len(tournaments_to_push)} tournaments to push to VEKN")
+
+            for tournament in tournaments_to_push:
+                try:
+                    # Need organizer VEKN to create event
+                    if not tournament.judges:
+                        print(f"Tournament {tournament.name} has no judges, skipping")
+                        continue
+                    organizer_vekn = tournament.judges[0].vekn
+                    if not organizer_vekn:
+                        print(
+                            f"Tournament {tournament.name} organizer has no VEKN, "
+                            "skipping"
+                        )
+                        continue
+                    # Check all players have VEKN (required for archon upload)
+                    players_without_vekn = [
+                        p.name for p in tournament.players.values() if not p.vekn
+                    ]
+                    if players_without_vekn:
+                        print(
+                            f"Tournament {tournament.name} has players without VEKN: "
+                            f"{players_without_vekn}, skipping"
+                        )
+                        continue
+
+                    rounds = len(tournament.rounds)
+                    # Create event on vekn.net if not already
+                    if not tournament.extra.get("vekn_id"):
+                        await vekn.upload_tournament(tournament, rounds, organizer_vekn)
+                        print(
+                            f"Created VEKN event {tournament.extra.get('vekn_id')} "
+                            f"for {tournament.name}"
+                        )
+                    # Upload results
+                    await vekn.upload_tournament_result(tournament)
+                    print(f"Pushed tournament results: {tournament.name}")
+                    # Save the updated tournament (vekn_id and vekn_submitted flags)
+                    async with op.conn.transaction():
+                        await op.update_tournament(tournament)
+                except Exception as e:
+                    print(f"Failed to push tournament {tournament.name}: {e}")
+
+
+@app.command()
+def push_vekn() -> None:
+    """Push Archon-created members and tournaments to vekn.net"""
+    asyncio.run(async_push_vekn())
+
+
 if __name__ == "__main__":
     handler = logging.StreamHandler()
     LOG.addHandler(handler)

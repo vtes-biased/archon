@@ -1083,3 +1083,49 @@ async def create_member(member: models.Member) -> None:
             },
         ) as response:
             await get_vekn_data(response)
+
+
+async def get_existing_vekns_in_range(ceiling: str) -> set[str]:
+    """Query vekn.net for existing members with VEKN in [1000000, ceiling).
+
+    Returns the set of VEKN IDs that exist on vekn.net.
+    """
+    existing = set()
+    # Query by prefix starting from 100 (covers 1000000-1009999)
+    prefix = "100"
+    ceiling_int = int(ceiling)
+    async with aiohttp.ClientSession() as session:
+        token = await get_token(session)
+        while prefix:
+            # Check if we're past the ceiling
+            prefix_min = int(prefix + "0" * (7 - len(prefix)))
+            if prefix_min >= ceiling_int:
+                break
+            try:
+                async with session.get(
+                    f"https://www.vekn.net/api/vekn/registry?filter={prefix}",
+                    headers={"Authorization": f"Bearer {token}"},
+                ) as response:
+                    result = await get_vekn_data(response)
+                    players = result.get("players", [])
+                    for p in players:
+                        vekn_id = p.get("veknid", "")
+                        if vekn_id and int(vekn_id) < ceiling_int:
+                            existing.add(vekn_id)
+                    # Advance prefix
+                    if len(players) < 100:
+                        prefix = increment(prefix)
+                    else:
+                        # More players with this prefix, narrow down
+                        prefix = players[-1]["veknid"][:5]
+                        if players[-1]["veknid"][-2:] == "99":
+                            prefix = increment(prefix)
+            except Exception:
+                LOG.exception("Failed to query vekn.net for prefix %s", prefix)
+                prefix = increment(prefix)
+            # Handle prefix edge cases
+            if prefix and len(prefix) < 2:
+                prefix += "0"
+            if prefix and prefix == "9" * len(prefix) and len(prefix) < 7:
+                prefix += "0"
+    return existing

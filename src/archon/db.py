@@ -425,14 +425,52 @@ class Operator:
             )
             data = await res.fetchone()
             if data:
+                local = self._instanciate(data[0], models.Tournament)
                 # TODO remove the "external" check once the vekn sync is stabilized
-                # we don't want to overwrite, see update tournament
-                # we overwrite tournaments finished in vekn archon and not here
-                if not data[0]["extra"].get("external") and (
-                    not tournament.state == models.TournamentState.FINISHED
-                    or data[0]["state"] == models.TournamentState.FINISHED
+                # Skip if not external and (incoming not finished or local finished)
+                if not local.extra.get("external") and (
+                    tournament.state != models.TournamentState.FINISHED
+                    or local.state == models.TournamentState.FINISHED
                 ):
                     return
+                # If local tournament is finished (run in Archon), don't overwrite
+                # Just mark it as submitted if results match
+                if local.state == models.TournamentState.FINISHED and local.rounds:
+                    # Compare results: check winner and player scores match
+                    if tournament.state == models.TournamentState.FINISHED:
+                        results_match = (
+                            local.winner == tournament.winner
+                            and set(local.players.keys())
+                            == set(tournament.players.keys())
+                            and all(
+                                local.players[uid].result
+                                == tournament.players[uid].result
+                                for uid in local.players
+                                if uid in tournament.players
+                            )
+                        )
+                        if results_match:
+                            # Results match - just mark as submitted, keep local data
+                            local.extra["vekn_submitted"] = True
+                            res = await cursor.execute(
+                                "UPDATE tournaments SET data=%s WHERE uid=%s",
+                                [self._jsonize(local), uuid.UUID(local.uid)],
+                            )
+                            LOG.info(
+                                "Tournament %s results match vekn.net, marked as submitted",
+                                local.name,
+                            )
+                            return local.uid
+                        else:
+                            # Results differ - log and skip to preserve local data
+                            LOG.warning(
+                                "Tournament %s has different results on vekn.net, "
+                                "keeping local data (winner: local=%s vekn=%s)",
+                                local.name,
+                                local.winner,
+                                tournament.winner,
+                            )
+                            return local.uid
                 uid = uuid.UUID(data[0]["uid"])
                 tournament.uid = str(uid)
                 tournament.extra["external"] = True
@@ -1152,6 +1190,55 @@ class Operator:
                 "UPDATE members SET data=%s WHERE uid=%s",
                 [[self._jsonize(m), uuid.UUID(m.uid)] for m in recruits],
             )
+
+    async def get_next_vekn(self) -> str:
+        """Get the next VEKN ID that would be assigned by Archon.
+
+        Any Archon-created member must have a VEKN below this value.
+        """
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                """
+                (
+                    SELECT (vekn::int + 1)::text AS value
+                    FROM members
+                    WHERE vekn <> '' AND vekn::int >= 1000000
+                ) EXCEPT (
+                    SELECT vekn FROM members
+                )
+                ORDER BY value
+                LIMIT 1
+                """
+            )
+            data = await res.fetchone()
+            return data[0] if data else "1000000"
+
+    async def get_potential_archon_members(self, ceiling: str) -> list[models.Member]:
+        """Get members with VEKN in [1000000, ceiling) - potential Archon-created."""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM members "
+                "WHERE vekn >= '1000000' AND vekn::int < %s::int",
+                [ceiling],
+            )
+            return [
+                self._instanciate(row[0], models.Member) for row in await res.fetchall()
+            ]
+
+    async def get_tournaments_to_push(self) -> list[models.Tournament]:
+        """Get FINISHED tournaments that haven't been submitted to vekn.net."""
+        async with self.conn.cursor() as cursor:
+            res = await cursor.execute(
+                "SELECT data FROM tournaments "
+                "WHERE (data->>'state') = %s "
+                "AND (data->'extra'->>'external') IS NULL "
+                "AND (data->'extra'->>'vekn_submitted') IS NULL",
+                [models.TournamentState.FINISHED],
+            )
+            return [
+                self._instanciate(row[0], models.Tournament)
+                for row in await res.fetchall()
+            ]
 
     async def recompute_all_ratings(self):
         # Make sur not to lock everything - no transaction should be running
