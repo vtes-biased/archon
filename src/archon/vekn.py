@@ -1043,12 +1043,19 @@ def to_archondata(tournament: models.Tournament) -> str:
         first, last = (
             player.name.split(" ", 1) if " " in player.name else (player.name, "")
         )
+        # VEKN API expects prelim scores only, finals VP separate
+        prelim_gw = player.result.gw
+        prelim_vp = player.result.vp
         if player.uid in finals_table:
             final_vp = finals_table[player.uid].result.vp
+            prelim_vp -= final_vp
+            # winner got +1 GW for winning finals
+            if rank == 1:
+                prelim_gw -= 1
         else:
             final_vp = 0
         ret += (
-            f"{rank}§{first}§{last}§{player.city}§{player.vekn}§{player.result.gw}§{player.result.vp}§{final_vp}"
+            f"{rank}§{first}§{last}§{player.city}§{player.vekn}§{prelim_gw}§{prelim_vp}§{final_vp}"
             f"§{player.result.tp}§{player.toss}§{ratings[player.uid].rating_points}§"
         )
     return ret
