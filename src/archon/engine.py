@@ -257,6 +257,34 @@ class TournamentManager(models.Tournament):
         # remove previous result for players who are removed from the new seating
         for uid, (result, _) in results.items():
             self.players[uid].result -= result
+        # recompute rounds_played and MAX_ROUNDS barriers
+        self._recompute_rounds_played()
+
+    def _recompute_rounds_played(self):
+        """Recompute rounds_played and MAX_ROUNDS barriers from all finished rounds."""
+        if self.state in [
+            models.TournamentState.PLAYING,
+            models.TournamentState.FINALS,
+        ]:
+            rounds = self.rounds[:-1]
+        else:
+            rounds = self.rounds
+        # count participations
+        counts = collections.Counter(
+            seat.player_uid
+            for round_ in rounds
+            for table in round_.tables
+            for seat in table.seating
+        )
+        # update MAX_ROUNDS barriers
+        for player in self.players.values():
+            player.rounds_played = counts.get(player.uid, 0)
+            try:
+                player.barriers.remove(models.Barrier.MAX_ROUNDS)
+            except ValueError:
+                pass
+            if self.max_rounds and player.rounds_played >= self.max_rounds:
+                player.barriers.append(models.Barrier.MAX_ROUNDS)
 
     def round_finish(self, ev: events.RoundFinish, member: models.Person) -> None:
         self.state = models.TournamentState.REGISTRATION
@@ -290,6 +318,7 @@ class TournamentManager(models.Tournament):
             if player.state == models.PlayerState.PLAYING:
                 player.state = models.PlayerState.CHECKED_IN
         self.finals_seeds = []
+        self._recompute_rounds_played()
 
     def _event_seating_to_round(self, seating: list[list[str]]) -> models.Round:
         return models.Round(
