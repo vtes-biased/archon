@@ -1,0 +1,19 @@
+---
+- name: Update TLS certificates
+  hosts: vekn
+  become: true
+  gather_facts: false
+  vars:
+    domain_name: archon.vekn.net
+  tasks:
+    - name: Renew Let's Encrypt certificates
+      ansible.builtin.command: certbot renew --quiet
+      register: certbot_result
+      changed_when: "'No renewals were attempted' not in certbot_result.stdout"
+
+    - name: Reload nginx after certificate renewal
+      when: certbot_result.changed
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+

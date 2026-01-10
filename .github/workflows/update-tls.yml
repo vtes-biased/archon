@@ -1,0 +1,36 @@
+name: Update TLS Certificates
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-tls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_vekn
+          chmod 600 ~/.ssh/id_vekn
+          ssh-keyscan -H 46.226.104.123 >> ~/.ssh/known_hosts
+
+      - name: Run update-tls playbook
+        run: |
+          ansible-playbook ansible/update-tls.yml
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_vekn
+
