@@ -25,6 +25,11 @@ jobs:
           chmod 600 ~/.ssh/id_vekn
           ssh-keyscan -H 46.226.104.123 >> ~/.ssh/known_hosts
 
+      - name: Setup vault password
+        run: |
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_password
+          chmod 600 .vault_password
+
       - name: Run update-tls playbook
         run: |
           ansible-playbook ansible/update-tls.yml
@@ -32,5 +37,5 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          rm -f ~/.ssh/id_vekn
+          rm -f ~/.ssh/id_vekn .vault_password
 
