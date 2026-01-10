@@ -1,3 +1,9 @@
+# Beta version 0.61
+
+- Reestablish syncs
+- Fix tournament result spurious GW for winner
+- Add a cli command to push unsynced data to vekn if needed
+
 # Beta version 0.51
 
 - Vastly improved performances
