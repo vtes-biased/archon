@@ -27,7 +27,7 @@ jobs:
 
       - name: Setup vault password
         run: |
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_password
+          echo "${{ secrets.VAULT_PASSWORD }}" > .vault_password
           chmod 600 .vault_password
 
       - name: Run update-tls playbook
