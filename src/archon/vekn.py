@@ -560,34 +560,39 @@ async def get_members_batches() -> typing.AsyncIterator[list[models.Member]]:
             # http GET "https://www.vekn.net/api/vekn/registry"
             # "Authorization: Bearer <TOKEN>"
             # filter=<PREFIX>
-            async with session.get(
-                f"https://www.vekn.net/api/vekn/registry?filter={prefix}",
-                headers={"Authorization": f"Bearer {token}"},
-            ) as response:
-                result = await get_vekn_data(response)
-                players = result["players"]
-                LOG.debug("prefix: %s — %s", prefix, len(players))
-                if players:
-                    yield [_member_from_vekn_data(data) for data in players]
-                # if < 100 players we got them all, just increment the prefix directly
-                if len(players) < 100:
-                    prefix = increment(prefix)
-                # the API returns 100 players max, there might be more
-                else:
-                    LOG.debug("Last ID: %s", players[-1]["veknid"])
-                    prefix = players[-1]["veknid"][:5]
-                    if players[-1]["veknid"][-2:] == "99":
+            try:
+                async with session.get(
+                    f"https://www.vekn.net/api/vekn/registry?filter={prefix}",
+                    headers={"Authorization": f"Bearer {token}"},
+                ) as response:
+                    result = await get_vekn_data(response)
+                    players = result["players"]
+                    LOG.debug("prefix: %s — %s", prefix, len(players))
+                    if players:
+                        yield [_member_from_vekn_data(data) for data in players]
+                    # if < 100 players we got them all, just increment the prefix directly
+                    if len(players) < 100:
                         prefix = increment(prefix)
-                # VEKN api will return an empty list on a single-char prefix
-                # make sure 59 -> 60 and not 6
-                if prefix and len(prefix) < 2:
-                    prefix += "0"
-                # VEKN api will (wrongly) return an empty list on a "99" prefix
-                # because it adds one then pads... careful with the end condition
-                if prefix and prefix == "9" * len(prefix) and len(prefix) < 7:
-                    prefix += "0"
-                del players
-                del result
+                    # the API returns 100 players max, there might be more
+                    else:
+                        LOG.debug("Last ID: %s", players[-1]["veknid"])
+                        prefix = players[-1]["veknid"][:5]
+                        if players[-1]["veknid"][-2:] == "99":
+                            prefix = increment(prefix)
+                    del players
+                    del result
+            except Exception:
+                LOG.exception("Failed to fetch members batch for prefix %s", prefix)
+                # on failure, just move to next prefix to avoid infinite loop
+                prefix = increment(prefix)
+            # VEKN api will return an empty list on a single-char prefix
+            # make sure 59 -> 60 and not 6
+            if prefix and len(prefix) < 2:
+                prefix += "0"
+            # VEKN api will (wrongly) return an empty list on a "99" prefix
+            # because it adds one then pads... careful with the end condition
+            if prefix and prefix == "9" * len(prefix) and len(prefix) < 7:
+                prefix += "0"
 
 
 async def get_events_parallel(
@@ -626,9 +631,12 @@ async def get_events_serial(
     async with aiohttp.ClientSession() as session:
         token = await get_token(session)
         for event_id in range(1, 14000):
-            res = await get_event(session, token, event_id, members)
-            if res:
-                yield res
+            try:
+                res = await get_event(session, token, event_id, members)
+                if res:
+                    yield res
+            except Exception:
+                LOG.exception("Failed to retrieve event %s", event_id)
 
 
 async def get_event(
