@@ -1,3 +1,7 @@
+# Beta version 0.64
+
+- Fix league view on niche case (empty tournament)
+
 # Beta version 0.63
 
 - Reestablish vekn.net syncs
