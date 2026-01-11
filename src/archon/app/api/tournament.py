@@ -189,12 +189,15 @@ async def vekn_sync(
     return tournament
 
 
-@router.post("/{uid}/set-vekn/{vekn_id}", summary="Create tournament on vekn.net")
+@router.post("/{uid}/set-vekn/{vekn_id}", summary="Link to a tournament on vekn.net")
 async def set_vekn(
     tournament: dependencies.TournamentOrchestrator,  # lock for update
+    member: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
     vekn_id: typing.Annotated[str, fastapi.Path()],
 ) -> models.Tournament:
+    if not engine.can_admin_tournament(member, tournament):
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
     tournament.extra["vekn_id"] = vekn_id
     await op.update_tournament(tournament)
     return tournament
