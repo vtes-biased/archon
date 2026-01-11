@@ -204,28 +204,64 @@ export class Modal {
 export class ConfirmationModal extends Modal {
     message: HTMLDivElement
     callback: { (): void }
+    confirm_button: HTMLButtonElement
+    resolve_promise: ((confirmed: boolean) => void) | null = null
     constructor(el: HTMLDivElement) {
         super(el)
         this.modal_title.innerText = "Are you sure?"
         this.message = create_append(this.modal_body, "div", ["d-flex", "flex-column", "align-items-center"])
         const row = create_append(this.modal_body, "div", ["mt-4", "d-flex", "flex-row", "align-items-center"])
-        const confirm = create_append(row, "button", ["btn", "btn-danger", "me-1", "mb-1"], { type: "button" })
-        confirm.innerText = "Confirm"
-        confirm.addEventListener("click", (ev) => this.confirm())
+        this.confirm_button = create_append(row, "button", ["btn", "btn-danger", "me-1", "mb-1"], { type: "button" })
+        this.confirm_button.innerText = "Confirm"
+        this.confirm_button.addEventListener("click", (ev) => this.do_confirm())
         const cancel = create_append(row, "button", ["btn", "btn-secondary", "me-1", "mb-1"], { type: "button" })
         cancel.innerText = "Cancel"
-        cancel.addEventListener("click", (ev) => this.modal.hide())
+        cancel.addEventListener("click", (ev) => this.do_cancel())
+        // Handle modal hidden event
+        this.modal_div.addEventListener('hidden.bs.modal', () => {
+            if (this.resolve_promise) {
+                this.resolve_promise(false)
+                this.resolve_promise = null
+            }
+        })
     }
 
-    confirm() {
+    do_confirm() {
         this.modal.hide()
-        this.callback()
+        if (this.resolve_promise) {
+            this.resolve_promise(true)
+            this.resolve_promise = null
+        } else {
+            this.callback()
+        }
+    }
+
+    do_cancel() {
+        this.modal.hide()
+        if (this.resolve_promise) {
+            this.resolve_promise(false)
+            this.resolve_promise = null
+        }
     }
 
     show(message: string, callback: { (): void }) {
         this.message.innerHTML = message
         this.callback = callback
+        this.confirm_button.className = "btn btn-danger me-1 mb-1"
         this.modal.show()
+    }
+
+    /**
+     * Promise-based confirmation dialog
+     */
+    confirm(title: string, message: string, level: 'danger' | 'warning' = 'danger'): Promise<boolean> {
+        this.modal_title.innerText = title
+        this.message.innerHTML = message
+        this.confirm_button.className = `btn btn-${level} me-1 mb-1`
+        return new Promise((resolve) => {
+            this.resolve_promise = resolve
+            this.modal.show()
+        })
     }
 }
 

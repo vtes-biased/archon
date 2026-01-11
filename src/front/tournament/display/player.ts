@@ -57,6 +57,13 @@ export class PlayerDisplay extends BaseTournamentDisplay {
         } else {
             this.engine.tournament = undefined
         }
+
+        // Check if tournament is offline
+        const fullTournament = tournament as d.Tournament
+        if (fullTournament.offline_owner) {
+            this.display_offline_banner()
+        }
+
         base.create_append(this.base, "h1", ["mb-2"]).innerText = tournament.name
         this.display_header(tournament)
         if (this.user_id && !(
@@ -97,6 +104,16 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             base.create_append(buttons_div, "a", ["btn", "btn-warning", "text-nowrap", "me-2", "mb-2"],
                 { href: `/tournament/${tournament.uid}/console.html` }
             ).innerText = "Tournament Manager"
+        }
+
+        // Block all interactions if tournament is offline
+        if (tournament.offline_owner) {
+            this.set_alert(
+                "This tournament is being managed offline.<br>" +
+                "<em>Player actions are temporarily unavailable.</em>",
+                d.AlertLevel.WARNING
+            )
+            return
         }
         // _________________________________________________________________________________________ User not registered
         if (!Object.hasOwn(tournament.players, this.user.uid)) {
@@ -568,6 +585,18 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             }
         }
     }
+    display_offline_banner() {
+        const banner = base.create_append(this.base, "div", ["alert", "alert-warning", "d-flex", "align-items-center"])
+        banner.innerHTML = `
+            <i class="bi bi-wifi-off me-2"></i>
+            <div>
+                <strong>Tournament Offline</strong><br>
+                <small>This tournament is currently being managed offline by an organizer. 
+                Check-in, registration, and other player actions are temporarily unavailable.</small>
+            </div>
+        `
+    }
+
     display_contenders(tournament: d.Tournament) {
         const accordion = base.create_append(this.base, "div", ["accordion"], { id: "contendersAccordion" })
         const item = base.create_append(accordion, "div", ["accordion-item"])

@@ -3,9 +3,11 @@ import fastapi
 import logging
 import typing
 import unidecode
+import uuid
 
 from .. import dependencies
 from ... import events
+from ... import geo
 from ... import models
 from ... import engine
 
@@ -280,3 +282,159 @@ async def api_tournament_event_post(
     if engine.can_admin_tournament(actor, orchestrator):
         return orchestrator
     return models.TournamentInfo(**dataclasses.asdict(orchestrator))
+
+
+@router.post(
+    "/{uid}/go-offline", summary="Take tournament offline for local management"
+)
+async def api_tournament_go_offline(
+    orchestrator: dependencies.TournamentOrchestrator,
+    actor: dependencies.PersonFromToken,
+    op: dependencies.DbOperator,
+) -> models.Tournament:
+    """Take ownership of the tournament for offline management.
+
+    - Sets offline_owner to current user
+    - Returns current tournament snapshot for local storage
+    - Fails if tournament is already offline
+    """
+    if not engine.can_admin_tournament(actor, orchestrator):
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    if orchestrator.offline_owner:
+        raise fastapi.HTTPException(
+            fastapi.status.HTTP_409_CONFLICT,
+            detail="Tournament is already offline",
+        )
+    orchestrator.offline_owner = actor.uid
+    await op.update_tournament(orchestrator)
+    return orchestrator
+
+
+@router.post("/{uid}/sync-offline", summary="Sync offline tournament data back online")
+async def api_tournament_sync_offline(
+    orchestrator: dependencies.TournamentOrchestrator,
+    data: typing.Annotated[models.OfflineSyncData, fastapi.Body()],
+    actor: dependencies.PersonFromToken,
+    op: dependencies.DbOperator,
+) -> models.Tournament:
+    """Sync offline tournament data back to server.
+
+    - Only the offline owner can sync
+    - Creates real members for offline members (OFF-* UIDs)
+    - Replaces all OFF-* UIDs with real member UIDs
+    - Clears offline_owner and saves tournament
+    """
+    if orchestrator.offline_owner != actor.uid:
+        raise fastapi.HTTPException(
+            fastapi.status.HTTP_403_FORBIDDEN,
+            detail="Only the offline owner can sync",
+        )
+
+    # Step 1: Create real members for offline members, build UID and VEKN mappings
+    uid_mapping: dict[str, str] = {}
+    vekn_mapping: dict[str, str] = {}
+    for offline_member in data.offline_members:
+        if not offline_member.uid.startswith("OFF-"):
+            continue
+        # Validate and normalize geo data
+        country_obj = geo.COUNTRIES_BY_NAME.get(offline_member.country)
+        country_name = country_obj.country if country_obj else ""
+        country_flag = country_obj.flag if country_obj else ""
+        city_name = ""
+        if country_obj and offline_member.city:
+            city_obj = geo.CITIES_BY_COUNTRY.get(country_name, {}).get(
+                offline_member.city
+            )
+            city_name = city_obj.unique_name if city_obj else ""
+
+        # Create a new member with a fresh UUID
+        real_uid = str(uuid.uuid4())
+        new_member = models.Member(
+            uid=real_uid,
+            name=offline_member.name,
+            country=country_name,
+            country_flag=country_flag,
+            city=city_name,
+            sponsor=actor.uid,
+        )
+        await op.insert_member(new_member)
+        await op.update_member_new_vekn(new_member)
+        uid_mapping[offline_member.uid] = real_uid
+        vekn_mapping[offline_member.uid] = new_member.vekn
+
+    # Step 2: Replace all OFF-* UIDs in tournament data
+    tournament = data.tournament
+
+    def replace_uid(uid: str) -> str:
+        return uid_mapping.get(uid, uid)
+
+    # Replace in players dict and update VEKN
+    new_players = {}
+    for player_uid, player in tournament.players.items():
+        new_uid = replace_uid(player_uid)
+        player.uid = new_uid
+        # Update VEKN for newly created members
+        if player_uid in vekn_mapping:
+            player.vekn = vekn_mapping[player_uid]
+        new_players[new_uid] = player
+    tournament.players = new_players
+
+    # Replace in rounds seating
+    for round_ in tournament.rounds:
+        for table in round_.tables:
+            for seat in table.seating:
+                seat.player_uid = replace_uid(seat.player_uid)
+
+    # Replace in finals_seeds
+    tournament.finals_seeds = [replace_uid(uid) for uid in tournament.finals_seeds]
+
+    # Replace in sanctions dict
+    new_sanctions = {}
+    for player_uid, sanctions_list in tournament.sanctions.items():
+        new_uid = replace_uid(player_uid)
+        new_sanctions[new_uid] = sanctions_list
+    tournament.sanctions = new_sanctions
+
+    # Replace winner if applicable
+    if tournament.winner:
+        tournament.winner = replace_uid(tournament.winner)
+
+    # Step 3: Clear offline_owner and update tournament
+    tournament.offline_owner = None
+    # Keep original uid and other config fields from orchestrator
+    tournament.uid = orchestrator.uid
+
+    # Copy all fields from synced tournament to orchestrator
+    for field in dataclasses.fields(models.Tournament):
+        if field.name != "uid":  # Keep original UID
+            setattr(orchestrator, field.name, getattr(tournament, field.name))
+
+    await op.update_tournament(orchestrator)
+    return orchestrator
+
+
+@router.post(
+    "/{uid}/force-online",
+    summary="Force tournament back online (discards offline changes)",
+)
+async def api_tournament_force_online(
+    orchestrator: dependencies.TournamentOrchestrator,
+    actor: dependencies.PersonFromToken,
+    op: dependencies.DbOperator,
+) -> models.Tournament:
+    """Force tournament back online, discarding any offline changes.
+
+    - Only tournament admins can force online
+    - Clears offline_owner without applying offline data
+    - WARNING: All offline changes are lost
+    """
+    if not engine.can_admin_tournament(actor, orchestrator):
+        raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
+    if not orchestrator.offline_owner:
+        raise fastapi.HTTPException(
+            fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="Tournament is not offline",
+        )
+    orchestrator.offline_owner = None
+    await op.update_tournament(orchestrator)
+    return orchestrator

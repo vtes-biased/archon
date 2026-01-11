@@ -368,6 +368,7 @@ class Tournament(TournamentConfig):
     sanctions: dict[str, list[Sanction]] = pydantic.Field(default_factory=dict)
     winner: str = ""
     extra: dict = pydantic.Field(default_factory=dict)  # third-party data if any
+    offline_owner: str | None = None  # member UID who took the tournament offline
 
 
 @dataclasses.dataclass
@@ -376,6 +377,7 @@ class TournamentInfo(TournamentConfig):
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[RoundInfo] = pydantic.Field(default_factory=list)
     winner: str = ""
+    offline_owner: str | None = None  # member UID who took the tournament offline
 
     def __post_init__(self):
         # Strip Player fields down to PlayerInfo to avoid leaking deck data
@@ -560,3 +562,21 @@ class VeknParameter:
 @dataclasses.dataclass
 class PasswordParameter:
     password: str
+
+
+@dataclasses.dataclass
+class OfflineMember:
+    """Member created while offline, needs real VEKN ID assignment on sync"""
+
+    uid: str  # Temporary: "OFF-{uuid}"
+    name: str
+    country: str = ""
+    city: str = ""
+
+
+@dataclasses.dataclass
+class OfflineSyncData:
+    """Data sent when syncing offline tournament back online"""
+
+    tournament: Tournament
+    offline_members: list[OfflineMember] = pydantic.Field(default_factory=list)
