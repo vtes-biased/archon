@@ -660,7 +660,7 @@ class Operator:
                 "FROM tournaments WHERE uid=%s",  # no FOR UPDATE allowed because of aggregate
                 [uuid.UUID(uid)],
             )
-            player_uids = await res.fetchall()
+            player_uids = [a[0] for a in await res.fetchall()]
             res = await cursor.execute(
                 "DELETE FROM tournaments WHERE uid=%s", [uuid.UUID(uid)]
             )
