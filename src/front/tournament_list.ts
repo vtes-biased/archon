@@ -7,6 +7,8 @@ class TournamentListDisplay {
     filters_row_1: HTMLDivElement
     filters_row_2: HTMLDivElement
     pagination_row: HTMLDivElement
+    agenda_section: HTMLDivElement
+    all_section: HTMLDivElement
     tournaments_table: HTMLTableElement
     token: base.Token
     countries: Map<string, d.Country>
@@ -17,12 +19,16 @@ class TournamentListDisplay {
     name_filter: HTMLInputElement
     online_filter: HTMLInputElement
     personal_filter: HTMLInputElement
+    agenda_mode: boolean
     constructor(root: HTMLDivElement) {
         this.root = root
         this.filters_row_1 = base.create_append(root, "div", ["d-lg-flex", "my-2", "align-items-center"])
         this.filters_row_2 = base.create_append(root, "div", ["d-sm-flex", "my-2", "align-items-center", "justify-content-start"])
-        this.pagination_row = base.create_append(root, "div", ["d-lg-flex", "my-2", "align-items-center", "justify-content-end"])
-        this.tournaments_table = base.create_append(root, "table", ["table", "table-striped", "table-hover", "table-responsive"])
+        this.agenda_section = base.create_append(root, "div")
+        this.all_section = base.create_append(root, "div")
+        this.pagination_row = base.create_append(this.all_section, "div", ["d-lg-flex", "my-2", "align-items-center", "justify-content-end"])
+        this.tournaments_table = base.create_append(this.all_section, "table", ["table", "table-striped", "table-hover", "table-responsive"])
+        this.agenda_mode = false
     }
     async init(token: base.Token | undefined, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
         this.token = token
@@ -114,53 +120,149 @@ class TournamentListDisplay {
             this.personal_filter.addEventListener("change", (ev) => this.filters_changed())
         }
         this.set_filters_from_url(url)
+        // Default to interesting mode when logged in and no filters set
+        if (this.token && !this.has_active_filters()) {
+            this.agenda_mode = true
+        }
         await this.display()
     }
+    has_active_filters(): boolean {
+        return Boolean(
+            this.country_filter.value ||
+            this.state_filter.value ||
+            this.year_filter.value ||
+            (this.name_filter.value && this.name_filter.value.length > 2) ||
+            !this.online_filter.checked ||
+            this.personal_filter.checked ||
+            this.cursors.length > 0
+        )
+    }
     async display() {
+        base.remove_children(this.agenda_section)
         base.remove_children(this.pagination_row)
         base.remove_children(this.tournaments_table)
-        const head = base.create_append(this.tournaments_table, "thead")
-        const row = base.create_append(head, "tr", ["align-middle", "smaller-font"])
+        // Interesting mode: show personal tournaments first
+        if (this.agenda_mode && this.token) {
+            const member_uid = base.user_uid_from_token(this.token)
+            const agenda = await this.get_agenda_tournaments(member_uid)
+            const header_row = base.create_append(this.agenda_section, "div", ["d-flex", "justify-content-between", "align-items-center", "mt-3", "mb-2"])
+            const header = base.create_append(header_row, "h5", ["m-0"])
+            header.innerText = "My Agenda"
+            const toggle_btn = base.create_append(header_row, "button", ["btn", "btn-outline-secondary", "btn-sm"])
+            toggle_btn.innerHTML = '<i class="bi bi-list-ul me-1"></i>Browse all'
+            toggle_btn.addEventListener("click", () => {
+                this.agenda_mode = false
+                this.display()
+            })
+            if (agenda.length > 0) {
+                const table = base.create_append(this.agenda_section, "table", ["table", "table-striped", "table-hover", "table-responsive"])
+                this.render_tournaments_table(table, agenda)
+            } else {
+                const empty = base.create_append(this.agenda_section, "p", ["text-muted", "my-3"])
+                empty.innerText = "No tournaments in your agenda or happening soon."
+            }
+            this.all_section.classList.add("d-none")
+        } else {
+            const header_row = base.create_append(this.agenda_section, "div", ["d-flex", "justify-content-between", "align-items-center", "mt-3", "mb-2"])
+            const header = base.create_append(header_row, "h5", ["m-0"])
+            header.innerText = "All Tournaments"
+            if (this.token) {
+                const toggle_btn = base.create_append(header_row, "button", ["btn", "btn-outline-secondary", "btn-sm"])
+                toggle_btn.innerHTML = '<i class="bi bi-person me-1"></i>My agenda'
+                toggle_btn.addEventListener("click", () => {
+                    this.agenda_mode = true
+                    this.display()
+                })
+            }
+            this.all_section.classList.remove("d-none")
+            const head = base.create_append(this.tournaments_table, "thead")
+            const row = base.create_append(head, "tr", ["align-middle", "smaller-font"])
+            for (const header of ["Name", "Date", "Country", "", ""]) {
+                base.create_append(row, "th", [], { scope: "col" }).innerText = header
+            }
+            const body = base.create_append(this.tournaments_table, "tbody")
+            const [filter, tournaments] = await this.get_filtered_tournaments()
+            for (const tournament of tournaments) {
+                this.render_tournament_row(body, tournament)
+            }
+            this.render_pagination(filter)
+        }
+    }
+    async get_agenda_tournaments(member_uid: string): Promise<d.TournamentMinimal[]> {
+        // Fetch personal tournaments (where user is player/judge)
+        const personal_url = new URL("/api/tournaments/", window.location.origin)
+        personal_url.searchParams.append("member_uid", member_uid)
+        for (const state of [d.TournamentState.PLANNED, d.TournamentState.REGISTRATION, d.TournamentState.WAITING, d.TournamentState.PLAYING, d.TournamentState.FINALS]) {
+            personal_url.searchParams.append("states", state)
+        }
+        // Fetch upcoming tournaments (next 3 days) for discovery
+        const upcoming_url = new URL("/api/tournaments/", window.location.origin)
+        upcoming_url.searchParams.append("states", d.TournamentState.REGISTRATION)
+        // Fetch both in parallel
+        const [personal_res, upcoming_res] = await Promise.all([
+            base.do_fetch(personal_url.href, {}),
+            base.do_fetch(upcoming_url.href, {})
+        ])
+        const [, personal] = await personal_res.json() as [d.TournamentFilter, d.TournamentMinimal[]]
+        const [, upcoming] = await upcoming_res.json() as [d.TournamentFilter, d.TournamentMinimal[]]
+        // Filter upcoming to next 3 days and merge with personal (dedupe)
+        const now = new Date()
+        const cutoff = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+        const seen = new Set(personal.map(t => t.uid))
+        const upcoming_soon = upcoming.filter(t => {
+            if (seen.has(t.uid)) return false
+            const start = new Date(t.start)
+            return start <= cutoff
+        })
+        return [...personal, ...upcoming_soon]
+    }
+    render_tournaments_table(table: HTMLTableElement, tournaments: d.TournamentMinimal[]) {
+        const head = base.create_append(table, "thead")
+        const header_row = base.create_append(head, "tr", ["align-middle", "smaller-font"])
         for (const header of ["Name", "Date", "Country", "", ""]) {
-            base.create_append(row, "th", [], { scope: "col" }).innerText = header
+            base.create_append(header_row, "th", [], { scope: "col" }).innerText = header
         }
-        const body = base.create_append(this.tournaments_table, "tbody")
-        const [filter, tournaments] = await this.get_filtered_tournaments()
+        const body = base.create_append(table, "tbody")
         for (const tournament of tournaments) {
-            const row = base.create_append(body, "tr", ["align-middle"])
-            row.addEventListener("click", (ev) => window.location.href = `/tournament/${tournament.uid}/display.html`)
-            const name = utils.constrain_string(tournament.name, 50)
-            base.create_append(row, "th", ["smaller-font", "w-100"], { scope: "row" }).innerText = name
-            const date = base.create_append(row, "td", ["smaller-font", "text-nowrap"])
-            date.innerText = utils.date_string(tournament)
-            const location = base.create_append(row, "td", ["smaller-font"])
-            if (tournament.online) {
-                location.innerText = "Online"
-            } else if (tournament.country) {
-                location.innerText = `${tournament.country} ${tournament.country_flag}`
-            }
-            base.create_append(row, "td", ["smaller-font"]).innerHTML = utils.tournament_rank_badge(tournament)
-            const status_cell = base.create_append(row, "td", ["smaller-font"])
-            const status_badge = base.create_append(status_cell, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
-            switch (tournament.state) {
-                case d.TournamentState.PLANNED:
-                    status_badge.classList.add("text-bg-secondary")
-                    status_badge.innerText = "Planned"
-                    break;
-                case d.TournamentState.REGISTRATION:
-                    status_badge.classList.add("text-bg-info")
-                    status_badge.innerText = "Registration"
-                    break;
-                case d.TournamentState.FINISHED:
-                    status_badge.classList.add("text-bg-secondary")
-                    status_badge.innerText = "Finished"
-                    break;
-                default:
-                    status_badge.classList.add("text-bg-warning")
-                    status_badge.innerText = "In Progress"
-                    break;
-            }
+            this.render_tournament_row(body, tournament)
         }
+    }
+    render_tournament_row(body: HTMLTableSectionElement, tournament: d.TournamentMinimal) {
+        const row = base.create_append(body, "tr", ["align-middle"])
+        row.addEventListener("click", (ev) => window.location.href = `/tournament/${tournament.uid}/display.html`)
+        const name = utils.constrain_string(tournament.name, 50)
+        base.create_append(row, "th", ["smaller-font", "w-100"], { scope: "row" }).innerText = name
+        const date = base.create_append(row, "td", ["smaller-font", "text-nowrap"])
+        date.innerText = utils.date_string(tournament)
+        const location = base.create_append(row, "td", ["smaller-font"])
+        if (tournament.online) {
+            location.innerText = "Online"
+        } else if (tournament.country) {
+            location.innerText = `${tournament.country} ${tournament.country_flag}`
+        }
+        base.create_append(row, "td", ["smaller-font"]).innerHTML = utils.tournament_rank_badge(tournament)
+        const status_cell = base.create_append(row, "td", ["smaller-font"])
+        const status_badge = base.create_append(status_cell, "span", ["me-2", "mb-2", "text-nowrap", "badge"])
+        switch (tournament.state) {
+            case d.TournamentState.PLANNED:
+                status_badge.classList.add("text-bg-secondary")
+                status_badge.innerText = "Planned"
+                break;
+            case d.TournamentState.REGISTRATION:
+                status_badge.classList.add("text-bg-info")
+                status_badge.innerText = "Registration"
+                break;
+            case d.TournamentState.FINISHED:
+                status_badge.classList.add("text-bg-secondary")
+                status_badge.innerText = "Finished"
+                break;
+            default:
+                status_badge.classList.add("text-bg-warning")
+                status_badge.innerText = "In Progress"
+                break;
+        }
+    }
+    render_pagination(filter: d.TournamentFilter) {
         const nav = base.create_append(this.pagination_row, "nav", [], { "aria-label": "Page navigation" })
         const ul = base.create_append(nav, "ul", ["pagination", "m-0"])
         {
@@ -291,6 +393,7 @@ class TournamentListDisplay {
     }
     filters_changed() {
         this.cursors = []
+        this.agenda_mode = false  // Exit interesting mode when filters change
         this.set_query_string()
         this.display()
     }
