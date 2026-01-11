@@ -175,7 +175,12 @@ class TournamentManager(models.Tournament):
         self.state = models.TournamentState.REGISTRATION
 
     def check_in(self, ev: events.CheckIn, member: models.Person) -> None:
-        self.players[ev.player_uid].state = models.PlayerState.CHECKED_IN
+        player = self.players[ev.player_uid]
+        if models.Barrier.BANNED in player.barriers:
+            return
+        if models.Barrier.DISQUALIFIED in player.barriers:
+            return
+        player.state = models.PlayerState.CHECKED_IN
 
     def check_everyone_in(
         self, ev: events.CheckEveryoneIn, member: models.Person
@@ -188,7 +193,8 @@ class TournamentManager(models.Tournament):
             player.state = models.PlayerState.CHECKED_IN
 
     def check_out(self, ev: events.CheckIn, member: models.Person) -> None:
-        self.players[ev.player_uid].state = models.PlayerState.REGISTERED
+        if self.players[ev.player_uid].state != models.PlayerState.FINISHED:
+            self.players[ev.player_uid].state = models.PlayerState.REGISTERED
 
     def round_start(self, ev: events.RoundStart, member: models.Person) -> None:
         self.state = models.TournamentState.PLAYING
@@ -214,10 +220,10 @@ class TournamentManager(models.Tournament):
                 player.table = 0
                 player.seat = 0
                 if player.state != models.PlayerState.FINISHED:
-                    # If this is the first round and player is not checked in, drop them
+                    # If we have rounds and the player is not checked in, drop them
                     # This avoids mistakes when using check_everyone_in in subsequent rounds
                     if (
-                        len(self.rounds) == 1
+                        len(self.rounds) >= 1
                         and player.state != models.PlayerState.CHECKED_IN
                     ):
                         player.state = models.PlayerState.FINISHED
