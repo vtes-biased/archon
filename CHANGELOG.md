@@ -1,8 +1,13 @@
-# Beta version 0.61
+# Beta version 0.63
 
-- Reestablish syncs
+- Reestablish vekn.net syncs
 - Fix tournament result spurious GW for winner
 - Add a cli command to push unsynced data to vekn if needed
+- Player's view now displays table state
+- Added a "report issue" button
+- Improved default tournaments list, find your tournament easily
+- Use Archon pre-computed seating when possible
+- Improved sanctions management & display
 
 # Beta version 0.51
 
