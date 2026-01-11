@@ -8,7 +8,7 @@ RuntimeMaxSec=1d
 TimeoutStartSec=5
 WorkingDirectory={{r.site_root}}
 EnvironmentFile=/etc/profile.d/{{ r.service_name }}.env
-ExecStart={{ r.site_root }}/venv/bin/uvicorn --port {{ r.service_port }} --log-level warning {{ r.asgi_entrypoint }}
+ExecStart={{ r.site_root }}/venv/bin/uvicorn --port {{ r.service_port }} --log-level info {{ r.asgi_entrypoint }}
 
 [Install]
 WantedBy=multi-user.target
