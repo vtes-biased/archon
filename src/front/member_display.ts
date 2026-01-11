@@ -5,6 +5,7 @@ import * as events from "./events"
 import * as utils from "./utils"
 import * as bootstrap from 'bootstrap'
 import { DateTime } from 'luxon'
+import { SanctionFormModal, render_sanctions_list } from "./modals/sanction"
 
 
 class PasswordModal extends base.Modal {
@@ -49,6 +50,7 @@ class MemberDisplay {
     cities: Map<string, d.City>
     vekn_modal: m.ExistingVeknModal
     password_modal: PasswordModal
+    sanction_modal: SanctionFormModal
     tooltips: base.TooltipManager
     // form
     name: HTMLInputElement
@@ -60,6 +62,10 @@ class MemberDisplay {
         this.root = root
         this.vekn_modal = new m.ExistingVeknModal(root, (member) => this.reload_target(member))
         this.password_modal = new PasswordModal(root)
+        this.sanction_modal = new SanctionFormModal(
+            root,
+            async (uid, level, category, comment) => this.add_sanction(uid, level, category, comment)
+        )
         this.tooltips = new base.TooltipManager()
     }
     async init(token: base.Token, url: URL | undefined, countries: d.Country[] | undefined = undefined) {
@@ -388,125 +394,54 @@ class MemberDisplay {
             this.display_authorized_apps(apps_body)
         }
         // ___________________________________________________________________________________________________ Sanctions
-        var sanction_div: HTMLDivElement
-        if (m.can_sanction(this.member) || (this.target.sanctions && this.target.sanctions.length > 0)) {
+        // Filter out CAUTION (tournament-specific) from member page display
+        const display_sanctions = (this.target.sanctions ?? []).filter(
+            s => s.level !== events.SanctionLevel.CAUTION
+        )
+        if (m.can_sanction(this.member) || display_sanctions.length > 0) {
             const sanctions_row = base.create_append(this.root, "div", ["row", "mt-4"])
             const sanctions_col = base.create_append(sanctions_row, "div", ["col-12"])
             const sanctions_card = base.create_append(sanctions_col, "div", ["card"])
-            const sanctions_header = base.create_append(sanctions_card, "div", ["card-header"])
-            const sanctions_title = base.create_append(sanctions_header, "h5", ["mb-0"])
-            base.create_append(sanctions_title, "i", ["bi", "bi-exclamation-triangle"])
-            sanctions_title.append(document.createTextNode(" Sanctions"))
-            sanction_div = base.create_append(sanctions_card, "div", ["card-body"])
-        }
-        if (this.target.sanctions && this.target.sanctions.length > 0) {
-            const sanctions_accordion = base.create_append(sanction_div, "div", ["accordion", "w-100", "mb-4"],
-                { id: "sanctionAccordion" }
+            const sanctions_header = base.create_append(sanctions_card, "div",
+                ["card-header", "d-flex", "align-items-center"]
             )
-            for (const [idx, sanction] of Object.entries(this.target.sanctions)) {
-                const id = `sanction-col-item-${idx}`
-                const head_id = `sanction-col-head-${idx}`
-                const item = base.create_append(sanctions_accordion, "div", ["accordion-item"])
-                item.dataset.uid = sanction.uid
-                const header = base.create_append(item, "h2", ["accordion-header"], { id: head_id })
-                const button = base.create_append(header, "button", ["accordion-button", "collapsed"], {
-                    type: "button",
-                    "data-bs-toggle": "collapse",
-                    "data-bs-target": `#${id}`,
-                    "aria-expanded": "false",
-                    "aria-controls": id,
-                })
-                // additional display for RegisteredSanction from previous tournaments
-                if (sanction.tournament) {
-                    const rsanction = sanction as d.RegisteredSanction
-                    const timestamp = utils.date_string(rsanction.tournament)
-                    button.innerText = `(${timestamp}: ${rsanction.tournament?.name})`
-                }
-                const level_badge = base.create_append(button, "div", ["badge", "mx-1"])
-                level_badge.innerText = sanction.level
-                switch (sanction.level) {
-                    case events.SanctionLevel.CAUTION:
-                        level_badge.classList.add("text-bg-secondary")
-                        break;
-                    case events.SanctionLevel.WARNING:
-                        level_badge.classList.add("text-bg-warning")
-                        break;
-                    case events.SanctionLevel.DISQUALIFICATION:
-                        level_badge.classList.add("text-bg-danger")
-                        break;
-                    case events.SanctionLevel.BAN:
-                        level_badge.classList.add("text-bg-danger")
-                        break;
-                }
-                if (sanction.category != events.SanctionCategory.NONE) {
-                    const category_badge = base.create_append(button, "div", ["badge", "mx-1", "text-bg-secondary"])
-                    category_badge.innerText = sanction.category
-                }
-                const collapse = base.create_append(item, "div", ["accordion-collapse", "collapse"], {
-                    "aria-labelledby": head_id, "data-bs-parent": "#sanctionAccordion"
-                })
-                collapse.id = id
-                const body = base.create_append(collapse, "div", ["accordion-body"])
-                body.innerText = sanction.comment
-                const prefix = base.create_prepend(body, "div",
-                    ["border-top", "border-bottom", "border-info", "bg-info", "bg-opacity-10", "d-flex", "p-1", "mb-2"]
+            const sanctions_title = base.create_append(sanctions_header, "h5", ["mb-0", "me-auto"])
+            base.create_append(sanctions_title, "i", ["bi", "bi-exclamation-triangle", "me-1"])
+            sanctions_title.append(document.createTextNode("Sanctions"))
+            // Collapse toggle if there are sanctions
+            var sanctions_collapse: bootstrap.Collapse | null = null
+            if (display_sanctions.length > 0) {
+                const toggle_btn = base.create_append(sanctions_header, "button",
+                    ["btn", "btn-sm", "btn-outline-secondary"], { type: "button" }
                 )
-                if (sanction.judge) {
-                    const author = base.create_append(prefix, "div", ["me-2"])
-                    author.innerText = `Issued by ${sanction.judge.name}`
-                }
-                // Remove button only for members who can sanction
-                if (m.can_sanction(this.member)) {
-                    const remove_button = base.create_append(prefix, "div", ["btn", "badge", "btn-danger"])
-                    remove_button.innerHTML = '<i class="bi bi-trash"></i>'
-                    remove_button.addEventListener("click", (ev) => this.remove_sanction(sanction))
-                }
+                toggle_btn.innerHTML = '<i class="bi bi-chevron-down"></i>'
+                toggle_btn.addEventListener("click", () => sanctions_collapse?.toggle())
             }
-        }
-        // ___________________________________________________________________________________________ Add Sanction Form
-        if (m.can_sanction(this.member)) {
-            // Add existing sanctions in display()
-            const form = base.create_append(sanction_div, "form", ["w-100"])
-            const comment = base.create_append(form, "textarea", ["form-control", "mb-2"],
-                { type: "text", autocomplete: "none", rows: 3, maxlength: 500, name: "comment" }
-            )
-            comment.ariaAutoComplete = "none"
-            comment.spellcheck = false
-            comment.placeholder = "Comment"
-            const select_div = base.create_append(form, "div", ["d-flex", "gap-1"])
-            // ____________________________________________________________________________________________ Level Select
-            {
-                const level_div = base.create_append(select_div, "div", ["form-floating"])
-                const level_select = base.create_append(level_div, "select", ["form-select", "my-2"],
-                    { id: "sanctionFormLevel", name: "level" }
+            // Add button if user can sanction
+            if (m.can_sanction(this.member)) {
+                const add_button = base.create_append(sanctions_header, "button",
+                    ["btn", "btn-sm", "btn-warning", "ms-2"], { type: "button" }
                 )
-                level_select.ariaLabel = "Level"
-                base.create_append(level_div, "label", [], { for: "sanctionFormLevel" }).innerText = "Level"
-                for (const level of Object.values(events.SanctionLevel)) {
-                    level_select.options.add(base.create_element("option", [], { value: level, label: level }))
-                }
-                level_select.required = true
+                base.create_append(add_button, "i", ["bi", "bi-plus", "me-1"])
+                add_button.append(document.createTextNode("Add"))
+                add_button.addEventListener("click", () => this.sanction_modal.show(this.target))
             }
-            // _________________________________________________________________________________________ Category Select
-            {
-                const category_div = base.create_append(select_div, "div", ["form-floating"])
-                const category_select = base.create_append(category_div, "select", ["form-select", "my-2"],
-                    { id: "sanctionFormCategory", name: "category" }
+            // Sanctions list (collapsible)
+            const sanctions_body = base.create_append(sanctions_card, "div", ["card-body"])
+            if (display_sanctions.length > 0) {
+                const collapse_div = base.create_append(sanctions_body, "div", ["collapse", "show"])
+                sanctions_collapse = new bootstrap.Collapse(collapse_div, { toggle: false })
+                const list_div = base.create_append(collapse_div, "div")
+                const can_remove = m.can_sanction(this.member)
+                render_sanctions_list(
+                    list_div,
+                    display_sanctions,
+                    can_remove ? (uid) => this.remove_sanction(this.target.uid, uid) : undefined
                 )
-                category_select.ariaLabel = "Category"
-                base.create_append(category_div, "label", [], { for: "sanctionFormCategory" }).innerText = "Category"
-                category_select.options.add(base.create_element("option", [], { value: "", label: "N/A" }))
-                for (const category of Object.values(events.SanctionCategory)) {
-                    category_select.options.add(base.create_element("option", [], { value: category, label: category }))
-                }
-                category_select.required = false
+            } else {
+                const empty = base.create_append(sanctions_body, "div", ["text-muted", "fst-italic"])
+                empty.innerText = "No sanctions"
             }
-            const buttons_div = base.create_append(form, "div", ["d-flex", "my-2"])
-            const submit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2"],
-                { type: "submit" }
-            )
-            submit_button.innerText = "Add Sanction"
-            form.addEventListener("submit", (ev) => { ev.preventDefault(); this.add_sanction(new FormData(form)) })
         }
         // _____________________________________________________________________________________________________ Results
         if (this.target.ratings && Object.keys(this.target.ratings).length > 0) {
@@ -720,21 +655,26 @@ class MemberDisplay {
             await this.reload_target(await res.json())
         }
     }
-    async remove_sanction(sanction: d.Sanction) {
-        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/sanction/${sanction.uid}`,
+    async remove_sanction(member_uid: string, sanction_uid: string): Promise<boolean> {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${member_uid}/sanction/${sanction_uid}`,
             this.token, { method: "delete" }
         )
         if (res) {
             await this.reload_target(await res.json())
+            return true
         }
+        return false
     }
-    async add_sanction(data: FormData) {
-        const res = await base.do_fetch_with_token(`/api/vekn/members/${this.target.uid}/sanction`,
-            this.token, { method: "post", body: JSON.stringify(Object.fromEntries(data.entries())) }
+    async add_sanction(member_uid: string, level: string, category: string, comment: string): Promise<d.Sanction | null> {
+        const res = await base.do_fetch_with_token(`/api/vekn/members/${member_uid}/sanction`,
+            this.token, { method: "post", body: JSON.stringify({ level, category, comment }) }
         )
         if (res) {
             await this.reload_target(await res.json())
+            const sanctions = this.target.sanctions ?? []
+            return sanctions[sanctions.length - 1] ?? null
         }
+        return null
     }
 }
 
