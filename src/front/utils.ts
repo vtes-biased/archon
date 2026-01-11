@@ -74,21 +74,16 @@ export function score_string_with_tp_badge(score: d.Score): string {
     return ret
 }
 
-export function full_score_string(player: d.Player, rank: number | undefined = undefined): string {
-    const score = score_string(player.result)
-    if (player.toss && player.toss > 0) {
-        return (
-            `<strong>${rank ?? player.seed}.</strong> `
-            + `${score} `
-            + `<span class="badge text-bg-secondary align-text-top">${player.result.tp}TPs, T: ${player.toss}</span>`
-        )
-    } else {
-        return (
-            `<strong>${rank ?? player.seed}.</strong> `
-            + `${score} `
-            + `<span class="badge text-bg-secondary align-text-top">${player.result.tp}TPs</span>`
-        )
+export function ranked_score_string(seed: number, result: d.Score, toss: number | undefined = undefined): string {
+    const score = score_string(result)
+    if (toss && toss > 0) {
+        return `<strong>${seed}.</strong> ${score} <span class="badge text-bg-secondary align-text-top">${result.tp}TPs, T: ${toss}</span>`
     }
+    return `<strong>${seed}.</strong> ${score} <span class="badge text-bg-secondary align-text-top">${result.tp}TPs</span>`
+}
+
+export function full_score_string(player: d.Player, rank: number | undefined = undefined): string {
+    return ranked_score_string(rank ?? player.seed, player.result, player.toss)
 }
 
 export function tournament_result_string(result: d.TournamentRating): string {

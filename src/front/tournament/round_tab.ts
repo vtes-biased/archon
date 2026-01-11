@@ -314,7 +314,13 @@ export class RoundTab {
         row.dataset.player_uid = player.uid
         if (this.finals) {
             const score_cell = base.create_append(row, "td", ["text-nowrap"])
-            score_cell.innerHTML = utils.full_score_string(player)
+            // Pre-finals score: subtract finals results if recorded
+            const pre_finals: d.Score = {
+                gw: (player.result?.gw || 0) - (seat?.result?.gw || 0),
+                vp: (player.result?.vp || 0) - (seat?.result?.vp || 0),
+                tp: (player.result?.tp || 0) - (seat?.result?.tp || 0),
+            }
+            score_cell.innerHTML = utils.ranked_score_string(player.seed || 0, pre_finals, player.toss)
         }
         base.create_append(row, "th", ["text-nowrap", "smaller-font"], { scope: "row" }).innerText = player.vekn || ""
         base.create_append(row, "td", ["w-100", "smaller-font"]).innerText = player.name
