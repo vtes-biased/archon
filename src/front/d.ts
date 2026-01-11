@@ -312,7 +312,6 @@ export interface Tournament extends TournamentConfig {
     sanctions: Record<string, Sanction[]>,
     winner?: string,
     extra?: any,
-    offline_owner?: string | null,  // member UID who took the tournament offline
 }
 
 export interface TournamentInfo extends TournamentConfig {
@@ -320,7 +319,6 @@ export interface TournamentInfo extends TournamentConfig {
     finals_seeds?: string[],
     rounds?: RoundInfo[],
     winner?: string,
-    offline_owner?: string | null,  // member UID who took the tournament offline
 }
 
 export interface TournamentFilter {
@@ -444,17 +442,4 @@ export interface City {
     admin2: string,  // name of second administrative division (county)
     timezone: string,  // iana timezone id
     modification_date: string,  // date of last modification in ISO format
-}
-
-// Offline mode types
-export interface OfflineMember {
-    uid: string,  // Temporary: "OFF-{uuid}"
-    name: string,
-    country: string,
-    city: string,
-}
-
-export interface OfflineSyncData {
-    tournament: Tournament,
-    offline_members: OfflineMember[],
 }

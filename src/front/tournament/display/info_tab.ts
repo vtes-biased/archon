@@ -151,33 +151,6 @@ export class InfoTab extends CreateTournament {
         const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
         edit_button.innerHTML = '<i class="bi bi-pencil"></i> Edit'
         edit_button.addEventListener("click", (ev) => this.display_edit())
-        // Offline mode button
-        if (!this.engine.offline && this.engine.tournament.state !== d.TournamentState.FINISHED) {
-            const offline_button = base.create_append(buttons_div, "button",
-                ["btn", "btn-warning", "text-nowrap", "me-2", "mb-2"],
-                { role: "button" }
-            )
-            offline_button.innerHTML = '<i class="bi bi-wifi-off"></i> Go Offline'
-            offline_button.addEventListener("click", async (ev) => {
-                const confirmed = await this.container.confirmation.confirm(
-                    'Go Offline?',
-                    'Tournament will be locked for offline management. ' +
-                    'Players will see a notice that the tournament is being managed offline. ' +
-                    'Remember to sync back online when done!',
-                    'warning'
-                )
-                if (confirmed) {
-                    offline_button.setAttribute('disabled', 'true')
-                    offline_button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Going offline...'
-                    const success = await this.engine.goOffline()
-                    if (!success) {
-                        offline_button.removeAttribute('disabled')
-                        offline_button.innerHTML = '<i class="bi bi-wifi-off"></i> Go Offline'
-                        alert('Failed to go offline. Please try again.')
-                    }
-                }
-            })
-        }
         if (this.engine.tournament.state == d.TournamentState.FINISHED) {
             const report_button = base.create_append(buttons_div, "button",
                 ["btn", "btn-secondary", "text-nowrap", "me-2", "mb-2"],

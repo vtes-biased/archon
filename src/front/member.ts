@@ -1,6 +1,5 @@
 import * as d from "./d"
 import * as base from "./base"
-import * as offline from "./offline"
 import * as bootstrap from 'bootstrap'
 import * as idb from 'idb'
 import { v4 as uuidv4 } from "uuid"
@@ -490,8 +489,6 @@ export class AddMemberModal extends base.Modal {
     submit_button: HTMLButtonElement
     callback: { (member: d.Person): void }
     assign_vekn: boolean
-    is_offline: boolean = false
-    tournament_uid: string | null = null
     constructor(el: HTMLElement, members_map: MembersDB, callback: { (member: d.Person): void }) {
         super(el)
         this.members_map = members_map
@@ -552,22 +549,6 @@ export class AddMemberModal extends base.Modal {
         }
     }
 
-    /**
-     * Set offline mode for this modal
-     */
-    setOfflineMode(tournament_uid: string) {
-        this.is_offline = true
-        this.tournament_uid = tournament_uid
-    }
-
-    /**
-     * Clear offline mode
-     */
-    clearOfflineMode() {
-        this.is_offline = false
-        this.tournament_uid = null
-    }
-
     show() {
         this.name.value = ""
         this.email.value = ""
@@ -584,11 +565,7 @@ export class AddMemberModal extends base.Modal {
         if (this.country.selectedIndex < 1) {
             this.city.disabled = true
         } else {
-            // Skip city fetch in offline mode
-            if (this.is_offline) {
-                this.city.disabled = true
-                return
-            }
+            // TODO deactivate this or something for offline mode
             const res = await base.do_fetch(`/api/vekn/country/${this.country.value}/city`, {})
             const cities = await res.json() as d.City[]
             for (const city of cities) {
@@ -603,42 +580,17 @@ export class AddMemberModal extends base.Modal {
 
     async submit(ev: SubmitEvent) {
         ev.preventDefault()
-
-        if (this.is_offline && this.tournament_uid) {
-            // Offline mode: create member with temporary UID
-            const offline_uid = `OFF-${uuidv4()}`
-            const offline_member: d.OfflineMember = {
-                uid: offline_uid,
-                name: this.name.value,
-                country: this.country.value,
-                city: this.city.value,
-            }
-            // Store in IndexedDB
-            await offline.addOfflineMember(this.tournament_uid, offline_member)
-            // Also add to local trie for immediate lookup
-            const person: d.Person = {
-                uid: offline_uid,
-                name: this.name.value,
-                vekn: "",  // No VEKN ID yet
-                country: this.country.value,
-                city: this.city.value,
-            }
-            this.members_map.trie_add(person)
+        const member = {
+            uid: uuidv4(),
+            name: this.name.value,
+            vekn: "",
+            country: this.country.value,
+            city: this.city.value,
+            email: this.email.value
+        } as d.Member
+        var person = await this.members_map.add_online(member)
+        if (person) {
             this.callback(person)
-        } else {
-            // Online mode: create via API
-            const member = {
-                uid: uuidv4(),
-                name: this.name.value,
-                vekn: "",
-                country: this.country.value,
-                city: this.city.value,
-                email: this.email.value
-            } as d.Member
-            var person = await this.members_map.add_online(member)
-            if (person) {
-                this.callback(person)
-            }
         }
         this.modal.hide()
     }

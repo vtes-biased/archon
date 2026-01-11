@@ -4,7 +4,6 @@ import * as base from "../base"
 import * as events from "../events"
 import * as member from "../member"
 import * as seating from "../seating"
-import * as offline from "../offline"
 import { InfoTab } from "../tournament/display/info_tab"
 import { Registration } from "../tournament/registration"
 import { PlayerSelectModal } from "../modals/player_select"
@@ -28,7 +27,6 @@ class TournamentConsole {
     seed_finals_modal: SeedFinalsModal
     select_modal: PlayerSelectModal
     override_modal: OverrideModal
-    offline_banner: HTMLDivElement
     message_div: HTMLDivElement
     nav: HTMLElement
     tabs_div: HTMLDivElement
@@ -50,24 +48,6 @@ class TournamentConsole {
         this.seed_finals_modal = new SeedFinalsModal(el, this.engine)
         this.select_modal = new PlayerSelectModal(el)
         this.override_modal = new OverrideModal(el, this.engine)
-        // Offline banner (hidden by default)
-        this.offline_banner = base.create_append(el, "div", ["alert", "alert-warning", "d-none"], { role: "alert" })
-        this.offline_banner.innerHTML = `
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <i class="bi bi-wifi-off me-2"></i>
-                    <strong>OFFLINE MODE</strong> — Changes are saved locally
-                </div>
-                <div>
-                    <button type="button" class="btn btn-success btn-sm me-2" id="syncOnlineBtn">
-                        <i class="bi bi-cloud-upload"></i> Sync & Go Online
-                    </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm" id="forceOnlineBtn">
-                        <i class="bi bi-x-circle"></i> Discard & Go Online
-                    </button>
-                </div>
-            </div>
-        `
         this.message_div = base.create_append(el, "div", ["alert"], { role: "status" })
         this.nav = base.create_append(el, "nav", ["nav", "nav-tabs"], { role: "tablist" })
         this.tabs_div = base.create_append(el, "div", ["tab-content"])
@@ -117,47 +97,7 @@ class TournamentConsole {
             await this.add_member_modal.init(this.token, countries)
             await this.info.init(this.engine, countries, this.members_map)
         }
-        // Setup offline mode controls
-        this.setupOfflineControls()
         await this.display(true)
-    }
-
-    setupOfflineControls() {
-        // Navigation guard when offline
-        window.addEventListener('beforeunload', (e) => {
-            if (this.engine.offline) {
-                e.preventDefault()
-                e.returnValue = 'You have unsaved offline changes. Are you sure you want to leave?'
-                return e.returnValue
-            }
-        })
-
-        // Sync button
-        const syncBtn = this.offline_banner.querySelector('#syncOnlineBtn')
-        syncBtn?.addEventListener('click', async () => {
-            syncBtn.setAttribute('disabled', 'true')
-            syncBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing...'
-            const success = await this.engine.syncOnline()
-            if (!success) {
-                syncBtn.removeAttribute('disabled')
-                syncBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Sync & Go Online'
-                alert('Failed to sync. Please check your connection and try again.')
-            }
-        })
-
-        // Force online button
-        const forceBtn = this.offline_banner.querySelector('#forceOnlineBtn')
-        forceBtn?.addEventListener('click', async () => {
-            const confirmed = await this.confirmation.confirm(
-                'Discard Offline Changes?',
-                'All changes made while offline will be permanently lost. ' +
-                'The tournament will revert to its state when you went offline.',
-                'danger'
-            )
-            if (confirmed) {
-                await this.engine.forceOnline()
-            }
-        })
     }
     open_relevant_tab() {
         if (this.tournament.state == d.TournamentState.FINALS) {
@@ -176,14 +116,6 @@ class TournamentConsole {
         }
     }
     display(round_change: boolean = false) {
-        // Show/hide offline banner and update modal state
-        if (this.engine.offline) {
-            this.offline_banner.classList.remove('d-none')
-            this.add_member_modal.setOfflineMode(this.tournament.uid)
-        } else {
-            this.offline_banner.classList.add('d-none')
-            this.add_member_modal.clearOfflineMode()
-        }
         this.info.display()
         this.registration.display()
         if (this.tournament.state == d.TournamentState.REGISTRATION) {
@@ -391,9 +323,6 @@ class TournamentConsole {
 }
 
 async function load() {
-    // Register service worker for offline support
-    offline.registerServiceWorker()
-
     const consoleDiv = document.getElementById("consoleDiv") as HTMLDivElement
     const token = await base.fetchToken()
     if (!token) {

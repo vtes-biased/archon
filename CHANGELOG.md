@@ -1,11 +1,10 @@
-# Beta version XX
-
-- Offline mode
-
 # Beta version 0.64
 
-- Reestablish vekn.net syncs
 - Fix league view on niche case (empty tournament)
+
+# Beta version 0.63
+
+- Reestablish vekn.net syncs
 - Fix tournament result spurious GW for winner
 - Add a cli command to push unsynced data to vekn if needed
 - Player's view now displays table state

@@ -1,8 +1,6 @@
 import * as d from "../d"
 import * as base from "../base"
 import * as events from "../events"
-import * as offline from "../offline"
-import * as localEngine from "./local_engine"
 import { v4 as uuidv4 } from "uuid"
 import * as seating from "../seating"
 
@@ -14,54 +12,15 @@ export class Engine {
     token: base.Token
     display_callback: DisplayCallback
     tournament: d.Tournament
-    offline: boolean = false
 
     constructor(token: base.Token, display_callback: DisplayCallback) {
         this.token = token
         this.display_callback = display_callback
     }
-
-    /**
-     * Initialize the engine. Checks IndexedDB for offline data first.
-     */
     async init(tournament_uid: string) {
-        // First: check if we have offline data for this tournament
-        const offlineData = await offline.getOfflineTournament(tournament_uid)
-        const user_uid = base.user_uid_from_token(this.token)
-
-        if (offlineData && offlineData.owner_uid === user_uid) {
-            // Resume offline mode from local storage
-            console.log('Resuming offline mode from IndexedDB')
-            this.tournament = offlineData.tournament
-            this.offline = true
-            return
-        }
-
-        // Otherwise: try to fetch from server
-        try {
-            const res = await base.do_fetch_with_token(
-                `/api/tournaments/${tournament_uid}`, this.token, { method: "get" }
-            )
-            if (!res) {
-                // Network error - check if we have stale offline data to recover
-                if (offlineData) {
-                    console.warn('Network error, resuming from offline data')
-                    this.tournament = offlineData.tournament
-                    this.offline = true
-                }
-                return
-            }
-            this.tournament = await res.json() as d.Tournament
-        } catch (e) {
-            // Network error - check if we have stale offline data to recover
-            if (offlineData) {
-                console.warn('Network error, resuming from offline data')
-                this.tournament = offlineData.tournament
-                this.offline = true
-            } else {
-                throw e  // No local data, can't proceed
-            }
-        }
+        const res = await base.do_fetch_with_token(`/api/tournaments/${tournament_uid}`, this.token, { method: "get" })
+        if (!res) { return }
+        this.tournament = await res.json() as d.Tournament
     }
     async update_config(modification: Object) {
         if (!this.tournament) { return }
@@ -103,11 +62,7 @@ export class Engine {
     async handle_tournament_event(tev: events.TournamentEvent): Promise<boolean> {
         if (!this.tournament) { return false }
         console.log("handle event", tev)
-
-        if (this.offline) {
-            return this.handle_event_offline(tev)
-        }
-
+        // TODO: implement offline mode
         const res = await base.do_fetch_with_token(
             `/api/tournaments/${this.tournament.uid}/event`, this.token,
             { method: "post", body: JSON.stringify(tev) }
@@ -123,112 +78,6 @@ export class Engine {
                 events.EventType.FINISH_TOURNAMENT
             ].includes(tev.type)
         )
-        return true
-    }
-
-    /**
-     * Handle event while in offline mode
-     */
-    handle_event_offline(tev: events.TournamentEvent): boolean {
-        // Apply event locally
-        localEngine.applyEvent(this.tournament, tev)
-        // Persist to IndexedDB
-        offline.updateOfflineTournament(this.tournament)
-        // Update display
-        this.display_callback(
-            this.tournament,
-            [
-                events.EventType.ROUND_START,
-                events.EventType.ROUND_FINISH,
-                events.EventType.ROUND_CANCEL,
-                events.EventType.SEED_FINALS,
-                events.EventType.FINISH_TOURNAMENT
-            ].includes(tev.type)
-        )
-        return true
-    }
-
-    /**
-     * Take the tournament offline for local management
-     */
-    async goOffline(): Promise<boolean> {
-        if (this.offline) {
-            console.warn('Already offline')
-            return true
-        }
-
-        // Cache the console page for offline access
-        try {
-            await offline.cacheConsolePageForOffline(this.tournament.uid)
-        } catch (e) {
-            console.warn('Failed to cache console page:', e)
-            // Continue anyway - the page might already be cached
-        }
-
-        // Tell server we're going offline
-        const res = await base.do_fetch_with_token(
-            `/api/tournaments/${this.tournament.uid}/go-offline`,
-            this.token, { method: "post" }
-        )
-        if (!res || !res.ok) {
-            return false
-        }
-
-        this.tournament = await res.json() as d.Tournament
-        await offline.goOffline(this.tournament, base.user_uid_from_token(this.token))
-        this.offline = true
-        this.display_callback(this.tournament, false)
-        return true
-    }
-
-    /**
-     * Sync offline data back to server
-     */
-    async syncOnline(): Promise<boolean> {
-        if (!this.offline) {
-            console.warn('Not in offline mode')
-            return true
-        }
-
-        const data = await offline.prepareSyncData(this.tournament.uid)
-        if (!data) {
-            console.error('No offline data to sync')
-            return false
-        }
-
-        const res = await base.do_fetch_with_token(
-            `/api/tournaments/${this.tournament.uid}/sync-offline`,
-            this.token,
-            { method: "post", body: JSON.stringify(data) }
-        )
-        if (!res || !res.ok) {
-            return false
-        }
-
-        this.tournament = await res.json() as d.Tournament
-        await offline.clearOffline(this.tournament.uid)
-        this.offline = false
-        this.display_callback(this.tournament, true)
-        return true
-    }
-
-    /**
-     * Force tournament back online, discarding offline changes
-     */
-    async forceOnline(): Promise<boolean> {
-        const res = await base.do_fetch_with_token(
-            `/api/tournaments/${this.tournament.uid}/force-online`,
-            this.token,
-            { method: "post" }
-        )
-        if (!res || !res.ok) {
-            return false
-        }
-
-        this.tournament = await res.json() as d.Tournament
-        await offline.clearOffline(this.tournament.uid)
-        this.offline = false
-        this.display_callback(this.tournament, true)
         return true
     }
     async register_player(member: d.Person): Promise<boolean> {
