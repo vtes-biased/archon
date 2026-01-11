@@ -1440,7 +1440,10 @@ class Operator:
             # count points
             players: dict[str, models.LeaguePlayer] = {}
             for tournament in league.tournaments:
-                if tournament.state != models.TournamentState.FINISHED:
+                if (
+                    tournament.state != models.TournamentState.FINISHED
+                    or not tournament.rounds
+                ):
                     continue
                 ratings = engine.ratings(tournament)
                 finals_score = {
