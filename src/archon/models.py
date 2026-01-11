@@ -269,12 +269,12 @@ class ScoreOverride:
 @dataclasses.dataclass
 class TableInfo:
     seating: list[SeatInfo]
+    state: TableState = TableState.IN_PROGRESS
 
 
 @dataclasses.dataclass
 class Table(TableInfo):
     seating: list[TableSeat]
-    state: TableState = TableState.IN_PROGRESS
     override: ScoreOverride | None = None
 
 
@@ -372,10 +372,25 @@ class Tournament(TournamentConfig):
 
 @dataclasses.dataclass
 class TournamentInfo(TournamentConfig):
-    players: dict[str, Player | PlayerInfo] = pydantic.Field(default_factory=dict)
+    players: dict[str, PlayerInfo] = pydantic.Field(default_factory=dict)
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[RoundInfo] = pydantic.Field(default_factory=list)
     winner: str = ""
+
+    def __post_init__(self):
+        # Strip Player fields down to PlayerInfo to avoid leaking deck data
+        self.players = {
+            uid: PlayerInfo(
+                **{
+                    k: v
+                    for k, v in dataclasses.asdict(p).items()
+                    if k in {f.name for f in dataclasses.fields(PlayerInfo)}
+                }
+            )
+            if isinstance(p, Player)
+            else p
+            for uid, p in self.players.items()
+        }
 
 
 # note: cannot use dataclass as query param
@@ -482,7 +497,9 @@ class Member(PersonWithRatings):
     password_hash: str = ""
     whatsapp: str | None = None  # phone
     prefix: str | None = None  # temporary, to compute sponsors when syncing vekn
-    authorized_clients: dict[str, dict] = pydantic.Field(default_factory=dict)  # client_uid -> {authorized_at: timestamp}
+    authorized_clients: dict[str, dict] = pydantic.Field(
+        default_factory=dict
+    )  # client_uid -> {authorized_at: timestamp}
 
 
 @dataclasses.dataclass

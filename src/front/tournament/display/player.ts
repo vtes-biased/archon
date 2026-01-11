@@ -26,8 +26,6 @@ export class PlayerDisplay extends BaseTournamentDisplay {
         this.tooltips = new base.TooltipManager()
         this.confirmation_modal = new base.ConfirmationModal(root)
         this.checkin_modal = new CheckInModal(root)
-        this.deck_modal = new DeckModal(root, this.engine)
-        this.score_modal = new ScoreModal(root, this.engine)
         this.alert = base.create_prepend(root, "div", ["alert"], { role: "alert" })
         this.base = new_root
     }
@@ -48,6 +46,8 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             this.user = undefined
         }
         this.engine = new Engine(token, (tournament, round_change) => this.display(tournament))
+        this.deck_modal = new DeckModal(this.base.parentElement as HTMLDivElement, this.engine)
+        this.score_modal = new ScoreModal(this.base.parentElement as HTMLDivElement, this.engine)
     }
     display(tournament: d.TournamentConfig | d.Tournament) {
         this.tooltips.dispose()
@@ -79,7 +79,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
         )) {
             this.display_standings(tournament as d.Tournament)
         }
-        if (this.deck_infos) {
+        if (this.deck_infos && tournament.state == d.TournamentState.FINISHED) {
             this.display_decks()
         }
     }
@@ -198,9 +198,6 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                     const body = base.create_append(collapse, "div", ["accordion-body"])
                     this.display_user_table(tournament, player, body, player_table)
                 }
-                [].slice.call(accordion.querySelectorAll(".collapse")).map(
-                    (el: HTMLDivElement) => new bootstrap.Collapse(el, { toggle: false, parent: accordion })
-                )
             }
         }
         // _________________________________________________________________________________________ Tournament Finished
@@ -506,6 +503,22 @@ export class PlayerDisplay extends BaseTournamentDisplay {
         current: boolean = false
     ) {
         const table_div = base.create_append(el, "div")
+        if (current && player_table.state) {
+            const title_div = base.create_append(table_div, "div", ["d-inline-flex", "flex-row", "mb-2", "align-items-center"])
+            const badge = base.create_append(title_div, "span", ["badge", "me-2"])
+            badge.innerText = player_table.state
+            switch (player_table.state) {
+                case d.TableState.FINISHED:
+                    badge.classList.add("text-bg-success")
+                    break
+                case d.TableState.INVALID:
+                    badge.classList.add("text-bg-danger")
+                    break
+                case d.TableState.IN_PROGRESS:
+                    badge.classList.add("text-bg-secondary")
+                    break
+            }
+        }
         const table = base.create_append(table_div, "table", ["table", "table-sm", "table-responsive"])
         const head = base.create_append(table, "thead")
         const tr = base.create_append(head, "tr", ["align-middle", "smaller-font"])

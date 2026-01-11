@@ -1374,6 +1374,9 @@ def deck_infos(
     res.sort(key=lambda info: (-int(info.winner), -int(info.finalist), info.score))
     if can_admin_tournament(member, tournament):
         return res
+    # Only show decks after tournament is finished
+    if tournament.state != models.TournamentState.FINISHED:
+        return []
     if tournament.decklists_mode == models.DeckListsMode.ALL:
         return res
     if tournament.decklists_mode == models.DeckListsMode.FINALISTS:

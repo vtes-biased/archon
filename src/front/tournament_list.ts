@@ -189,10 +189,10 @@ class TournamentListDisplay {
         }
     }
     async get_agenda_tournaments(member_uid: string): Promise<d.TournamentMinimal[]> {
-        // Fetch personal tournaments (where user is player/judge)
+        // Fetch personal tournaments (where user is player/judge), including finished
         const personal_url = new URL("/api/tournaments/", window.location.origin)
         personal_url.searchParams.append("member_uid", member_uid)
-        for (const state of [d.TournamentState.PLANNED, d.TournamentState.REGISTRATION, d.TournamentState.WAITING, d.TournamentState.PLAYING, d.TournamentState.FINALS]) {
+        for (const state of [d.TournamentState.PLANNED, d.TournamentState.REGISTRATION, d.TournamentState.WAITING, d.TournamentState.PLAYING, d.TournamentState.FINALS, d.TournamentState.FINISHED]) {
             personal_url.searchParams.append("states", state)
         }
         // Fetch upcoming tournaments (next 3 days) for discovery
@@ -205,16 +205,23 @@ class TournamentListDisplay {
         ])
         const [, personal] = await personal_res.json() as [d.TournamentFilter, d.TournamentMinimal[]]
         const [, upcoming] = await upcoming_res.json() as [d.TournamentFilter, d.TournamentMinimal[]]
-        // Filter upcoming to next 3 days and merge with personal (dedupe)
+        // Filter: keep non-finished, or finished tournaments from today
         const now = new Date()
+        const today_start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const filtered_personal = personal.filter(t => {
+            if (t.state != d.TournamentState.FINISHED) return true
+            const start = new Date(t.start)
+            return start >= today_start
+        })
+        // Filter upcoming to next 3 days and merge with personal (dedupe)
         const cutoff = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-        const seen = new Set(personal.map(t => t.uid))
+        const seen = new Set(filtered_personal.map(t => t.uid))
         const upcoming_soon = upcoming.filter(t => {
             if (seen.has(t.uid)) return false
             const start = new Date(t.start)
             return start <= cutoff
         })
-        return [...personal, ...upcoming_soon]
+        return [...filtered_personal, ...upcoming_soon]
     }
     render_tournaments_table(table: HTMLTableElement, tournaments: d.TournamentMinimal[]) {
         const head = base.create_append(table, "thead")

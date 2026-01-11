@@ -233,7 +233,7 @@ async def api_tournament_event_post(
     ],
     actor: dependencies.PersonFromToken,
     op: dependencies.DbOperator,
-) -> models.Tournament:
+) -> models.Tournament | models.TournamentInfo:
     """Send a new event for this tournament.
 
     This is the main way of interacting with a tournament data.
@@ -277,4 +277,6 @@ async def api_tournament_event_post(
             orchestrator, max(1, len(orchestrator.rounds)), actor
         )
         await op.update_tournament(orchestrator)
-    return orchestrator
+    if engine.can_admin_tournament(actor, orchestrator):
+        return orchestrator
+    return models.TournamentInfo(**dataclasses.asdict(orchestrator))
