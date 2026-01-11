@@ -1,3 +1,5 @@
+import OPTIMAL_SEATING from "./optimal_seating_3r.json"
+
 export enum RULE {
     R1_PREDATOR_PREY = 0,
     R2_OPPONENT_ALWAYS = 1,
@@ -409,12 +411,65 @@ function temperate(min: number, max: number, temperature: number): number {
     return min + Math.round((max - min) * temperature)
 }
 
+function get_optimal_seating(
+    players: string[],
+    round_index: number,
+    previous_rounds: string[][][]
+): string[][] | undefined {
+    // Try to use pre-computed optimal seating for 3-round tournaments
+    // round_index: 0 = round 1, 1 = round 2, 2 = round 3
+    if (round_index < 0 || round_index > 2) return undefined
+    const optimal = OPTIMAL_SEATING[players.length.toString()] as number[][][] | undefined
+    if (!optimal) return undefined
+
+    if (round_index === 0) {
+        // Round 1 optimal is always sequential [1,2,3,4,5], [6,7,8,9], ...
+        // Players should be pre-shuffled, then seated sequentially
+        return default_seating(players)
+    }
+
+    // For rounds 2-3: recover player→number mapping from round 1
+    if (previous_rounds.length === 0) return undefined
+    const round1 = previous_rounds[0]
+
+    // Build mapping: number → player from round 1 (sequential numbering)
+    const number_to_player = new Map<number, string>()
+    let num = 1
+    for (const table of round1) {
+        for (const player of table) {
+            number_to_player.set(num++, player)
+        }
+    }
+
+    // Check all current players were in round 1 and no new players joined
+    const present = new Set(players)
+    for (const player of number_to_player.values()) {
+        if (!present.has(player)) return undefined  // player dropped
+    }
+    if (players.length !== number_to_player.size) return undefined  // player joined
+
+    // Apply the round template
+    const round_template = optimal[round_index]
+    return round_template.map(table =>
+        table.map(n => number_to_player.get(n)!)
+    )
+}
+
 export function initial_seating(previous_rounds: string[][][], players: string[]): string[][] {
     players = players.slice()
-    if (previous_rounds.length <= 0) {
+    const round_index = previous_rounds.length
+    // Round 1: any seating works, just shuffle
+    if (round_index === 0) {
         shuffle_array(players)
         return default_seating(players)
     }
+    // Rounds 2-3: try optimal seating if same players as round 1
+    const optimal = get_optimal_seating(players, round_index, previous_rounds)
+    if (optimal) {
+        console.log(`using optimal seating for round ${round_index + 1}`)
+        return optimal
+    }
+    // Fallback: optimization algorithm (players dropped or joined)
     const present_players = new Set(players)
     const all_players = new Set(players)
     for (const round_ of previous_rounds) {
@@ -429,9 +484,7 @@ export function initial_seating(previous_rounds: string[][][], players: string[]
     if (players.length < 1) {
         return default_seating(players)
     }
-    // expermientally, 4 parallel computations yield stable results
-    // decreasing their count, even only at the end of iterations,
-    // leads to less stable results
+    // experimentally, 4 parallel computations yield stable results
     const parallels_inital_count = 4
     const parallels = new Array(parallels_inital_count)
     for (var i = 0; i < parallels.length; i++) {
