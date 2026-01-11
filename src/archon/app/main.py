@@ -144,6 +144,17 @@ with (
     importlib.resources.path("archon", "img") as img,
     importlib.resources.path("archon", "static") as static,
 ):
+    # Service worker needs special header to allow root scope
+    sw_path = static / "sw.js"
+
+    @app.get("/static/sw.js")
+    async def get_service_worker():
+        return fastapi.responses.FileResponse(
+            sw_path,
+            media_type="application/javascript",
+            headers={"Service-Worker-Allowed": "/"},
+        )
+
     app.mount(
         "/img",
         app=fastapi.staticfiles.StaticFiles(directory=img),
