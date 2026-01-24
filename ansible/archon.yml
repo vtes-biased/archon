@@ -31,6 +31,7 @@
       service_port: 8001
       env_vars:
           PYTHONOPTIMIZE: 1
+          LOG_LEVEL: info
           SITE_URL_BASE: "https://{{ domain_name }}"
           DB_NAME:  "{{ db_name }}"
           DB_USER:  "{{ db_user }}"

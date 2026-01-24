@@ -516,11 +516,13 @@ def authenticated_session(request: fastapi.Request, member: models.Member):
     """Switch the session to authenticated"""
     request.session.pop("state", None)
     request.session["user_id"] = member.uid
+    request.session["vekn"] = member.vekn or ""
 
 
 def anonymous_session(request: fastapi.Request):
     """Switch (or keep) the session anonymous"""
     request.session.pop("user_id", None)
+    request.session.pop("vekn", None)
     request.session.setdefault("state", str(uuid.uuid4))
 
 

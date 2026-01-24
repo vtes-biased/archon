@@ -13,6 +13,7 @@ import os
 import psycopg.errors
 import starlette.exceptions
 import starlette.middleware.sessions
+import time
 import uvicorn.logging
 
 from .. import db
@@ -35,6 +36,10 @@ LOG.addHandler(handler)
 if __debug__ or os.getenv("DEBUG"):
     LOG.setLevel(logging.DEBUG)
     handler.setLevel(logging.DEBUG)
+else:
+    log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper())
+    LOG.setLevel(log_level)
+    handler.setLevel(log_level)
 
 
 async def sync_vekn_members(op: db.Operator) -> None:
@@ -138,6 +143,29 @@ app.add_middleware(
     secret_key=SESSION_KEY,
 )
 app.openapi = dependencies.custom_openapi(app)
+
+
+@app.middleware("http")
+async def access_log_middleware(request: fastapi.Request, call_next):
+    """Log requests with user info (vekn or uid) and request ID after processing."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    user = request.session.get("vekn") or request.session.get("user_id") or "-"
+    client_ip = request.client.host if request.client else "-"
+    request_id = request.headers.get("X-Request-Id", "-")
+    LOG.info(
+        '%s [%s:%s] "%s %s" %d %.0fms',
+        client_ip,
+        user,
+        request_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+    )
+    return response
+
 
 # mount static files
 with (
