@@ -492,8 +492,14 @@ class Operator:
     async def get_tournaments(
         self,
         filter: models.TournamentFilter | None = None,
+        member_uid: str | None = None,
     ) -> tuple[models.TournamentFilter, list[models.TournamentMinimal]]:
-        """List all tournaments with minimal information"""
+        """List all tournaments with minimal information
+
+        Args:
+            filter: Filter parameters from the API
+            member_uid: If provided, filter tournaments where this member is player/judge
+        """
         Q = (
             "SELECT "
             "(data ->> 'name') AS name, "
@@ -512,11 +518,11 @@ class Operator:
         )
         pieces = []
         args = []
-        if filter:
+        if filter or member_uid:
             # Note: bad practice to use OFFSET, it becomes inefficient the larger it is
             # using cursor in the WHERE clause with the appropriate index is the way.
             Q += " WHERE "
-            if filter.uid:
+            if filter and filter.uid:
                 pieces.append(
                     "(timetz(data ->> 'start', data ->> 'timezone') < %s::timestamptz "
                     "OR ("
@@ -524,30 +530,30 @@ class Operator:
                     "AND uid < %s))"
                 )
                 args.extend([filter.date, filter.date, uuid.UUID(filter.uid)])
-            if filter.country:
+            if filter and filter.country:
                 pieces.append(
                     "(data ->> 'country' IS NULL OR data ->> 'country' IN ('', %s))"
                 )
                 args.append(filter.country)
-            if not filter.online:
+            if filter and not filter.online:
                 pieces.append("(data ->> 'online')::boolean IS FALSE")
-            if filter.states:
+            if filter and filter.states:
                 pieces.append("data ->> 'state' = ANY(%s)")
                 args.append(filter.states)
-            if filter.member_uid:
+            if member_uid:
                 pieces.append("(data->'players' ? %s OR data->'judges' @> %s)")
                 args.extend(
                     [
-                        filter.member_uid,
-                        psycopg.types.json.Jsonb([{"uid": filter.member_uid}]),
+                        member_uid,
+                        psycopg.types.json.Jsonb([{"uid": member_uid}]),
                     ]
                 )
-            if filter.year:
+            if filter and filter.year:
                 pieces.append(
                     "year_from_timetz(data ->> 'start', data ->> 'timezone') = %s"
                 )
                 args.append(filter.year)
-            if filter.name and len(filter.name) > 2:
+            if filter and filter.name and len(filter.name) > 2:
                 pieces.append("data ->> 'name' ILIKE %s")
                 args.append(f"%{filter.name}%")
         Q += " AND ".join(pieces)
@@ -565,7 +571,7 @@ class Operator:
                 ret_filter.country = filter.country
                 ret_filter.online = filter.online
                 ret_filter.states = filter.states
-                ret_filter.member_uid = filter.member_uid
+                ret_filter.mine = filter.mine
                 ret_filter.year = filter.year
                 ret_filter.name = filter.name
             if ret and len(ret) == 100:

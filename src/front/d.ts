@@ -327,7 +327,7 @@ export interface TournamentFilter {
     country?: string,
     online?: boolean,
     states?: TournamentState[],
-    member_uid?: string,
+    mine?: boolean,  // Filter by authenticated user's tournaments
     year?: number,
     name?: string,
 }

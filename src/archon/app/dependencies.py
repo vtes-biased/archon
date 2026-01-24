@@ -769,6 +769,31 @@ def get_member_uid_from_token(
 MemberUidFromToken = typing.Annotated[str, fastapi.Depends(get_member_uid_from_token)]
 
 
+# Optional OAuth2 scheme that doesn't error on missing token
+oauth2_scheme_optional = fastapi.security.OAuth2AuthorizationCodeBearer(
+    authorizationUrl="/auth/oauth", tokenUrl="/auth/oauth/token", auto_error=False
+)
+
+
+def get_optional_member_uid_from_token(
+    token: typing.Annotated[str | None, fastapi.Depends(oauth2_scheme_optional)],
+) -> str | None:
+    """Returns member_uid if authenticated, None otherwise."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, TOKEN_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload.get("sub")
+    except jwt.exceptions.InvalidTokenError:
+        return None
+
+
+# Optional lightweight uid-only info (no DB query, returns None if not authenticated)
+OptionalMemberUidFromToken = typing.Annotated[
+    str | None, fastapi.Depends(get_optional_member_uid_from_token)
+]
+
+
 async def get_person_from_token(
     member_uid: MemberUidFromToken,
     op: DbOperator,

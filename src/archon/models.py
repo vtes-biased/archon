@@ -400,7 +400,7 @@ class TournamentFilter(pydantic.BaseModel):
     country: str = ""
     online: bool = True
     states: list[TournamentState] = pydantic.Field(default_factory=list)
-    member_uid: str = ""
+    mine: bool = False  # If True, filter by authenticated user's tournaments
     year: int | None = None
     name: str | None = None
 

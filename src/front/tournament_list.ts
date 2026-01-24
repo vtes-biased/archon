@@ -143,8 +143,7 @@ class TournamentListDisplay {
         base.remove_children(this.tournaments_table)
         // Interesting mode: show personal tournaments first
         if (this.agenda_mode && this.token) {
-            const member_uid = base.user_uid_from_token(this.token)
-            const agenda = await this.get_agenda_tournaments(member_uid)
+            const agenda = await this.get_agenda_tournaments()
             const header_row = base.create_append(this.agenda_section, "div", ["d-flex", "justify-content-between", "align-items-center", "mt-3", "mb-2"])
             const header = base.create_append(header_row, "h5", ["m-0"])
             header.innerText = "My Agenda"
@@ -188,19 +187,19 @@ class TournamentListDisplay {
             this.render_pagination(filter)
         }
     }
-    async get_agenda_tournaments(member_uid: string): Promise<d.TournamentMinimal[]> {
+    async get_agenda_tournaments(): Promise<d.TournamentMinimal[]> {
         // Fetch personal tournaments (where user is player/judge), including finished
         const personal_url = new URL("/api/tournaments/", window.location.origin)
-        personal_url.searchParams.append("member_uid", member_uid)
+        personal_url.searchParams.append("mine", "true")
         for (const state of [d.TournamentState.PLANNED, d.TournamentState.REGISTRATION, d.TournamentState.WAITING, d.TournamentState.PLAYING, d.TournamentState.FINALS, d.TournamentState.FINISHED]) {
             personal_url.searchParams.append("states", state)
         }
         // Fetch upcoming tournaments (next 3 days) for discovery
         const upcoming_url = new URL("/api/tournaments/", window.location.origin)
         upcoming_url.searchParams.append("states", d.TournamentState.REGISTRATION)
-        // Fetch both in parallel
+        // Fetch both in parallel (personal needs auth, upcoming is public)
         const [personal_res, upcoming_res] = await Promise.all([
-            base.do_fetch(personal_url.href, {}),
+            base.do_fetch_with_token(personal_url.href, this.token, {}),
             base.do_fetch(upcoming_url.href, {})
         ])
         const [, personal] = await personal_res.json() as [d.TournamentFilter, d.TournamentMinimal[]]
@@ -302,8 +301,8 @@ class TournamentListDisplay {
         if (!search_params.online) {
             url.searchParams.append("online", "false")
         }
-        if (search_params.member_uid) {
-            url.searchParams.append("member_uid", search_params.member_uid)
+        if (search_params.mine) {
+            url.searchParams.append("mine", "true")
         }
         if (search_params.year) {
             url.searchParams.append("year", search_params.year.toString())
@@ -319,7 +318,10 @@ class TournamentListDisplay {
             url.searchParams.append("uid", cursor.uid)
             url.searchParams.append("date", cursor.date)
         }
-        const res = await base.do_fetch(url.href, {})
+        // Use authenticated request if possible (mine filter)
+        const res = this.token
+            ? await base.do_fetch_with_token(url.href, this.token, {})
+            : await base.do_fetch(url.href, {})
         const result = await res.json()
         return result
     }
@@ -355,7 +357,7 @@ class TournamentListDisplay {
             res.online = false
         }
         if (this.personal_filter.checked && this.token) {
-            res.member_uid = base.user_uid_from_token(this.token)
+            res.mine = true
         }
         if (this.year_filter.value) {
             res.year = parseInt(this.year_filter.value)
@@ -382,7 +384,7 @@ class TournamentListDisplay {
                 }
             }
         }
-        if (this.token && url.searchParams.get("member_uid") == base.user_uid_from_token(this.token)) {
+        if (this.token && url.searchParams.get("mine") == "true") {
             this.personal_filter.checked = true
         }
         if (url.searchParams.has("uid")) {
@@ -392,7 +394,7 @@ class TournamentListDisplay {
                 states: url.searchParams.getAll("states") as d.TournamentState[],
                 date: url.searchParams.get("date"),
                 uid: url.searchParams.get("uid"),
-                member_uid: url.searchParams.get("member_uid"),
+                mine: url.searchParams.get("mine") == "true",
                 year: parseInt(url.searchParams.get("year")),
                 name: url.searchParams.get("name"),
             })
