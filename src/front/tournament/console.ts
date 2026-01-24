@@ -29,6 +29,8 @@ class TournamentConsole {
     select_modal: PlayerSelectModal
     override_modal: OverrideModal
     offline_banner: HTMLDivElement
+    network_banner: HTMLDivElement
+    conflict_banner: HTMLDivElement
     message_div: HTMLDivElement
     nav: HTMLElement
     tabs_div: HTMLDivElement
@@ -50,20 +52,48 @@ class TournamentConsole {
         this.seed_finals_modal = new SeedFinalsModal(el, this.engine)
         this.select_modal = new PlayerSelectModal(el)
         this.override_modal = new OverrideModal(el, this.engine)
+        // Network status banner (hidden by default)
+        this.network_banner = base.create_append(el, "div", ["alert", "alert-danger", "d-none"], { role: "alert" })
+        this.network_banner.innerHTML = `
+            <i class="bi bi-wifi-off me-2"></i>
+            <strong>No Internet Connection</strong> —
+            <span id="networkStatusText">Some features may be unavailable</span>
+        `
         // Offline banner (hidden by default)
         this.offline_banner = base.create_append(el, "div", ["alert", "alert-warning", "d-none"], { role: "alert" })
         this.offline_banner.innerHTML = `
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
+            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                <div class="me-2 mb-1">
                     <i class="bi bi-wifi-off me-2"></i>
                     <strong>OFFLINE MODE</strong> — Changes are saved locally
+                    <span id="offlineNetworkStatus"></span>
                 </div>
-                <div>
-                    <button type="button" class="btn btn-success btn-sm me-2" id="syncOnlineBtn">
+                <div class="mb-1">
+                    <button type="button" class="btn btn-success btn-sm me-1" id="syncOnlineBtn">
                         <i class="bi bi-cloud-upload"></i> Sync & Go Online
                     </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm me-1" id="exportOfflineBtn">
+                        <i class="bi bi-download"></i> Export Backup
+                    </button>
                     <button type="button" class="btn btn-outline-danger btn-sm" id="forceOnlineBtn">
-                        <i class="bi bi-x-circle"></i> Discard & Go Online
+                        <i class="bi bi-x-circle"></i> Discard
+                    </button>
+                </div>
+            </div>
+        `
+        // Conflict banner (hidden by default) - shown when tournament is offline on another device
+        this.conflict_banner = base.create_append(el, "div", ["alert", "alert-danger", "d-none"], { role: "alert" })
+        this.conflict_banner.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                <div class="me-2 mb-1">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Tournament Offline on Another Device</strong><br>
+                    <small>This tournament is currently being managed offline by another user or device.
+                    Changes cannot be made here until it is synced back online.</small>
+                </div>
+                <div class="mb-1">
+                    <button type="button" class="btn btn-danger btn-sm" id="forceOnlineConflictBtn">
+                        <i class="bi bi-x-circle"></i> Force Online (Discard Offline Changes)
                     </button>
                 </div>
             </div>
@@ -132,22 +162,43 @@ class TournamentConsole {
             }
         })
 
+        // Network status callback
+        this.engine.setNetworkCallback((online) => this.handleNetworkChange(online))
+        // Initialize network status display
+        this.handleNetworkChange(this.engine.networkOnline)
+
         // Sync button
-        const syncBtn = this.offline_banner.querySelector('#syncOnlineBtn')
+        const syncBtn = this.offline_banner.querySelector('#syncOnlineBtn') as HTMLButtonElement
+        syncBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Sync & Go Online'
         syncBtn?.addEventListener('click', async () => {
+            if (!this.engine.networkOnline) {
+                alert('Cannot sync while offline. Please connect to the internet first.')
+                return
+            }
             syncBtn.setAttribute('disabled', 'true')
             syncBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing...'
             const success = await this.engine.syncOnline()
-            if (!success) {
+            if (success) {
                 syncBtn.removeAttribute('disabled')
                 syncBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Sync & Go Online'
+            } else {
                 alert('Failed to sync. Please check your connection and try again.')
             }
         })
 
+        // Export backup button
+        const exportBtn = this.offline_banner.querySelector('#exportOfflineBtn') as HTMLButtonElement
+        exportBtn?.addEventListener('click', async () => {
+            await offline.exportOfflineData(this.tournament.uid)
+        })
+
         // Force online button
-        const forceBtn = this.offline_banner.querySelector('#forceOnlineBtn')
+        const forceBtn = this.offline_banner.querySelector('#forceOnlineBtn') as HTMLButtonElement
         forceBtn?.addEventListener('click', async () => {
+            if (!this.engine.networkOnline) {
+                alert('Cannot go online while disconnected. Please connect to the internet first.')
+                return
+            }
             const confirmed = await this.confirmation.confirm(
                 'Discard Offline Changes?',
                 'All changes made while offline will be permanently lost. ' +
@@ -158,6 +209,53 @@ class TournamentConsole {
                 await this.engine.forceOnline()
             }
         })
+
+        // Force online button for conflict scenario (tournament offline on another device)
+        const forceConflictBtn = this.conflict_banner.querySelector('#forceOnlineConflictBtn') as HTMLButtonElement
+        forceConflictBtn?.addEventListener('click', async () => {
+            const confirmed = await this.confirmation.confirm(
+                'Force Tournament Online?',
+                'This will discard ALL offline changes made on the other device. ' +
+                'This action cannot be undone. Only do this if you are sure the offline session is abandoned.',
+                'danger'
+            )
+            if (confirmed) {
+                const success = await this.engine.forceOnline()
+                if (success) {
+                    this.engine.offlineConflict = false
+                    this.conflict_banner.classList.add('d-none')
+                } else {
+                    alert('Failed to force online. Please try again.')
+                }
+            }
+        })
+    }
+
+    handleNetworkChange(online: boolean) {
+        const syncBtn = this.offline_banner.querySelector('#syncOnlineBtn') as HTMLButtonElement
+        const forceBtn = this.offline_banner.querySelector('#forceOnlineBtn') as HTMLButtonElement
+        const offlineNetworkStatus = this.offline_banner.querySelector('#offlineNetworkStatus')
+
+        if (this.engine.offline) {
+            // In offline mode - show network status in offline banner
+            this.network_banner.classList.add('d-none')
+            if (online) {
+                offlineNetworkStatus!.innerHTML = '— <span class="text-success"><i class="bi bi-wifi"></i> Ready to sync</span>'
+                syncBtn?.removeAttribute('disabled')
+                forceBtn?.removeAttribute('disabled')
+            } else {
+                offlineNetworkStatus!.innerHTML = '— <span class="text-danger"><i class="bi bi-wifi-off"></i> No connection</span>'
+                syncBtn?.setAttribute('disabled', 'true')
+                forceBtn?.setAttribute('disabled', 'true')
+            }
+        } else {
+            // Not in offline mode - show network banner if disconnected
+            if (online) {
+                this.network_banner.classList.add('d-none')
+            } else {
+                this.network_banner.classList.remove('d-none')
+            }
+        }
     }
     open_relevant_tab() {
         if (this.tournament.state == d.TournamentState.FINALS) {
@@ -179,11 +277,19 @@ class TournamentConsole {
         // Show/hide offline banner and update modal state
         if (this.engine.offline) {
             this.offline_banner.classList.remove('d-none')
+            this.conflict_banner.classList.add('d-none')
             this.add_member_modal.setOfflineMode(this.tournament.uid)
+        } else if (this.engine.offlineConflict) {
+            this.offline_banner.classList.add('d-none')
+            this.conflict_banner.classList.remove('d-none')
+            this.add_member_modal.clearOfflineMode()
         } else {
             this.offline_banner.classList.add('d-none')
+            this.conflict_banner.classList.add('d-none')
             this.add_member_modal.clearOfflineMode()
         }
+        // Update network status display
+        this.handleNetworkChange(this.engine.networkOnline)
         this.info.display()
         this.registration.display()
         if (this.tournament.state == d.TournamentState.REGISTRATION) {
@@ -395,17 +501,29 @@ async function load() {
     offline.registerServiceWorker()
 
     const consoleDiv = document.getElementById("consoleDiv") as HTMLDivElement
-    const token = await base.fetchToken()
-    if (!token) {
-        window.location.href = "/login"
-        return
-    }
-    const tournament_console = new TournamentConsole(consoleDiv, token)
     const tournament_uid = consoleDiv.dataset.tournamentUid
     if (!tournament_uid) {
         window.location.href = "/tournaments"
         return
     }
+
+    // Try to fetch token from server first
+    let token = await base.fetchToken()
+
+    // If token fetch failed, check for cached offline token
+    if (!token) {
+        const cachedToken = await offline.getOfflineToken(tournament_uid)
+        if (cachedToken) {
+            console.log('Using cached offline token')
+            token = cachedToken
+        } else {
+            // No token available - must login
+            window.location.href = "/login"
+            return
+        }
+    }
+
+    const tournament_console = new TournamentConsole(consoleDiv, token)
     await tournament_console.init(tournament_uid)
 }
 

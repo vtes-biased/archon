@@ -10,15 +10,47 @@ export interface DisplayCallback {
     (tournament: d.Tournament, round_change: boolean): void
 }
 
+export interface NetworkStatusCallback {
+    (online: boolean): void
+}
+
 export class Engine {
     token: base.Token
     display_callback: DisplayCallback
+    network_callback: NetworkStatusCallback | null = null
     tournament: d.Tournament
     offline: boolean = false
+    networkOnline: boolean = navigator.onLine
+    /** True if tournament is offline but owned by someone else (multi-device conflict) */
+    offlineConflict: boolean = false
 
     constructor(token: base.Token, display_callback: DisplayCallback) {
         this.token = token
         this.display_callback = display_callback
+        this.setupNetworkListeners()
+    }
+
+    /**
+     * Set up listeners for browser online/offline events
+     */
+    private setupNetworkListeners() {
+        window.addEventListener('online', () => {
+            console.log('[Engine] Network online')
+            this.networkOnline = true
+            this.network_callback?.(true)
+        })
+        window.addEventListener('offline', () => {
+            console.log('[Engine] Network offline')
+            this.networkOnline = false
+            this.network_callback?.(false)
+        })
+    }
+
+    /**
+     * Set callback for network status changes
+     */
+    setNetworkCallback(callback: NetworkStatusCallback) {
+        this.network_callback = callback
     }
 
     /**
@@ -52,6 +84,12 @@ export class Engine {
                 return
             }
             this.tournament = await res.json() as d.Tournament
+
+            // Check for multi-device conflict: tournament is offline but we don't have local data
+            if (this.tournament.offline_owner && this.tournament.offline_owner !== user_uid) {
+                console.warn('Tournament is offline on another device')
+                this.offlineConflict = true
+            }
         } catch (e) {
             // Network error - check if we have stale offline data to recover
             if (offlineData) {
@@ -157,13 +195,10 @@ export class Engine {
             return true
         }
 
-        // Cache the console page for offline access
-        try {
-            await offline.cacheConsolePageForOffline(this.tournament.uid)
-        } catch (e) {
+        // Cache the console page for offline access (non-blocking)
+        offline.cacheConsolePageForOffline(this.tournament.uid).catch(e => {
             console.warn('Failed to cache console page:', e)
-            // Continue anyway - the page might already be cached
-        }
+        })
 
         // Tell server we're going offline
         const res = await base.do_fetch_with_token(
@@ -175,7 +210,7 @@ export class Engine {
         }
 
         this.tournament = await res.json() as d.Tournament
-        await offline.goOffline(this.tournament, base.user_uid_from_token(this.token))
+        await offline.goOffline(this.tournament, base.user_uid_from_token(this.token), this.token)
         this.offline = true
         this.display_callback(this.tournament, false)
         return true

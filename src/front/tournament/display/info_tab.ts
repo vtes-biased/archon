@@ -170,7 +170,10 @@ export class InfoTab extends CreateTournament {
                     offline_button.setAttribute('disabled', 'true')
                     offline_button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Going offline...'
                     const success = await this.engine.goOffline()
-                    if (!success) {
+                    if (success) {
+                        // Button will be removed by display refresh, but hide it immediately
+                        offline_button.style.display = 'none'
+                    } else {
                         offline_button.removeAttribute('disabled')
                         offline_button.innerHTML = '<i class="bi bi-wifi-off"></i> Go Offline'
                         alert('Failed to go offline. Please try again.')

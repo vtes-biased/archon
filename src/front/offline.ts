@@ -4,6 +4,7 @@
  */
 import * as idb from 'idb'
 import * as d from "./d"
+import * as base from "./base"
 
 const DB_NAME = 'ArchonOffline'
 const DB_VERSION = 1
@@ -15,23 +16,60 @@ export interface OfflineTournamentData {
     offline_members: d.OfflineMember[]
     owner_uid: string
     taken_offline_at: string
+    /** Schema version - used for data migration */
+    schema_version?: number
+    /** Cached auth token for offline use */
+    token?: base.Token
 }
 
 let dbPromise: Promise<idb.IDBPDatabase> | null = null
 
+/**
+ * Get the IndexedDB database instance.
+ * Handles schema migrations when DB_VERSION changes.
+ *
+ * Migration guide for future changes:
+ * 1. Increment DB_VERSION
+ * 2. Add a case in the upgrade switch statement
+ * 3. Handle data migration for existing records
+ */
 async function getDB(): Promise<idb.IDBPDatabase> {
     if (!dbPromise) {
         dbPromise = idb.openDB(DB_NAME, DB_VERSION, {
-            upgrade(db) {
-                if (!db.objectStoreNames.contains(STORE_TOURNAMENTS)) {
-                    db.createObjectStore(STORE_TOURNAMENTS, { keyPath: 'tournament_uid' })
+            upgrade(db, oldVersion, newVersion, transaction) {
+                console.log(`[OfflineDB] Upgrading from v${oldVersion} to v${newVersion}`)
+
+                // Handle each version upgrade step
+                for (let version = oldVersion; version < (newVersion || DB_VERSION); version++) {
+                    switch (version) {
+                        case 0:
+                            // Initial schema creation (v0 -> v1)
+                            if (!db.objectStoreNames.contains(STORE_TOURNAMENTS)) {
+                                db.createObjectStore(STORE_TOURNAMENTS, { keyPath: 'tournament_uid' })
+                            }
+                            break
+
+                        // Future migrations go here:
+                        // case 1:
+                        //     // v1 -> v2 migration
+                        //     // Example: Add an index
+                        //     // const store = transaction.objectStore(STORE_TOURNAMENTS)
+                        //     // store.createIndex('owner_uid', 'owner_uid')
+                        //     break
+
+                        default:
+                            console.warn(`[OfflineDB] Unknown migration from v${version}`)
+                    }
                 }
             },
             blocked() {
-                console.warn('Offline DB blocked - another tab has an older version')
+                console.warn('Offline DB blocked - another tab has an older version. Please close other tabs.')
             },
             blocking() {
-                console.warn('Offline DB blocking - closing for upgrade')
+                console.warn('Offline DB blocking - this tab has an older version')
+                // Close the connection to allow the other tab to upgrade
+                dbPromise?.then(db => db.close())
+                dbPromise = null
             },
             terminated() {
                 console.error('Offline DB terminated unexpectedly')
@@ -59,9 +97,9 @@ export async function isOfflineOwner(tournament_uid: string, user_uid: string): 
 }
 
 /**
- * Initialize offline mode - store current tournament state
+ * Initialize offline mode - store current tournament state and auth token
  */
-export async function goOffline(tournament: d.Tournament, owner_uid: string): Promise<void> {
+export async function goOffline(tournament: d.Tournament, owner_uid: string, token: base.Token): Promise<void> {
     const db = await getDB()
     const data: OfflineTournamentData = {
         tournament_uid: tournament.uid,
@@ -69,6 +107,8 @@ export async function goOffline(tournament: d.Tournament, owner_uid: string): Pr
         offline_members: [],
         owner_uid: owner_uid,
         taken_offline_at: new Date().toISOString(),
+        schema_version: DB_VERSION,
+        token: token,
     }
     await db.put(STORE_TOURNAMENTS, data)
 }
@@ -80,6 +120,14 @@ export async function getOfflineTournament(tournament_uid: string): Promise<Offl
     const db = await getDB()
     const data = await db.get(STORE_TOURNAMENTS, tournament_uid)
     return data || null
+}
+
+/**
+ * Get cached token for offline tournament (used on page reload when offline)
+ */
+export async function getOfflineToken(tournament_uid: string): Promise<base.Token | null> {
+    const data = await getOfflineTournament(tournament_uid)
+    return data?.token || null
 }
 
 /**
@@ -216,3 +264,33 @@ export async function prepareSyncData(tournament_uid: string): Promise<d.Offline
     }
 }
 
+/**
+ * Export offline data as a downloadable JSON file
+ * This is an emergency backup in case sync fails
+ */
+export async function exportOfflineData(tournament_uid: string): Promise<void> {
+    const data = await getOfflineTournament(tournament_uid)
+    if (!data) {
+        console.error('No offline data to export')
+        return
+    }
+
+    const exportData = {
+        exported_at: new Date().toISOString(),
+        tournament_uid: data.tournament_uid,
+        tournament: data.tournament,
+        offline_members: data.offline_members,
+        taken_offline_at: data.taken_offline_at,
+    }
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `archon-offline-${data.tournament.name.replace(/[^a-z0-9]/gi, '_')}-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+}

@@ -106,13 +106,8 @@ export class PlayerDisplay extends BaseTournamentDisplay {
             ).innerText = "Tournament Manager"
         }
 
-        // Block all interactions if tournament is offline
+        // Block all interactions if tournament is offline (banner shown earlier)
         if (tournament.offline_owner) {
-            this.set_alert(
-                "This tournament is being managed offline.<br>" +
-                "<em>Player actions are temporarily unavailable.</em>",
-                d.AlertLevel.WARNING
-            )
             return
         }
         // _________________________________________________________________________________________ User not registered
