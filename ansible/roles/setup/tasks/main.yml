@@ -27,8 +27,19 @@
   file:
     name: /etc/nginx/sites-enabled/default
     state: absent
+  notify: Reload nginx
 
-- name: Reload nginx
-  service:
-    name: nginx
-    state: reloaded
+- name: Ensure journald drop-in directory exists
+  file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+
+- name: Configure journald log rotation
+  template:
+    src: journald.conf.j2
+    dest: /etc/systemd/journald.conf.d/retention.conf
+  notify: Restart journald
+
+- name: Vacuum old logs
+  command: journalctl --vacuum-time=1month
+  changed_when: false
