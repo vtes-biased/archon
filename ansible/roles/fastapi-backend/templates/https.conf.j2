@@ -11,8 +11,8 @@ server {
   ssl_stapling on;
   ssl_stapling_verify on;
 
-  access_log syslog:server=unix:/dev/log,nohostname;
-  error_log syslog:server=unix:/dev/log,nohostname;
+  access_log syslog:server=unix:/dev/log,tag=archon_nginx,nohostname;
+  error_log syslog:server=unix:/dev/log,tag=archon_nginx,nohostname;
 
   root {{ r.site_root }}/dist;
   charset utf-8;
@@ -34,6 +34,11 @@ server {
     font/truetype
     font/opentype
     image/svg+xml;
+
+  # Only allow standard HTTP methods
+  if ($request_method !~ ^(GET|HEAD|POST|PUT|DELETE|PATCH|OPTIONS)$) {
+    return 405;
+  }
 
   location / {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
