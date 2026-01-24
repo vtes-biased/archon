@@ -18,3 +18,14 @@
   ansible.builtin.command: "certbot certonly --webroot --email {{ r.contact_name }} --agree-tos --staple-ocsp --webroot-path=/usr/share/nginx/html -d {{ r.domain_name }}"
   args:
     creates: "/etc/letsencrypt/live/{{ r.domain_name }}/fullchain.pem"
+
+- name: Ensure certbot renewal reloads nginx
+  tags:
+    - certs
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+    content: |
+      #!/bin/bash
+      systemctl reload nginx
+    mode: '0755'
+    
