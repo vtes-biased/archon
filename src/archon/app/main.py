@@ -144,6 +144,7 @@ with (
     importlib.resources.path("archon", "img") as img,
     importlib.resources.path("archon", "static") as static,
 ):
+    IMG_PATH = img
     app.mount(
         "/img",
         app=fastapi.staticfiles.StaticFiles(directory=img),
@@ -154,6 +155,16 @@ with (
         app=fastapi.staticfiles.StaticFiles(directory=static),
         name="static",
     )
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return fastapi.responses.FileResponse(IMG_PATH / "favicon.ico")
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+async def apple_touch_icon():
+    return fastapi.responses.FileResponse(IMG_PATH / "apple-touch-icon.png")
 
 
 # mount routers
