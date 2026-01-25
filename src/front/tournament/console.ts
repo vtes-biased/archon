@@ -1,4 +1,5 @@
 import * as bootstrap from 'bootstrap'
+import "@dragdroptouch/drag-drop-touch"
 import * as d from "../d"
 import * as base from "../base"
 import * as events from "../events"

@@ -1,3 +1,9 @@
+# Beta version 0.65
+
+- Fix alter seating drag & drop on mobile
+- Add menu to change the decks display mode
+- Cleaner tournaments filter (agenda/mine)
+
 # Beta version 0.64
 
 - Fix league view on niche case (empty tournament)

@@ -67,8 +67,26 @@
     --bs-btn-disabled-border-color: #555;
 }
 
-tr[draggable] {
+// Drag handle for touch-friendly drag & drop
+.drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     cursor: grab;
+    color: var(--bs-secondary);
+    border-radius: var(--bs-border-radius);
+    touch-action: none; // Prevents scroll interference on touch
+
+    &:hover {
+        background-color: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+    }
+
+    &:active {
+        cursor: grabbing;
+    }
 }
 
 tr.dragged>td,

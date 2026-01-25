@@ -1,5 +1,6 @@
 {
   "devDependencies": {
+    "@dragdroptouch/drag-drop-touch": "^2.0.3",
     "@eonasdan/tempus-dominus": "^6.10.4",
     "@parcel/transformer-sass": "^2.16",
     "@parcel/transformer-typescript-tsc": "^2.16.1",
@@ -53,6 +54,7 @@
   },
   "scripts": {
     "front": "parcel watch",
+    "build": "parcel build --no-scope-hoist",
     "back": "uvicorn archon.app.main:app --reload --reload-include='*.j2' --reload-include='*.css' --reload-include='*.js' --reload-include='.env'"
   }
 }

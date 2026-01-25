@@ -14,17 +14,45 @@ class PlayerDrag {
     origin_parent: HTMLTableSectionElement | null
     origin_next: HTMLTableRowElement | null
     previous_switch: HTMLTableRowElement | null
+    // Auto-scroll configuration
+    static EDGE_ZONE = 60  // pixels from edge to trigger scroll
+    static SCROLL_SPEED = 12  // pixels per frame
+    private scrollHandler: ((ev: DragEvent) => void) | null = null
+    private scrollDirection: number = 0
+    private scrollInterval: ReturnType<typeof setInterval> | null = null
     constructor() {
         this.dragging = null
         this.origin_parent = null
         this.origin_next = null
         this.previous_switch = null
     }
+    autoScroll(clientY: number) {
+        if (!this.dragging) return
+        const viewportHeight = window.innerHeight
+        if (clientY < PlayerDrag.EDGE_ZONE) {
+            this.scrollDirection = -1
+        } else if (clientY > viewportHeight - PlayerDrag.EDGE_ZONE) {
+            this.scrollDirection = 1
+        } else {
+            this.scrollDirection = 0
+        }
+    }
     start(dragging: HTMLTableRowElement) {
         this.dragging = dragging
         this.dragging.classList.add("dragged")
         this.origin_parent = this.dragging.parentElement as HTMLTableSectionElement
         this.origin_next = this.dragging.nextElementSibling as HTMLTableRowElement | null
+        // Document-level dragover listener updates scroll direction
+        this.scrollHandler = (ev: DragEvent) => this.autoScroll(ev.clientY)
+        document.addEventListener("dragover", this.scrollHandler)
+        // Auto-scroll near viewport edges. Note: Chrome throttles scrollTo during drag,
+        // resulting in slower scroll (~250px/s instead of expected ~720px/s). Safari and
+        // mobile work fine. This is a known Chrome limitation with no good workaround.
+        this.scrollInterval = setInterval(() => {
+            if (this.scrollDirection !== 0) {
+                window.scrollTo(0, window.scrollY + this.scrollDirection * PlayerDrag.SCROLL_SPEED)
+            }
+        }, 16)
     }
     end() {
         if (this.dragging) {
@@ -37,6 +65,16 @@ class PlayerDrag {
         this.previous_switch = null
         this.origin_parent = null
         this.origin_next = null
+        // Clean up document-level scroll listener and interval
+        if (this.scrollHandler) {
+            document.removeEventListener("dragover", this.scrollHandler)
+            this.scrollHandler = null
+        }
+        if (this.scrollInterval) {
+            clearInterval(this.scrollInterval)
+            this.scrollInterval = null
+        }
+        this.scrollDirection = 0
     }
     is_empty(target: HTMLTableRowElement): boolean {
         return target.dataset.player_uid == null
@@ -388,11 +426,16 @@ export class RoundTab {
     }
 
     display_reseat_actions(row: HTMLTableRowElement, actions_row: HTMLTableCellElement) {
+        // Drag handle for touch-friendly drag & drop
+        const drag_handle = base.create_append(actions_row, "span", ["drag-handle", "me-2"])
+        drag_handle.innerHTML = '<i class="bi bi-grip-vertical"></i>'
+        drag_handle.draggable = true
+        drag_handle.addEventListener("dragstart", (ev) => this.dragstart_row(ev, row))
+        // Remove button
         const remove_button = base.create_append(actions_row, "button", ["me-2", "btn", "btn-sm", "btn-danger"])
         remove_button.innerHTML = '<i class="bi bi-trash"></i>'
         remove_button.addEventListener("click", (ev) => { this.remove_row(row) })
-        row.draggable = true
-        row.addEventListener("dragstart", (ev) => this.dragstart_row(ev))
+        // Drop detection stays on the row
         row.addEventListener("dragenter", (ev) => this.dragenter_row(ev))
         row.addEventListener("dragover", (ev) => ev.preventDefault())
         row.addEventListener("dragend", (ev) => this.dragend_row(ev))
@@ -473,8 +516,8 @@ export class RoundTab {
         }
     }
 
-    dragstart_row(ev: DragEvent) {
-        this.player_drag.start(ev.currentTarget as HTMLTableRowElement)
+    dragstart_row(ev: DragEvent, row: HTMLTableRowElement) {
+        this.player_drag.start(row)
     }
 
     dragenter_row(ev: DragEvent) {
