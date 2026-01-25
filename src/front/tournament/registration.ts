@@ -270,6 +270,21 @@ export class Registration {
                 )
             })
         }
+        const decklists_select = base.create_append(this.action_row, "select", ["form-select", "me-2", "mb-2", "w-auto"])
+        for (const o of Object.values(d.DeckListsMode)) {
+            const option = base.create_append(decklists_select, "option", [],
+                { value: o, label: `Decklists: ${o}` }
+            )
+            if (o == this.engine.tournament?.decklists_mode) {
+                option.selected = true
+            }
+        }
+        this.tooltips.add(decklists_select, "Which decklists are public after the tournament")
+        decklists_select.addEventListener("change", async (ev) => {
+            await this.engine.update_config(
+                { decklists_mode: decklists_select.value }
+            )
+        })
         if (this.engine.tournament.state == d.TournamentState.PLANNED) {
             const button = base.create_append(this.action_row, "button",
                 ["me-2", "mb-2", "text-nowrap", "btn", "btn-success"]
