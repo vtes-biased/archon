@@ -326,7 +326,7 @@ def custom_openapi(app: fastapi.FastAPI):
             routes=[
                 r
                 for r in app.routes
-                if r.path.startswith("/api/") or r.path.startswith("/auth/oauth")
+                if r.path.startswith(("/api/", "/auth/oauth", "/healthcheck"))
             ],
         )
         return app.openapi_schema

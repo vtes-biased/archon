@@ -23,9 +23,24 @@ async def api_tournaments(
     op: dependencies.DbOperator,
     member_uid: dependencies.OptionalMemberUidFromToken,
 ) -> tuple[models.TournamentFilter, list[models.TournamentMinimal]]:
-    """List all tournaments
+    """List all tournaments.
 
-    Use `mine=true` to filter tournaments where the authenticated user is a player or judge.
+    **Authentication**: Optional. Only required when using `mine=true`.
+
+    **Pagination**: Returns up to 100 tournaments per page, ordered by date (newest first).
+    The response is a tuple: `[filter, tournaments]`.
+    If there are more results, the returned `filter` contains `date` and `uid` cursor fields.
+    To fetch the next page, pass these cursor values in your next request:
+    `?date={filter.date}&uid={filter.uid}`.
+    When there are no more results, `date` and `uid` will be empty.
+
+    **Filters**:
+    - `mine=true`: Filter to tournaments where you are a player or judge (requires auth)
+    - `country`: Filter by country name
+    - `online=false`: Exclude online tournaments
+    - `states`: Filter by tournament states (e.g., `states=REGISTRATION&states=PLAYING`)
+    - `year`: Filter by year
+    - `name`: Search by tournament name (minimum 3 characters)
     """
     # Handle "mine" flag - requires authentication
     filter_member_uid = None

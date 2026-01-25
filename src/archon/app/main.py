@@ -13,6 +13,7 @@ import os
 import psycopg.errors
 import starlette.exceptions
 import starlette.middleware.sessions
+import datetime
 import time
 import uvicorn.logging
 
@@ -21,6 +22,7 @@ from .. import engine
 from .. import vekn
 from . import dependencies
 from .api import admin as api__admin
+from .api import healthcheck as api__healthcheck
 from .api import league as api__league
 from .api import tournament as api__tournament
 from .api import vekn as api__vekn
@@ -89,18 +91,26 @@ async def sync_vekn() -> int | None:
         await op.recompute_all_ratings()
 
 
+def _utc_now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
+
+
 def log_sync_errors(task: asyncio.Task) -> None:
     if task.cancelled():
         LOG.info("VEKN sync cancelled")
+        api__healthcheck.vekn_sync_status.update(status="cancelled", timestamp=_utc_now())
         return
     exception = task.exception()
     if exception:
         LOG.exception("VEKN sync failed", exc_info=exception)
+        api__healthcheck.vekn_sync_status.update(status="failed", timestamp=_utc_now())
         return
     if task.result():
         LOG.info("VEKN sync omitted (debug mode)")
+        api__healthcheck.vekn_sync_status.update(status="skipped", timestamp=_utc_now())
     else:
         LOG.info("VEKN sync done")
+        api__healthcheck.vekn_sync_status.update(status="ok", timestamp=_utc_now())
 
 
 @contextlib.asynccontextmanager
@@ -120,6 +130,10 @@ async def lifespan(app: fastapi.FastAPI):
 
 
 tags_metadata = [
+    {
+        "name": "healthcheck",
+        "description": "System health and status.",
+    },
     {
         "name": "vekn",
         "description": "VEKN profile management. The **login** logic is also here.",
@@ -198,6 +212,7 @@ async def apple_touch_icon():
 # mount routers
 app.include_router(html__website.router)
 app.include_router(api__admin.router)
+app.include_router(api__healthcheck.router)
 app.include_router(api__league.router)
 app.include_router(api__tournament.router)
 app.include_router(api__vekn.router)
