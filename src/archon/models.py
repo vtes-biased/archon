@@ -220,6 +220,7 @@ class PlayerInfo(PublicPerson):
     seat: int = 0  # non-zero when playing
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
     seed: int = 0  # Finals seed
+    barriers: list[Barrier] = pydantic.Field(default_factory=list)
     toss: int = 0  # non-zero when draws for seeding finals
     rating_points: int | None = None
 

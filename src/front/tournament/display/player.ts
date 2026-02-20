@@ -256,7 +256,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
 
         // ______________________________________________________________________________________ Finished before finals
         if (player.state == d.PlayerState.FINISHED) {
-            if (player.barriers.includes(d.Barrier.BANNED)) {
+            if (player.barriers?.includes(d.Barrier.BANNED)) {
                 this.set_alert(
                     "You are banned from tournament play by the VEKN <br>" +
                     `<em>Check your <a class="alert-link" href="/member/${this.user.uid}/display.html">Profile</a> ` +
@@ -265,7 +265,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                 )
                 return
             }
-            if (player.barriers.includes(d.Barrier.DISQUALIFIED)) {
+            if (player.barriers?.includes(d.Barrier.DISQUALIFIED)) {
                 this.set_alert(
                     "You have been disqualified <br>" +
                     `<em>Check your <a class="alert-link" href="/member/${this.user.uid}/display.html">Profile</a> ` +
@@ -337,7 +337,7 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                 ["btn", "btn-primary", "text-nowrap", "me-2", "mb-2"]
             )
             checkin_button.innerHTML = '<i class="bi bi-qr-code-scan"> Check In</i>'
-            if (player.barriers.length == 0) {
+            if (!player.barriers?.length) {
                 checkin_button.disabled = false
                 checkin_button.addEventListener("click", (ev) => this.checkin_modal.show(this.engine, player))
                 this.set_alert(
@@ -348,25 +348,25 @@ export class PlayerDisplay extends BaseTournamentDisplay {
                 return
             }
             checkin_button.disabled = true
-            if (player.barriers.includes(d.Barrier.BANNED)) {
+            if (player.barriers?.includes(d.Barrier.BANNED)) {
                 const msg = "You are banned from tournament play by the VEKN"
                 this.set_alert(msg, d.AlertLevel.DANGER)
                 this.tooltips.add(tooltip_span, msg)
                 return
             }
-            if (player.barriers.includes(d.Barrier.DISQUALIFIED)) {
+            if (player.barriers?.includes(d.Barrier.DISQUALIFIED)) {
                 const msg = "You have been disqualified"
                 this.set_alert(msg, d.AlertLevel.DANGER)
                 this.tooltips.add(tooltip_span, msg)
                 return
             }
-            if (player.barriers.includes(d.Barrier.MAX_ROUNDS)) {
+            if (player.barriers?.includes(d.Barrier.MAX_ROUNDS)) {
                 const msg = "You have played the maximum number of rounds"
                 this.set_alert(msg, d.AlertLevel.INFO)
                 this.tooltips.add(tooltip_span, msg)
                 return
             }
-            if (player.barriers.includes(d.Barrier.MISSING_DECK)) {
+            if (player.barriers?.includes(d.Barrier.MISSING_DECK)) {
                 const msg = "You must upload your deck list"
                 this.set_alert(msg, d.AlertLevel.WARNING)
                 this.tooltips.add(tooltip_span, msg)
