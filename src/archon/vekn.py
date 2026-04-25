@@ -16,7 +16,6 @@ from . import geo
 from . import models
 from . import scoring
 
-
 dotenv.load_dotenv()
 VEKN_LOGIN = os.getenv("VEKN_LOGIN", "")
 VEKN_PASSWORD = os.getenv("VEKN_PASSWORD", "")
@@ -1034,26 +1033,30 @@ async def upload_tournament_result(
 
 
 def to_archondata(tournament: models.Tournament) -> str:
-    ret = f"{len(tournament.rounds)}¤"
     if tournament.state != models.TournamentState.FINISHED or not tournament.rounds:
         raise ValueError("Invalid tournament")
+    ret = f"{len(tournament.rounds)}¤"
     ratings = engine.ratings(tournament)
-    finals_table = {s.player_uid: s for s in tournament.rounds[-1].tables[0].seating}
+    # VEKN archondata expects gw and vp to be prelim-only; finals are reported
+    # separately as final_vp. player.result is cumulative, so subtract the
+    # finals seat's gw/vp to recover prelim-only values.
+    if tournament.finals_seeds:
+        finals_table = {
+            s.player_uid: s for s in tournament.rounds[-1].tables[0].seating
+        }
+    else:
+        finals_table = {}
     for rank, player in engine.standings(tournament):
         first, last = (
             player.name.split(" ", 1) if " " in player.name else (player.name, "")
         )
-        # VEKN expects: gw = prelim only (winner's +1 added by API)
-        # vp = total (including finals, whatever the api says there)
-        gw = player.result.gw
-        if rank == 1:
-            gw -= 1  # winner got +1 GW for winning finals, subtract it
-        if player.uid in finals_table:
-            final_vp = finals_table[player.uid].result.vp
-        else:
-            final_vp = 0
+        finals_seat = finals_table.get(player.uid)
+        finals_gw = finals_seat.result.gw if finals_seat else 0
+        finals_vp = finals_seat.result.vp if finals_seat else 0.0
+        prelim_gw = player.result.gw - finals_gw
+        prelim_vp = player.result.vp - finals_vp
         ret += (
-            f"{rank}§{first}§{last}§{player.city}§{player.vekn}§{gw}§{player.result.vp}§{final_vp}"
+            f"{rank}§{first}§{last}§{player.city}§{player.vekn}§{prelim_gw}§{prelim_vp}§{finals_vp}"
             f"§{player.result.tp}§{player.toss}§{ratings[player.uid].rating_points}§"
         )
     return ret
