@@ -11,9 +11,11 @@ porcelain:
 	git diff --exit-code --quiet
 
 update:
+	cd "$$NVM_DIR" && git fetch --tags origin && git checkout `git describe --abbrev=0 --tags --match "v[0-9]*" $$(git rev-list --tags --max-count=1)`
+	. "$$NVM_DIR/nvm.sh" && nvm install --lts
 	npm install --include=dev
 	npm update --include=dev
-	pip install --upgrade --upgrade-strategy eager -e ".[dev]"
+	uv sync --upgrade --all-extras
 
 geodata:
 	src/scripts/geonames.py
