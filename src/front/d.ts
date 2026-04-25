@@ -191,7 +191,9 @@ export interface PlayerInfo extends PublicPerson {
     seat?: number,
     result?: Score,
     seed?: number,
+    barriers?: Barrier[],
     toss?: number,
+    deck?: KrcgDeck | null,
     rating_points?: number,
 }
 
@@ -217,10 +219,10 @@ export interface Player extends Person {
 export interface SeatInfo {
     player_uid: string,
     result: Score,
+    deck?: KrcgDeck | null,
 }
 
 export interface TableSeat extends SeatInfo {
-    deck?: KrcgDeck | null,
     judge_uid?: string
 }
 

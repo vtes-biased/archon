@@ -222,6 +222,8 @@ class PlayerInfo(PublicPerson):
     seed: int = 0  # Finals seed
     barriers: list[Barrier] = pydantic.Field(default_factory=list)
     toss: int = 0  # non-zero when draws for seeding finals
+    # populated only for the requesting member; stripped for other players
+    deck: KrcgDeck | None = None
     rating_points: int | None = None
 
 
@@ -253,11 +255,12 @@ class Player(Person):
 class SeatInfo:
     player_uid: str
     result: scoring.Score = pydantic.Field(default_factory=scoring.Score)
+    # populated only for the requesting member; stripped for other players
+    deck: KrcgDeck | None = None
 
 
 @dataclasses.dataclass
 class TableSeat(SeatInfo):
-    deck: KrcgDeck | None = None  # card ID: card count
     judge: PublicPerson | None = None  # Players cannot modify results set by a judge
 
 
@@ -377,21 +380,6 @@ class TournamentInfo(TournamentConfig):
     finals_seeds: list[str] = pydantic.Field(default_factory=list)
     rounds: list[RoundInfo] = pydantic.Field(default_factory=list)
     winner: str = ""
-
-    def __post_init__(self):
-        # Strip Player fields down to PlayerInfo to avoid leaking deck data
-        self.players = {
-            uid: PlayerInfo(
-                **{
-                    k: v
-                    for k, v in dataclasses.asdict(p).items()
-                    if k in {f.name for f in dataclasses.fields(PlayerInfo)}
-                }
-            )
-            if isinstance(p, Player)
-            else p
-            for uid, p in self.players.items()
-        }
 
 
 # note: cannot use dataclass as query param

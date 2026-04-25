@@ -1457,3 +1457,19 @@ def deck_infos(
     if tournament.decklists_mode == models.DeckListsMode.FINALISTS:
         return [info for info in res[:5] if info.finalist]
     return [info for info in res[:1] if info.winner]
+
+
+def filter_tournament_for_member(
+    tournament: models.TournamentInfo, member_uid: str
+) -> None:
+    """Strip other players' deck data in place. The requesting member keeps
+    their own deck (so they can see their upload status) and their own per-round
+    seat decks (multideck case)."""
+    for uid, player in tournament.players.items():
+        if uid != member_uid:
+            player.deck = None
+    for round_ in tournament.rounds:
+        for table in round_.tables:
+            for seat in table.seating:
+                if seat.player_uid != member_uid:
+                    seat.deck = None

@@ -471,6 +471,8 @@ async def tournament_display(
         )
     # filter out private/organizer info
     tournament = models.TournamentInfo(**dataclasses.asdict(tournament))
+    # strip other players' deck data (keeps requester's own deck and seat decks)
+    engine.filter_tournament_for_member(tournament, member_uid)
     # now filter out other members info depending on standings mode
     provide_score = set()
     if member_uid:
@@ -499,12 +501,6 @@ async def tournament_display(
             tournament.players[k] = _filter(models.Player, models.PlayerInfo, v)
         else:
             tournament.players[k] = _filter(models.Player, models.PublicPerson, v)
-    # multideck tournaments: keep the deck info per round only for the player asking
-    for round_ in tournament.rounds:
-        for table in round_.tables:
-            for i, seat in enumerate(table.seating):
-                if seat.player_uid != member_uid:
-                    table.seating[i] = _filter(models.TableSeat, models.SeatInfo, seat)
     context["tournament"] = tournament
     return TEMPLATES.TemplateResponse(
         request=request,

@@ -122,6 +122,7 @@ async def api_tournament_get_info(
     - **uid**: The tournament unique ID
     """
     if member.vekn or member.uid in tournament.players:
+        engine.filter_tournament_for_member(tournament, member.uid)
         return tournament
     return models.TournamentConfig(**dataclasses.asdict(tournament))
 
@@ -300,4 +301,6 @@ async def api_tournament_event_post(
         await op.update_tournament(orchestrator)
     if engine.can_admin_tournament(actor, orchestrator):
         return orchestrator
-    return models.TournamentInfo(**dataclasses.asdict(orchestrator))
+    info = models.TournamentInfo(**dataclasses.asdict(orchestrator))
+    engine.filter_tournament_for_member(info, actor.uid)
+    return info
