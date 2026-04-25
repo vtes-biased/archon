@@ -47,6 +47,7 @@ POOL = psycopg_pool.AsyncConnectionPool(
     CONNINFO,
     open=False,
     max_size=10,
+    check=psycopg_pool.AsyncConnectionPool.check_connection,
     reconnect_failed=reconnect_failed,
 )
 
