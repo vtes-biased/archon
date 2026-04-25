@@ -4,9 +4,14 @@ import pydantic
 import typing
 from pydantic import dataclasses
 
+try:
+    from uuid import uuid7
+except ImportError:
+    from uuid7 import uuid7
+
 
 def uuid_str() -> str:
-    return str(uuid.uuid4())
+    return str(uuid7())
 
 
 class EventType(enum.StrEnum):
