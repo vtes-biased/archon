@@ -22,6 +22,7 @@ export enum EventType {
     SEED_FINALS = "SEED_FINALS",
     SEAT_FINALS = "SEAT_FINALS",
     FINISH_TOURNAMENT = "FINISH_TOURNAMENT",
+    REOPEN_TOURNAMENT = "REOPEN_TOURNAMENT",
 }
 
 export enum SanctionLevel {
@@ -175,6 +176,10 @@ export interface FinishTournament extends Event {
     type: EventType.FINISH_TOURNAMENT
 }
 
+export interface ReopenTournament extends Event {
+    type: EventType.REOPEN_TOURNAMENT
+}
+
 export type TournamentEvent = (
     Register |
     OpenRegistration |
@@ -197,5 +202,6 @@ export type TournamentEvent = (
     Unoverride |
     SeedFinals |
     SeatFinals |
-    FinishTournament
+    FinishTournament |
+    ReopenTournament
 )

@@ -628,6 +628,7 @@ class Operator:
             # denormalize ratings inside the tournament object itself
             # for any update on a finished tournament
             tournament_ratings = {}
+            clear_member_ratings = False
             if tournament.state == models.TournamentState.FINISHED:
                 tournament_ratings = engine.ratings(tournament)
                 for player in tournament.players.values():
@@ -635,6 +636,15 @@ class Operator:
                         player.rating_points = rating.rating_points
                     else:
                         player.rating_points = None
+            elif any(
+                p.rating_points is not None for p in tournament.players.values()
+            ):
+                # Tournament was finished but no longer is (e.g. reopened):
+                # clear the stale ratings denormalized on players, and flag
+                # the persisted member ratings for removal below.
+                for player in tournament.players.values():
+                    player.rating_points = None
+                clear_member_ratings = True
             res = await cursor.execute(
                 "UPDATE tournaments SET data=%s WHERE uid=%s",
                 [self._jsonize(tournament), uid],
@@ -651,6 +661,16 @@ class Operator:
                         [jsonize(rating), uuid.UUID(uid)]
                         for uid, rating in tournament_ratings.items()
                     ],
+                )
+            elif clear_member_ratings:
+                await cursor.execute(
+                    f"""UPDATE members
+                    SET data=jsonb_set(
+                        data, '{{ratings}}', (data->'ratings') - '{tournament.uid}'
+                    )
+                    WHERE data->'ratings' ? %s
+                    """,
+                    [tournament.uid],
                 )
             return str(uid)
 
@@ -705,8 +725,11 @@ class Operator:
             return res.rowcount
 
     async def close_old_tournaments(self) -> int:
-        """Close tournaments that are > 30 days old and not finished.
-        Returns the number of tournaments closed.
+        """Close tournaments that are > 30 days old, have no rounds played,
+        and are not finished. Returns the number of tournaments closed.
+
+        Tournaments where any round was played stay open: they are likely
+        in-progress data the organizer still cares about and can reopen later.
         """
         cutoff = datetime.datetime.now(datetime.timezone.utc)
         cutoff -= datetime.timedelta(days=30)
@@ -715,7 +738,8 @@ class Operator:
                 "UPDATE tournaments "
                 "SET data = jsonb_set(data, '{state}', %s) "
                 "WHERE data->>'state' != %s "
-                "AND timetz(data ->> 'start', data ->> 'timezone') < %s",
+                "AND timetz(data ->> 'start', data ->> 'timezone') < %s "
+                "AND jsonb_array_length(COALESCE(data->'rounds', '[]'::jsonb)) = 0",
                 [
                     psycopg.types.json.Jsonb(models.TournamentState.FINISHED),
                     models.TournamentState.FINISHED,

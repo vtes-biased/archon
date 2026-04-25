@@ -32,6 +32,7 @@ class EventType(enum.StrEnum):
     SEED_FINALS = "SEED_FINALS"
     SEAT_FINALS = "SEAT_FINALS"
     FINISH_TOURNAMENT = "FINISH_TOURNAMENT"
+    REOPEN_TOURNAMENT = "REOPEN_TOURNAMENT"
 
 
 class SanctionLevel(enum.StrEnum):
@@ -203,6 +204,11 @@ class FinishTournament(Event):
     type: typing.Literal[EventType.FINISH_TOURNAMENT]
 
 
+@dataclasses.dataclass(kw_only=True)
+class ReopenTournament(Event):
+    type: typing.Literal[EventType.REOPEN_TOURNAMENT]
+
+
 TournamentEvent = typing.Union[
     Register,
     OpenRegistration,
@@ -226,6 +232,7 @@ TournamentEvent = typing.Union[
     SeedFinals,
     SeatFinals,
     FinishTournament,
+    ReopenTournament,
 ]
 
 
@@ -520,6 +527,18 @@ OPENAPI_EXAMPLES = {
         ),
         "value": {
             "type": "Finish",
+        },
+    },
+    "Reopen": {
+        "summary": "Reopen a finished tournament. JUDGE ONLY",
+        "description": (
+            "Reverts a FINISHED tournament back to a sensible prior state "
+            "(FINALS, PLAYING, or REGISTRATION) detected from its data. "
+            "Useful when a tournament was finished by mistake or auto-closed "
+            "while still in progress."
+        ),
+        "value": {
+            "type": "ReopenTournament",
         },
     },
 }

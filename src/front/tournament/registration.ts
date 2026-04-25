@@ -407,6 +407,23 @@ export class Registration {
                 })
             }
         }
+        if (this.engine.tournament.state == d.TournamentState.FINISHED) {
+            const reopen_button = base.create_append(this.action_row, "button",
+                ["me-2", "mb-2", "text-nowrap", "btn", "btn-warning"]
+            )
+            reopen_button.innerText = "Reopen tournament"
+            this.tooltips.add(reopen_button,
+                "Revert this tournament to a prior state (use if it was finished by mistake or auto-closed)"
+            )
+            reopen_button.addEventListener("click", (ev) => {
+                this.container.confirmation.show(
+                    "<strong>Reopen this tournament?</strong> <br>" +
+                    "<em>The winner will be cleared and players will be reverted to a playable state. " +
+                    "Banned and disqualified players stay finished.</em>",
+                    () => this.engine.reopen_tournament()
+                )
+            })
+        }
     }
 
     add_player(ev: SubmitEvent) {

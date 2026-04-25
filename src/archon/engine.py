@@ -81,6 +81,8 @@ class TournamentManager(models.Tournament):
                 self.seat_finals(ev, member)
             case events.EventType.FINISH_TOURNAMENT:
                 self.finish_tournament(ev, member)
+            case events.EventType.REOPEN_TOURNAMENT:
+                self.reopen_tournament(ev, member)
 
     def is_judge(self, member) -> bool:
         if member.uid in [j.uid for j in self.judges]:
@@ -539,6 +541,59 @@ class TournamentManager(models.Tournament):
             player.state = models.PlayerState.FINISHED
         self.state = models.TournamentState.FINISHED
 
+    def reopen_tournament(
+        self, ev: events.ReopenTournament, member: models.Person
+    ) -> None:
+        # Detect the most reasonable prior state from tournament data.
+        if self.finals_seeds:
+            target_state = models.TournamentState.FINALS
+        elif self.rounds and any(
+            t.state != models.TableState.FINISHED for t in self.rounds[-1].tables
+        ):
+            target_state = models.TournamentState.PLAYING
+        elif any(
+            p.state == models.PlayerState.CHECKED_IN for p in self.players.values()
+        ):
+            target_state = models.TournamentState.WAITING
+        else:
+            target_state = models.TournamentState.REGISTRATION
+        # Undo the GW/winner side-effect of finish_tournament, if any.
+        if self.winner and self.rounds:
+            finals_table = self.rounds[-1].tables[0]
+            for seat in finals_table.seating:
+                if seat.result.gw:
+                    self.players[seat.player_uid].result.gw -= seat.result.gw
+                    seat.result.gw = 0
+        self.winner = ""
+        self.state = target_state
+        # Revert FINISHED players (banned/disqualified stay finished, mirroring
+        # the same exception that `register` enforces when re-registering).
+        for player in self.players.values():
+            if player.state != models.PlayerState.FINISHED:
+                continue
+            if models.Barrier.BANNED in player.barriers:
+                continue
+            if models.Barrier.DISQUALIFIED in player.barriers:
+                continue
+            if target_state == models.TournamentState.FINALS:
+                if player.uid in self.finals_seeds:
+                    player.state = models.PlayerState.PLAYING
+                else:
+                    player.state = models.PlayerState.REGISTERED
+            elif target_state == models.TournamentState.PLAYING:
+                in_last_round = any(
+                    seat.player_uid == player.uid
+                    for table in self.rounds[-1].tables
+                    for seat in table.seating
+                )
+                player.state = (
+                    models.PlayerState.PLAYING
+                    if in_last_round
+                    else models.PlayerState.REGISTERED
+                )
+            else:
+                player.state = models.PlayerState.REGISTERED
+
 
 class TournamentError(ValueError):
     def __init__(self, ev: events.TournamentEvent | None = None, *args):
@@ -659,6 +714,11 @@ class NotFinalist(TournamentError):
 class TournamentFinished(TournamentError):
     def __str__(self):
         return "Tournament is finished"
+
+
+class TournamentNotFinished(TournamentError):
+    def __str__(self):
+        return "Tournament is not finished"
 
 
 class RoundInProgress(TournamentError):
@@ -1180,6 +1240,14 @@ class TournamentOrchestrator(TournamentManager):
         if final_table.state != models.TableState.FINISHED:
             raise InvalidTables(ev, [1])
         super().finish_tournament(ev, member)
+
+    def reopen_tournament(
+        self, ev: events.ReopenTournament, member: models.Person
+    ) -> None:
+        self._check_judge(ev, member)
+        if self.state != models.TournamentState.FINISHED:
+            raise TournamentNotFinished(ev)
+        super().reopen_tournament(ev, member)
 
 
 # ################################################################ Convenience functions

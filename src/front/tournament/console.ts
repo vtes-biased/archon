@@ -220,6 +220,26 @@ class TournamentConsole {
                 this.help_message("This tournament is finished", d.AlertLevel.SUCCESS)
             }
         }
+        // If the last round tab's `finals` flag is stale (e.g. after a reopen
+        // flips state away from FINALS/FINISHED), drop it so it gets rebuilt below.
+        if (this.rounds.length > 0
+            && this.rounds.length === this.tournament.rounds.length
+        ) {
+            const last_tab = this.rounds[this.rounds.length - 1]
+            const should_be_finals = (
+                this.tournament.state == d.TournamentState.FINALS
+                || this.tournament.state == d.TournamentState.FINISHED
+            )
+            if (last_tab.finals !== should_be_finals) {
+                this.rounds.pop()
+                last_tab.panel.remove()
+                const label = last_tab.finals ? "Finals" : `Round ${last_tab.index}`
+                const tab = this.tabs.get(label)
+                tab?.dispose()
+                this.tabs.delete(label)
+                this.nav.lastElementChild?.remove()
+            }
+        }
         while (this.tournament.rounds.length > this.rounds.length) {
             var finals: boolean = false
             if ((this.tournament.state == d.TournamentState.FINALS
@@ -240,9 +260,10 @@ class TournamentConsole {
             const round = this.rounds.pop()
             if (!round) { break }
             round.panel.remove()
-            const tab = this.tabs.get(`Round ${round.index}`)
+            const label = round.finals ? "Finals" : `Round ${round.index}`
+            const tab = this.tabs.get(label)
             tab?.dispose()
-            this.tabs.delete(`Round ${round.index}`)
+            this.tabs.delete(label)
             this.nav.lastElementChild?.remove()
         }
         for (const round of this.rounds) {

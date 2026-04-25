@@ -75,7 +75,8 @@ export class Engine {
                 events.EventType.ROUND_FINISH,
                 events.EventType.ROUND_CANCEL,
                 events.EventType.SEED_FINALS,
-                events.EventType.FINISH_TOURNAMENT
+                events.EventType.FINISH_TOURNAMENT,
+                events.EventType.REOPEN_TOURNAMENT,
             ].includes(tev.type)
         )
         return true
@@ -261,6 +262,13 @@ export class Engine {
     async finish_tournament(): Promise<boolean> {
         const event: events.FinishTournament = {
             type: events.EventType.FINISH_TOURNAMENT,
+            uid: uuidv4(),
+        }
+        return await this.handle_tournament_event(event)
+    }
+    async reopen_tournament(): Promise<boolean> {
+        const event: events.ReopenTournament = {
+            type: events.EventType.REOPEN_TOURNAMENT,
             uid: uuidv4(),
         }
         return await this.handle_tournament_event(event)
