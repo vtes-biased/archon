@@ -92,13 +92,17 @@ async def sync_vekn() -> int | None:
 
 
 def _utc_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
+    return (
+        datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
+    )
 
 
 def log_sync_errors(task: asyncio.Task) -> None:
     if task.cancelled():
         LOG.info("VEKN sync cancelled")
-        api__healthcheck.vekn_sync_status.update(status="cancelled", timestamp=_utc_now())
+        api__healthcheck.vekn_sync_status.update(
+            status="cancelled", timestamp=_utc_now()
+        )
         return
     exception = task.exception()
     if exception:

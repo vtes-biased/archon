@@ -3,7 +3,6 @@ import orjson
 
 from . import models
 
-
 COUNTRIES_BY_NAME = {}
 COUNTRIES_BY_ISO = {}
 CITIES_BY_GEONAME_ID = {}

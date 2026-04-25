@@ -636,9 +636,7 @@ class Operator:
                         player.rating_points = rating.rating_points
                     else:
                         player.rating_points = None
-            elif any(
-                p.rating_points is not None for p in tournament.players.values()
-            ):
+            elif any(p.rating_points is not None for p in tournament.players.values()):
                 # Tournament was finished but no longer is (e.g. reopened):
                 # clear the stale ratings denormalized on players, and flag
                 # the persisted member ratings for removal below.
@@ -841,9 +839,7 @@ class Operator:
                 delete=[str(row[1]) for row in deleted],
             )
 
-    async def get_members_generator(
-        self, vekn_only: bool
-    ) -> tuple[
+    async def get_members_generator(self, vekn_only: bool) -> tuple[
         datetime.datetime,
         typing.Callable[[None], typing.AsyncGenerator[models.Person, None]],
     ]:
@@ -1065,8 +1061,7 @@ class Operator:
         """
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
-                textwrap.dedent(
-                    """
+                textwrap.dedent("""
                     WITH next_vekn AS ((
                             SELECT (vekn::int + 1)::text AS value
                             FROM members
@@ -1082,8 +1077,7 @@ class Operator:
                     )
                     FROM next_vekn
                     WHERE uid = %s AND vekn = ''
-                    RETURNING vekn"""
-                ),
+                    RETURNING vekn"""),
                 [uuid.UUID(member.uid)],
             )
             data = await res.fetchone()
@@ -1227,8 +1221,7 @@ class Operator:
         Any Archon-created member must have a VEKN below this value.
         """
         async with self.conn.cursor() as cursor:
-            res = await cursor.execute(
-                """
+            res = await cursor.execute("""
                 (
                     SELECT (vekn::int + 1)::text AS value
                     FROM members
@@ -1238,8 +1231,7 @@ class Operator:
                 )
                 ORDER BY value
                 LIMIT 1
-                """
-            )
+                """)
             data = await res.fetchone()
             return data[0] if data else "1000000"
 

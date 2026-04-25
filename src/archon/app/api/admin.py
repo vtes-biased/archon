@@ -49,4 +49,3 @@ async def api_admin_clients_reset_secret(
         raise fastapi.HTTPException(fastapi.status.HTTP_403_FORBIDDEN)
     client_secret = await op.reset_client_secret(client_id)
     return {"client_secret": client_secret}
-

@@ -26,7 +26,6 @@ from .. import engine
 from .. import models
 from .. import vekn
 
-
 # ############################################################################### Config
 dotenv.load_dotenv()
 

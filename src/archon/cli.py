@@ -9,7 +9,6 @@ from . import db
 from . import models
 from . import vekn
 
-
 app = typer.Typer()
 LOG = logging.getLogger()
 
