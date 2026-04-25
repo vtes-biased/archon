@@ -1040,7 +1040,8 @@ class TournamentOrchestrator(TournamentManager):
             raise BadRoundNumber(ev)
         self._check_judge(ev, member)
         self._check_seating(ev, ev.seating)
-        self._check_pp_relationships(ev, ev.seating, ignore=ev.round)
+        if not self._is_finals_round(ev.round):
+            self._check_pp_relationships(ev, ev.seating, ignore=ev.round)
         super().round_alter(ev, member)
 
     def round_finish(self, ev: events.RoundFinish, member: models.Person) -> None:
@@ -1073,6 +1074,12 @@ class TournamentOrchestrator(TournamentManager):
             raise RoundInProgress(ev)
         super().round_cancel(ev, member)
 
+    def _is_finals_round(self, round_number: int) -> bool:
+        return round_number == len(self.rounds) and self.state in (
+            models.TournamentState.FINALS,
+            models.TournamentState.FINISHED,
+        )
+
     def _check_seating(self, ev, seating: list[list[str]]) -> None:
         """Check all are registered, no duplicates, and tables have 5 players max
         Note: does not raise for table < 4
@@ -1104,7 +1111,7 @@ class TournamentOrchestrator(TournamentManager):
         """
         pp = set()
         for i, round_ in enumerate(self.rounds, 1):
-            if i == ignore:
+            if i == ignore or self._is_finals_round(i):
                 continue
             for table in round_.tables:
                 for i, seat in enumerate(table.seating):
