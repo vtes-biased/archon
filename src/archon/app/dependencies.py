@@ -653,7 +653,7 @@ EmailAddress = typing.Annotated[pydantic.EmailStr, fastapi.Form()]
 EmailReset = typing.Annotated[str, fastapi.Depends(email_reset)]
 
 
-basic_scheme = fastapi.security.HTTPBasic()
+basic_scheme = fastapi.security.HTTPBasic(auto_error=False)
 
 
 async def email_login(
@@ -707,13 +707,19 @@ def create_authorization_code(client_id, member_uid, redirect_uri) -> str:
 
 
 def check_authorization_code(client_id, code, redirect_uri) -> str:
-    payload = jwt.decode(
-        code, TOKEN_SECRET, algorithms=[JWT_ALGORITHM], audience=redirect_uri
-    )
-    expected = EXPECTED_AUTH_TOKENS.pop(payload.get("jti"), None)
+    try:
+        payload = jwt.decode(
+            code, TOKEN_SECRET, algorithms=[JWT_ALGORITHM], audience=redirect_uri
+        )
+    except jwt.exceptions.InvalidTokenError:
+        raise fastapi.HTTPException(status_code=403)
+    token_id = payload.get("jti")
+    expected = token_id in EXPECTED_AUTH_TOKENS
+    if expected:
+        EXPECTED_AUTH_TOKENS.remove(token_id)
     member_uid: str = payload.get("sub")
     payload_client_id: str = payload.get("client_id")
-    if not expected or payload_client_id != client_id:
+    if not expected or not member_uid or payload_client_id != client_id:
         raise fastapi.HTTPException(status_code=403)
     return member_uid
 
@@ -728,6 +734,8 @@ async def client_login(
 ):
     if basic:
         client_id, client_secret = basic.username, basic.password
+    if not client_id or not client_secret:
+        raise fastapi.HTTPException(status_code=401)
     if await op.check_client_secret(client_id, client_secret):
         return client_id
     raise fastapi.HTTPException(status_code=401)
