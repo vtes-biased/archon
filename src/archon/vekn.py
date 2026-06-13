@@ -982,7 +982,7 @@ async def upload_tournament(
             {
                 "name": tournament.name[:120],
                 "type": type,
-                "venueid": 0 if tournament.online else 3800,
+                "venueid": 0 if tournament.online else 9999,
                 "online": int(tournament.online),
                 "startdate": start.date().isoformat(),
                 "starttime": f"{start:%H:%M}",
