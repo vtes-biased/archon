@@ -146,6 +146,21 @@ export class InfoTab extends CreateTournament {
         this.league.value = tournament.league?.uid || ""
         this.change_value()
     }
+    // The base form only lists leagues the user can administer. An organizer who
+    // is not a league admin would otherwise see the current league dropped from
+    // the dropdown and silently lose the association on save (issue #142).
+    // Keep the current league as a selectable option so it stays set unless changed.
+    update_leagues_options() {
+        const selected = this.league.selectedOptions[0]?.value || ""
+        super.update_leagues_options()
+        const current = this.engine.tournament?.league
+        if (current && !Array.from(this.league.options).some(o => o.value === current.uid)) {
+            const option = base.create_append(this.league, "option")
+            option.innerText = current.name
+            option.value = current.uid
+            option.selected = (selected === current.uid)
+        }
+    }
     display_buttons() {
         const buttons_div = base.create_append(this.root, "div", ["d-sm-flex", "mt-4", "mb-2"])
         const edit_button = base.create_append(buttons_div, "button", ["btn", "btn-primary", "me-2", "mb-2"])
