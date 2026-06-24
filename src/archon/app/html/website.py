@@ -4,6 +4,7 @@ import fastapi
 import fastapi.encoders
 import fastapi.templating
 import importlib.resources
+import jinja2
 import logging
 import math
 import typing
@@ -52,9 +53,12 @@ def asset_url(filename: str) -> str:
 def __init_templates() -> fastapi.templating.Jinja2Templates:
     """Initialize Jinja2 templates engine"""
     with importlib.resources.path("archon", "templates") as templates:
-        templates = fastapi.templating.Jinja2Templates(
-            directory=templates, extensions=["jinja2.ext.i18n"]
+        env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(templates),
+            autoescape=True,
+            extensions=["jinja2.ext.i18n"],
         )
+        templates = fastapi.templating.Jinja2Templates(env=env)
         templates.env.filters["jsonable"] = jsonable
         templates.env.filters["country_with_flag"] = country_with_flag
         # Add asset_url as a global function for version-based cache busting
@@ -162,16 +166,17 @@ async def html_auth_oauth_consent(
 async def html_auth_oauth_token(
     grant_type: typing.Annotated[str, fastapi.Form()],
     code: typing.Annotated[str, fastapi.Form()],
-    client_uid: dependencies.ClientLogin,
+    redirect_uri: typing.Annotated[str, fastapi.Form()],
+    client_id: dependencies.ClientLogin,
     op: dependencies.DbOperator,
 ):
     if grant_type != "authorization_code":
         raise fastapi.HTTPException(status_code=403)
-    member_uid = dependencies.check_authorization_code(client_uid, code)
+    member_uid = dependencies.check_authorization_code(client_id, code, redirect_uri)
 
     # Verify user has authorized this client
     member = await op.get_member(member_uid, cls=models.Member)
-    if client_uid not in member.authorized_clients:
+    if client_id not in member.authorized_clients:
         raise fastapi.HTTPException(status_code=403, detail="Client not authorized")
 
     access_token = dependencies.create_access_token(member_uid)

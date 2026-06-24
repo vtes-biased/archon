@@ -1,4 +1,5 @@
 import base64
+import binascii
 import collections
 import contextlib
 import dataclasses
@@ -360,17 +361,24 @@ class Operator:
             return secret
 
     async def check_client_secret(self, client_uid: str, secret: str) -> bool:
+        if not client_uid or not secret:
+            return False
         if not HASH_KEY:
             raise RuntimeError("No HASH_KEY provided by the environment")
-        secret_hash = hmac.digest(
-            HASH_KEY, base64.urlsafe_b64decode(secret + "=="), "sha3_512"
-        )
+        try:
+            secret_bytes = base64.urlsafe_b64decode(secret + "==")
+        except (binascii.Error, ValueError):
+            return False
+        secret_hash = hmac.digest(HASH_KEY, secret_bytes, "sha3_512")
         async with self.conn.cursor() as cursor:
             res = await cursor.execute(
                 "SELECT secret_hash FROM clients WHERE uid=%s",
                 [client_uid],
             )
-            stored_hash = (await res.fetchone())[0]
+            stored = await res.fetchone()
+            if not stored:
+                return False
+            stored_hash = stored[0]
         return hmac.compare_digest(secret_hash, stored_hash)
 
     async def get_client(self, client_uid: str) -> models.Client | None:
